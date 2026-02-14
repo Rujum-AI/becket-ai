@@ -5,7 +5,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
 
 const langStore = useLanguageStore()
-const { initAuth, user } = useAuth()
+const { initAuth, user, loading } = useAuth()
 const { checkUserFamily } = useFamily()
 
 watch(() => langStore.lang, (newLang) => {
@@ -33,5 +33,46 @@ watch(user, async (newUser) => {
 </script>
 
 <template>
-  <RouterView />
+  <!-- Loading spinner during initial session restore -->
+  <div v-if="loading" class="app-loading">
+    <div class="loading-content">
+      <img src="/assets/becket_logo.png" alt="Becket AI" class="loading-logo">
+      <div class="loading-spinner"></div>
+    </div>
+  </div>
+
+  <RouterView v-else />
 </template>
+
+<style scoped>
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FAF6F1;
+}
+
+.loading-content {
+  text-align: center;
+}
+
+.loading-logo {
+  height: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e2e8f0;
+  border-top-color: #C2571A;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>

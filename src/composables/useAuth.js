@@ -70,6 +70,24 @@ export function useAuth() {
     return data
   }
 
+  // Send password reset email
+  async function resetPassword(email) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+    if (error) throw error
+    return data
+  }
+
+  // Update password (after clicking reset link)
+  async function updatePassword(newPassword) {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword
+    })
+    if (error) throw error
+    return data
+  }
+
   // Sign out
   async function signOut() {
     const { error } = await supabase.auth.signOut()
@@ -102,6 +120,8 @@ export function useAuth() {
     signIn,
     signInWithGoogle,
     signOut,
+    resetPassword,
+    updatePassword,
     getUserProfile
   }
 }

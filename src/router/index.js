@@ -56,6 +56,18 @@ const router = createRouter({
       name: 'updates',
       component: () => import('@/views/UpdatesView.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/views/ResetPasswordView.vue'),
+      meta: { public: true }
+    },
+    {
+      path: '/invite/:token',
+      name: 'invite',
+      component: () => import('@/views/InviteAcceptView.vue'),
+      meta: { public: true }
     }
   ],
   scrollBehavior() {
@@ -67,12 +79,11 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   console.log('🛣️ Router guard:', { to: to.path, from: from.path, hash: to.hash, query: to.query })
 
-  // Check if this is an OAuth callback (has auth tokens in URL)
+  // Check if this is an OAuth or password reset callback (has auth tokens in URL)
   const hasAuthParams = to.hash.includes('access_token') || to.query.code
 
   if (hasAuthParams) {
-    console.log('✅ OAuth callback detected, allowing route')
-    // Let the route load so Supabase can process the OAuth callback
+    console.log('✅ Auth callback detected, allowing route')
     next()
     return
   }
