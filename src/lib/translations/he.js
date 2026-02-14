@@ -82,6 +82,11 @@ export default {
   dadHome: 'אצל אבא',
   momHome: 'אצל אמא',
   splitHome: 'משמורת משולבת',
+  with_dad: 'אצל אבא',
+  with_mom: 'אצל אמא',
+  at_school: 'בבית הספר',
+  at_activity: 'בפעילות',
+  unknown: 'לא ידוע',
   myDay: 'היום שלי',
   cancel: 'ביטול',
   sending: 'שולח',
@@ -185,6 +190,20 @@ export default {
   budgetLimit: 'תקרת תקציב',
   addBudget: 'הוסף תקציב',
   removeBudget: 'הסר תקציב',
+
+  // Expense Rules Panel (Understandings)
+  expenseRules: 'כללי חלוקת הוצאות',
+  pendingExpenseRules: 'כללי הוצאות ממתינים לאישור',
+  proposedBy: 'הוצע ע״י',
+  editExpenseRules: 'עריכת כללי הוצאות',
+  noExpenseRules: 'טרם הוגדרו כללי חלוקת הוצאות.',
+  setupExpenseRules: 'הגדרת כללי הוצאות',
+  proposeChanges: 'הצע שינויים',
+  fixedPayment: 'תשלום קבוע',
+  paymentExpiry: 'תוקף עד',
+  noExpiry: 'ללא תאריך תפוגה',
+  approve: 'אישור',
+  agreed: 'מוסכם',
 
   // Balance Bar
   balance: 'מאזן',

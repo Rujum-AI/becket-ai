@@ -82,6 +82,11 @@ export default {
   dadHome: 'With Dad',
   momHome: 'With Mom',
   splitHome: 'Split / Transition',
+  with_dad: 'With Dad',
+  with_mom: 'With Mom',
+  at_school: 'At School',
+  at_activity: 'At Activity',
+  unknown: 'Unknown',
   myDay: "Today's Journey",
   cancel: 'Cancel',
   sending: 'Sending',
@@ -185,6 +190,20 @@ export default {
   budgetLimit: 'Budget Limit',
   addBudget: 'Add Budget',
   removeBudget: 'Remove Budget',
+
+  // Expense Rules Panel (Understandings)
+  expenseRules: 'Expense Sharing Rules',
+  pendingExpenseRules: 'Expense Rules Pending Approval',
+  proposedBy: 'Proposed by',
+  editExpenseRules: 'Edit Expense Rules',
+  noExpenseRules: 'No expense sharing rules set up yet.',
+  setupExpenseRules: 'Set Up Expense Rules',
+  proposeChanges: 'Propose Changes',
+  fixedPayment: 'Fixed Payment',
+  paymentExpiry: 'Expires',
+  noExpiry: 'No expiry',
+  approve: 'Approve',
+  agreed: 'Agreed',
 
   // Balance Bar
   balance: 'Balance',
