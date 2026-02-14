@@ -48,16 +48,16 @@ function closeDeleteModal() {
   deleteModal.value.isOpen = false
 }
 
-function executeDelete() {
+async function executeDelete() {
   const { type, item } = deleteModal.value
-  if (type === 'school') {
-    trusteesStore.deleteSchool(item.id)
-  } else if (type === 'activity') {
-    trusteesStore.deleteActivity(item.id)
-  } else {
-    trusteesStore.deletePerson(item.id)
-  }
   closeDeleteModal()
+  if (type === 'school') {
+    await trusteesStore.deleteSchool(item.id)
+  } else if (type === 'activity') {
+    await trusteesStore.deleteActivity(item.id)
+  } else {
+    await trusteesStore.deletePerson(item.id)
+  }
 }
 </script>
 

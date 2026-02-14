@@ -323,33 +323,18 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   }
 
   async function deleteSchool(id) {
+    // Optimistic removal
+    schools.value = schools.value.filter(s => s.id !== id)
+
     try {
-      // Delete children associations (cascade should handle this, but being explicit)
-      await supabase
-        .from('trustee_children')
-        .delete()
-        .eq('trustee_type', 'school')
-        .eq('trustee_id', id)
+      await supabase.from('trustee_children').delete().eq('trustee_type', 'school').eq('trustee_id', id)
+      await supabase.from('trustee_schedules').delete().eq('trustee_type', 'school').eq('trustee_id', id)
 
-      // Delete schedule
-      await supabase
-        .from('trustee_schedules')
-        .delete()
-        .eq('trustee_type', 'school')
-        .eq('trustee_id', id)
-
-      // Delete school
-      const { error: schoolError } = await supabase
-        .from('trustees_schools')
-        .delete()
-        .eq('id', id)
-
+      const { error: schoolError } = await supabase.from('trustees_schools').delete().eq('id', id)
       if (schoolError) throw schoolError
-
-      await fetchSchools()
     } catch (err) {
       error.value = err.message
-      throw err
+      await fetchSchools() // Revert on error
     }
   }
 
@@ -504,33 +489,18 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   }
 
   async function deleteActivity(id) {
+    // Optimistic removal
+    activities.value = activities.value.filter(a => a.id !== id)
+
     try {
-      // Delete children associations
-      await supabase
-        .from('trustee_children')
-        .delete()
-        .eq('trustee_type', 'activity')
-        .eq('trustee_id', id)
+      await supabase.from('trustee_children').delete().eq('trustee_type', 'activity').eq('trustee_id', id)
+      await supabase.from('trustee_schedules').delete().eq('trustee_type', 'activity').eq('trustee_id', id)
 
-      // Delete schedule
-      await supabase
-        .from('trustee_schedules')
-        .delete()
-        .eq('trustee_type', 'activity')
-        .eq('trustee_id', id)
-
-      // Delete activity
-      const { error: activityError } = await supabase
-        .from('trustees_activities')
-        .delete()
-        .eq('id', id)
-
+      const { error: activityError } = await supabase.from('trustees_activities').delete().eq('id', id)
       if (activityError) throw activityError
-
-      await fetchActivities()
     } catch (err) {
       error.value = err.message
-      throw err
+      await fetchActivities() // Revert on error
     }
   }
 
@@ -582,18 +552,15 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   }
 
   async function deletePerson(id) {
+    // Optimistic removal
+    people.value = people.value.filter(p => p.id !== id)
+
     try {
-      const { error: personError } = await supabase
-        .from('trustees_people')
-        .delete()
-        .eq('id', id)
-
+      const { error: personError } = await supabase.from('trustees_people').delete().eq('id', id)
       if (personError) throw personError
-
-      await fetchPeople()
     } catch (err) {
       error.value = err.message
-      throw err
+      await fetchPeople() // Revert on error
     }
   }
 
