@@ -1,0 +1,620 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { supabase } from '@/lib/supabase'
+import { useFamilyStore } from './family'
+
+export const useTrusteesStore = defineStore('supabaseTrustees', () => {
+  const familyStore = useFamilyStore()
+
+  const schools = ref([])
+  const activities = ref([])
+  const people = ref([])
+  const loading = ref(false)
+  const error = ref(null)
+
+  // ========== FETCH OPERATIONS ==========
+
+  async function fetchSchools() {
+    if (!familyStore.currentFamily?.id) return
+
+    loading.value = true
+    error.value = null
+
+    try {
+      // Fetch schools
+      const { data: schoolsData, error: schoolsError } = await supabase
+        .from('trustees_schools')
+        .select('*')
+        .eq('family_id', familyStore.currentFamily.id)
+        .order('name')
+
+      if (schoolsError) throw schoolsError
+
+      // For each school, fetch associated children and schedule
+      const enrichedSchools = await Promise.all(
+        schoolsData.map(async (school) => {
+          // Fetch children associations
+          const { data: childrenData } = await supabase
+            .from('trustee_children')
+            .select('child_id')
+            .eq('trustee_type', 'school')
+            .eq('trustee_id', school.id)
+
+          // Fetch schedule
+          const { data: scheduleData } = await supabase
+            .from('trustee_schedules')
+            .select('*')
+            .eq('trustee_type', 'school')
+            .eq('trustee_id', school.id)
+            .maybeSingle()
+
+          return {
+            id: school.id,
+            name: school.name,
+            address: school.address || '',
+            contact: school.contact_phone || '',
+            items: school.default_items || [],
+            children: childrenData?.map(c => c.child_id) || [],
+            schedule: scheduleData ? {
+              days: scheduleData.days || [],
+              repeatFreq: scheduleData.repeat_freq || 1,
+              startDate: scheduleData.start_date || '',
+              endDate: scheduleData.end_date || ''
+            } : null
+          }
+        })
+      )
+
+      schools.value = enrichedSchools
+    } catch (err) {
+      error.value = err.message
+      console.error('Error fetching schools:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchActivities() {
+    if (!familyStore.currentFamily?.id) return
+
+    loading.value = true
+    error.value = null
+
+    try {
+      // Fetch activities
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from('trustees_activities')
+        .select('*')
+        .eq('family_id', familyStore.currentFamily.id)
+        .order('name')
+
+      if (activitiesError) throw activitiesError
+
+      // For each activity, fetch associated children and schedule
+      const enrichedActivities = await Promise.all(
+        activitiesData.map(async (activity) => {
+          // Fetch children associations
+          const { data: childrenData } = await supabase
+            .from('trustee_children')
+            .select('child_id')
+            .eq('trustee_type', 'activity')
+            .eq('trustee_id', activity.id)
+
+          // Fetch schedule
+          const { data: scheduleData } = await supabase
+            .from('trustee_schedules')
+            .select('*')
+            .eq('trustee_type', 'activity')
+            .eq('trustee_id', activity.id)
+            .maybeSingle()
+
+          return {
+            id: activity.id,
+            name: activity.name,
+            address: activity.address || '',
+            contact: activity.contact_phone || '',
+            items: activity.default_items || [],
+            children: childrenData?.map(c => c.child_id) || [],
+            schedule: scheduleData ? {
+              days: scheduleData.days || [],
+              repeatFreq: scheduleData.repeat_freq || 1,
+              startDate: scheduleData.start_date || '',
+              endDate: scheduleData.end_date || ''
+            } : null
+          }
+        })
+      )
+
+      activities.value = enrichedActivities
+    } catch (err) {
+      error.value = err.message
+      console.error('Error fetching activities:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchPeople() {
+    if (!familyStore.currentFamily?.id) return
+
+    loading.value = true
+    error.value = null
+
+    try {
+      const { data, error: peopleError } = await supabase
+        .from('trustees_people')
+        .select('*')
+        .eq('family_id', familyStore.currentFamily.id)
+        .order('name')
+
+      if (peopleError) throw peopleError
+
+      people.value = data.map(person => ({
+        id: person.id,
+        name: person.name,
+        relationship: person.relationship || '',
+        address: person.address || '',
+        contact: person.contact_phone || ''
+      }))
+    } catch (err) {
+      error.value = err.message
+      console.error('Error fetching people:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function loadAll() {
+    await Promise.all([
+      fetchSchools(),
+      fetchActivities(),
+      fetchPeople()
+    ])
+  }
+
+  // ========== SCHOOLS CRUD ==========
+
+  async function addSchool(school) {
+    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+
+    try {
+      // Insert school
+      const { data: schoolData, error: schoolError } = await supabase
+        .from('trustees_schools')
+        .insert({
+          family_id: familyStore.currentFamily.id,
+          name: school.name,
+          address: school.address || null,
+          contact_phone: school.contact || null,
+          default_items: school.items || []
+        })
+        .select()
+        .single()
+
+      if (schoolError) throw schoolError
+
+      // Insert children associations
+      if (school.children?.length > 0) {
+        const childrenInserts = school.children.map(childId => ({
+          trustee_type: 'school',
+          trustee_id: schoolData.id,
+          child_id: childId
+        }))
+
+        const { error: childrenError } = await supabase
+          .from('trustee_children')
+          .insert(childrenInserts)
+
+        if (childrenError) throw childrenError
+      }
+
+      // Insert schedule if provided
+      if (school.schedule) {
+        const { error: scheduleError } = await supabase
+          .from('trustee_schedules')
+          .insert({
+            trustee_type: 'school',
+            trustee_id: schoolData.id,
+            child_id: school.children?.[0] || null, // For simplicity, use first child
+            days: school.schedule.days,
+            start_date: school.schedule.startDate || new Date().toISOString().split('T')[0],
+            end_date: school.schedule.endDate || null,
+            repeat_freq: school.schedule.repeatFreq || 1,
+            generated_until: new Date().toISOString().split('T')[0]
+          })
+
+        if (scheduleError) throw scheduleError
+      }
+
+      await fetchSchools()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function updateSchool(id, updates) {
+    try {
+      // Update school
+      const updateData = {}
+      if (updates.name !== undefined) updateData.name = updates.name
+      if (updates.address !== undefined) updateData.address = updates.address || null
+      if (updates.contact !== undefined) updateData.contact_phone = updates.contact || null
+      if (updates.items !== undefined) updateData.default_items = updates.items
+
+      const { error: schoolError } = await supabase
+        .from('trustees_schools')
+        .update(updateData)
+        .eq('id', id)
+
+      if (schoolError) throw schoolError
+
+      // Update children associations if provided
+      if (updates.children !== undefined) {
+        // Delete existing associations
+        await supabase
+          .from('trustee_children')
+          .delete()
+          .eq('trustee_type', 'school')
+          .eq('trustee_id', id)
+
+        // Insert new associations
+        if (updates.children.length > 0) {
+          const childrenInserts = updates.children.map(childId => ({
+            trustee_type: 'school',
+            trustee_id: id,
+            child_id: childId
+          }))
+
+          const { error: childrenError } = await supabase
+            .from('trustee_children')
+            .insert(childrenInserts)
+
+          if (childrenError) throw childrenError
+        }
+      }
+
+      // Update schedule if provided
+      if (updates.schedule !== undefined) {
+        // Check if schedule exists
+        const { data: existingSchedule } = await supabase
+          .from('trustee_schedules')
+          .select('id')
+          .eq('trustee_type', 'school')
+          .eq('trustee_id', id)
+          .maybeSingle()
+
+        const scheduleData = {
+          days: updates.schedule.days,
+          start_date: updates.schedule.startDate || new Date().toISOString().split('T')[0],
+          end_date: updates.schedule.endDate || null,
+          repeat_freq: updates.schedule.repeatFreq || 1
+        }
+
+        if (existingSchedule) {
+          // Update existing schedule
+          const { error: scheduleError } = await supabase
+            .from('trustee_schedules')
+            .update(scheduleData)
+            .eq('id', existingSchedule.id)
+
+          if (scheduleError) throw scheduleError
+        } else {
+          // Create new schedule
+          const { error: scheduleError } = await supabase
+            .from('trustee_schedules')
+            .insert({
+              trustee_type: 'school',
+              trustee_id: id,
+              child_id: updates.children?.[0] || null,
+              ...scheduleData,
+              generated_until: new Date().toISOString().split('T')[0]
+            })
+
+          if (scheduleError) throw scheduleError
+        }
+      }
+
+      await fetchSchools()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function deleteSchool(id) {
+    try {
+      // Delete children associations (cascade should handle this, but being explicit)
+      await supabase
+        .from('trustee_children')
+        .delete()
+        .eq('trustee_type', 'school')
+        .eq('trustee_id', id)
+
+      // Delete schedule
+      await supabase
+        .from('trustee_schedules')
+        .delete()
+        .eq('trustee_type', 'school')
+        .eq('trustee_id', id)
+
+      // Delete school
+      const { error: schoolError } = await supabase
+        .from('trustees_schools')
+        .delete()
+        .eq('id', id)
+
+      if (schoolError) throw schoolError
+
+      await fetchSchools()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  // ========== ACTIVITIES CRUD ==========
+
+  async function addActivity(activity) {
+    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+
+    try {
+      // Insert activity
+      const { data: activityData, error: activityError } = await supabase
+        .from('trustees_activities')
+        .insert({
+          family_id: familyStore.currentFamily.id,
+          name: activity.name,
+          address: activity.address || null,
+          contact_phone: activity.contact || null,
+          default_items: activity.items || []
+        })
+        .select()
+        .single()
+
+      if (activityError) throw activityError
+
+      // Insert children associations
+      if (activity.children?.length > 0) {
+        const childrenInserts = activity.children.map(childId => ({
+          trustee_type: 'activity',
+          trustee_id: activityData.id,
+          child_id: childId
+        }))
+
+        const { error: childrenError } = await supabase
+          .from('trustee_children')
+          .insert(childrenInserts)
+
+        if (childrenError) throw childrenError
+      }
+
+      // Insert schedule if provided
+      if (activity.schedule) {
+        const { error: scheduleError } = await supabase
+          .from('trustee_schedules')
+          .insert({
+            trustee_type: 'activity',
+            trustee_id: activityData.id,
+            child_id: activity.children?.[0] || null,
+            days: activity.schedule.days,
+            start_date: activity.schedule.startDate || new Date().toISOString().split('T')[0],
+            end_date: activity.schedule.endDate || null,
+            repeat_freq: activity.schedule.repeatFreq || 1,
+            generated_until: new Date().toISOString().split('T')[0]
+          })
+
+        if (scheduleError) throw scheduleError
+      }
+
+      await fetchActivities()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function updateActivity(id, updates) {
+    try {
+      // Update activity
+      const updateData = {}
+      if (updates.name !== undefined) updateData.name = updates.name
+      if (updates.address !== undefined) updateData.address = updates.address || null
+      if (updates.contact !== undefined) updateData.contact_phone = updates.contact || null
+      if (updates.items !== undefined) updateData.default_items = updates.items
+
+      const { error: activityError } = await supabase
+        .from('trustees_activities')
+        .update(updateData)
+        .eq('id', id)
+
+      if (activityError) throw activityError
+
+      // Update children associations if provided
+      if (updates.children !== undefined) {
+        // Delete existing associations
+        await supabase
+          .from('trustee_children')
+          .delete()
+          .eq('trustee_type', 'activity')
+          .eq('trustee_id', id)
+
+        // Insert new associations
+        if (updates.children.length > 0) {
+          const childrenInserts = updates.children.map(childId => ({
+            trustee_type: 'activity',
+            trustee_id: id,
+            child_id: childId
+          }))
+
+          const { error: childrenError } = await supabase
+            .from('trustee_children')
+            .insert(childrenInserts)
+
+          if (childrenError) throw childrenError
+        }
+      }
+
+      // Update schedule if provided
+      if (updates.schedule !== undefined) {
+        // Check if schedule exists
+        const { data: existingSchedule } = await supabase
+          .from('trustee_schedules')
+          .select('id')
+          .eq('trustee_type', 'activity')
+          .eq('trustee_id', id)
+          .maybeSingle()
+
+        const scheduleData = {
+          days: updates.schedule.days,
+          start_date: updates.schedule.startDate || new Date().toISOString().split('T')[0],
+          end_date: updates.schedule.endDate || null,
+          repeat_freq: updates.schedule.repeatFreq || 1
+        }
+
+        if (existingSchedule) {
+          // Update existing schedule
+          const { error: scheduleError } = await supabase
+            .from('trustee_schedules')
+            .update(scheduleData)
+            .eq('id', existingSchedule.id)
+
+          if (scheduleError) throw scheduleError
+        } else {
+          // Create new schedule
+          const { error: scheduleError } = await supabase
+            .from('trustee_schedules')
+            .insert({
+              trustee_type: 'activity',
+              trustee_id: id,
+              child_id: updates.children?.[0] || null,
+              ...scheduleData,
+              generated_until: new Date().toISOString().split('T')[0]
+            })
+
+          if (scheduleError) throw scheduleError
+        }
+      }
+
+      await fetchActivities()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function deleteActivity(id) {
+    try {
+      // Delete children associations
+      await supabase
+        .from('trustee_children')
+        .delete()
+        .eq('trustee_type', 'activity')
+        .eq('trustee_id', id)
+
+      // Delete schedule
+      await supabase
+        .from('trustee_schedules')
+        .delete()
+        .eq('trustee_type', 'activity')
+        .eq('trustee_id', id)
+
+      // Delete activity
+      const { error: activityError } = await supabase
+        .from('trustees_activities')
+        .delete()
+        .eq('id', id)
+
+      if (activityError) throw activityError
+
+      await fetchActivities()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  // ========== PEOPLE CRUD ==========
+
+  async function addPerson(person) {
+    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+
+    try {
+      const { error: personError } = await supabase
+        .from('trustees_people')
+        .insert({
+          family_id: familyStore.currentFamily.id,
+          name: person.name,
+          relationship: person.relationship || null,
+          contact_phone: person.contact || null,
+          address: person.address || null
+        })
+
+      if (personError) throw personError
+
+      await fetchPeople()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function updatePerson(id, updates) {
+    try {
+      const updateData = {}
+      if (updates.name !== undefined) updateData.name = updates.name
+      if (updates.relationship !== undefined) updateData.relationship = updates.relationship || null
+      if (updates.address !== undefined) updateData.address = updates.address || null
+      if (updates.contact !== undefined) updateData.contact_phone = updates.contact || null
+
+      const { error: personError } = await supabase
+        .from('trustees_people')
+        .update(updateData)
+        .eq('id', id)
+
+      if (personError) throw personError
+
+      await fetchPeople()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function deletePerson(id) {
+    try {
+      const { error: personError } = await supabase
+        .from('trustees_people')
+        .delete()
+        .eq('id', id)
+
+      if (personError) throw personError
+
+      await fetchPeople()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  return {
+    schools,
+    activities,
+    people,
+    loading,
+    error,
+    loadAll,
+    fetchSchools,
+    fetchActivities,
+    fetchPeople,
+    addSchool,
+    updateSchool,
+    deleteSchool,
+    addActivity,
+    updateActivity,
+    deleteActivity,
+    addPerson,
+    updatePerson,
+    deletePerson
+  }
+})

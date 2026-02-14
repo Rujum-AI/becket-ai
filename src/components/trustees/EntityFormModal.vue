@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useTrusteesStore } from '@/stores/trustees'
+import { useTrusteesStore } from '@/stores/supabaseTrustees'
 import { useDashboardStore } from '@/stores/dashboard'
 import { Plus } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'

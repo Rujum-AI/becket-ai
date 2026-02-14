@@ -1,7 +1,7 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useTrusteesStore } from '@/stores/trustees'
+import { useTrusteesStore } from '@/stores/supabaseTrustees'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import EntityCard from '@/components/trustees/EntityCard.vue'
@@ -11,6 +11,11 @@ import { AlertTriangle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const trusteesStore = useTrusteesStore()
+
+// Load all trustees data on mount
+onMounted(() => {
+  trusteesStore.loadAll()
+})
 
 const showModal = ref(false)
 const currentEntity = ref(null)
