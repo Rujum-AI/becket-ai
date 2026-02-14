@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useManagementStore } from '@/stores/management'
+import { useManagementStore } from '@/stores/supabaseManagement'
 import { Send } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
 

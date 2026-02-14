@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import TaskBoard from '@/components/management/TaskBoard.vue'
@@ -7,10 +7,15 @@ import AskBoard from '@/components/management/AskBoard.vue'
 import CreateItemModal from '@/components/management/CreateItemModal.vue'
 import ItemDetailModal from '@/components/management/ItemDetailModal.vue'
 import { useI18n } from '@/composables/useI18n'
-import { useManagementStore } from '@/stores/management'
+import { useManagementStore } from '@/stores/supabaseManagement'
 
 const { t } = useI18n()
 const managementStore = useManagementStore()
+
+// Load all tasks and asks on mount
+onMounted(() => {
+  managementStore.fetchAll()
+})
 
 const showCreateModal = ref(false)
 const createModalType = ref('task')

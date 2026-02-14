@@ -1,6 +1,6 @@
 <script setup>
 import { useI18n } from '@/composables/useI18n'
-import { useManagementStore } from '@/stores/management'
+import { useManagementStore } from '@/stores/supabaseManagement'
 
 const emit = defineEmits(['openDetail'])
 
