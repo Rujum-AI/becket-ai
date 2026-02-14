@@ -99,6 +99,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const todaysEvents = getTodaysEvents(child.id)
         const dayProgress = getDayProgress()
         const nextEvent = getNextEvent(child.id)
+        const nextHandoff = getNextHandoff(child.id)
         const myLabel = parentLabel.value || 'dad'
 
         // Status comes from DB (button press), not computed from custody
@@ -119,6 +120,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           nextEventTime: nextEvent?.time || '--:--',
           nextEventLoc: nextEvent?.location || '',
           nextAction: nextAction,
+          nextHandoffTime: nextHandoff?.time || null,
+          nextHandoffType: nextHandoff?.type || null,
           items: [], // TODO: fetch from items table
           todaysEvents: todaysEvents,
           dayProgress: dayProgress
@@ -313,10 +316,39 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     if (!upcomingEvent) return null
 
     const eventDate = new Date(upcomingEvent.start_time)
+    const type = upcomingEvent.type
+
+    // For handoff events, show the type as the label
+    let location = upcomingEvent.location_name || ''
+    if (type === 'pickup' || type === 'dropoff') {
+      location = type
+    }
+
     return {
       time: eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      location: upcomingEvent.location_name || 'Unknown',
-      type: upcomingEvent.type
+      location,
+      type
+    }
+  }
+
+  // Helper: Get next handoff (pickup or dropoff) for a child
+  function getNextHandoff(childId) {
+    const now = new Date()
+    const childEvents = getChildEvents(childId)
+
+    const handoff = childEvents.find(event =>
+      new Date(event.start_time) > now &&
+      (event.type === 'pickup' || event.type === 'dropoff')
+    )
+
+    if (!handoff) return null
+
+    const eventDate = new Date(handoff.start_time)
+    return {
+      id: handoff.id,
+      type: handoff.type,
+      time: eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      date: eventDate
     }
   }
 

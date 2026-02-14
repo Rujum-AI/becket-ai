@@ -151,16 +151,18 @@ function saveEvent(eventData) {
                 </span>
               </div>
             </div>
-            <div class="flex flex-col items-end text-end ms-auto flex-shrink-0">
-              <span class="text-sm font-black text-slate-800 leading-tight bidi-isolate">{{ child.nextEventTime }}</span>
-              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate max-w-[80px]">{{ t(child.nextEventLoc) }}</span>
+            <div class="flex items-center gap-2 ms-auto flex-shrink-0">
+              <div v-if="child.nextHandoffTime" class="flex flex-col items-end text-end">
+                <span class="text-sm font-black text-slate-800 leading-tight bidi-isolate">{{ child.nextHandoffTime }}</span>
+                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{{ t(child.nextHandoffType) }}</span>
+              </div>
+              <img
+                :src="child.nextAction === 'pick' ? '/assets/pickme_button.png' : '/assets/dropfoff_button.png'"
+                class="btn-status"
+                alt="Status Action"
+                @click.stop="openModal(child, child.nextAction === 'pick' ? 'pickup' : 'dropoff')"
+              />
             </div>
-            <img
-              :src="child.nextAction === 'pick' ? '/assets/pickme_button.png' : '/assets/dropfoff_button.png'"
-              class="btn-status"
-              alt="Status Action"
-              @click.stop="openModal(child, child.nextAction === 'pick' ? 'pickup' : 'dropoff')"
-            />
             <div class="card-toggle-btn" @click="toggleExpand(child.id)">
               <ChevronDown :size="20" :class="['transition-transform', isExpanded(child.id) ? 'rotate-180' : '']" />
             </div>

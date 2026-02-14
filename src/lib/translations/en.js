@@ -413,6 +413,8 @@ export default {
   notesPlaceholder: 'Why this expense? Any special context...',
 
   // === STATUS ENGINE ===
+  pickup: 'Pickup',
+  dropoff: 'Dropoff',
   dadDay: "Dad's Day",
   momDay: "Mom's Day",
   unexpectedPickupTitle: 'Not Your Custody Day',

@@ -413,6 +413,8 @@ export default {
   notesPlaceholder: 'למה ההוצאה הזו? הקשר מיוחד כלשהו...',
 
   // === STATUS ENGINE ===
+  pickup: 'איסוף',
+  dropoff: 'פיזור',
   dadDay: 'יום של אבא',
   momDay: 'יום של אמא',
   unexpectedPickupTitle: 'זה לא יום המשמורת שלך',
