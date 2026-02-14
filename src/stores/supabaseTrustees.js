@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
-import { useFamilyStore } from './family'
+import { useFamily } from '@/composables/useFamily'
 
 export const useTrusteesStore = defineStore('supabaseTrustees', () => {
-  const familyStore = useFamilyStore()
+  const { family } = useFamily()
 
   const schools = ref([])
   const activities = ref([])
@@ -15,7 +15,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   // ========== FETCH OPERATIONS ==========
 
   async function fetchSchools() {
-    if (!familyStore.currentFamily?.id) return
+    if (!family.value?.id) return
 
     loading.value = true
     error.value = null
@@ -25,7 +25,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       const { data: schoolsData, error: schoolsError } = await supabase
         .from('trustees_schools')
         .select('*')
-        .eq('family_id', familyStore.currentFamily.id)
+        .eq('family_id', family.value.id)
         .order('name')
 
       if (schoolsError) throw schoolsError
@@ -75,7 +75,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   }
 
   async function fetchActivities() {
-    if (!familyStore.currentFamily?.id) return
+    if (!family.value?.id) return
 
     loading.value = true
     error.value = null
@@ -85,7 +85,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       const { data: activitiesData, error: activitiesError } = await supabase
         .from('trustees_activities')
         .select('*')
-        .eq('family_id', familyStore.currentFamily.id)
+        .eq('family_id', family.value.id)
         .order('name')
 
       if (activitiesError) throw activitiesError
@@ -135,7 +135,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   }
 
   async function fetchPeople() {
-    if (!familyStore.currentFamily?.id) return
+    if (!family.value?.id) return
 
     loading.value = true
     error.value = null
@@ -144,7 +144,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       const { data, error: peopleError } = await supabase
         .from('trustees_people')
         .select('*')
-        .eq('family_id', familyStore.currentFamily.id)
+        .eq('family_id', family.value.id)
         .order('name')
 
       if (peopleError) throw peopleError
@@ -175,14 +175,14 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   // ========== SCHOOLS CRUD ==========
 
   async function addSchool(school) {
-    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+    if (!family.value?.id) throw new Error('No family selected')
 
     try {
       // Insert school
       const { data: schoolData, error: schoolError } = await supabase
         .from('trustees_schools')
         .insert({
-          family_id: familyStore.currentFamily.id,
+          family_id: family.value.id,
           name: school.name,
           address: school.address || null,
           contact_phone: school.contact || null,
@@ -356,14 +356,14 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   // ========== ACTIVITIES CRUD ==========
 
   async function addActivity(activity) {
-    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+    if (!family.value?.id) throw new Error('No family selected')
 
     try {
       // Insert activity
       const { data: activityData, error: activityError } = await supabase
         .from('trustees_activities')
         .insert({
-          family_id: familyStore.currentFamily.id,
+          family_id: family.value.id,
           name: activity.name,
           address: activity.address || null,
           contact_phone: activity.contact || null,
@@ -537,13 +537,13 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   // ========== PEOPLE CRUD ==========
 
   async function addPerson(person) {
-    if (!familyStore.currentFamily?.id) throw new Error('No family selected')
+    if (!family.value?.id) throw new Error('No family selected')
 
     try {
       const { error: personError } = await supabase
         .from('trustees_people')
         .insert({
-          family_id: familyStore.currentFamily.id,
+          family_id: family.value.id,
           name: person.name,
           relationship: person.relationship || null,
           contact_phone: person.contact || null,

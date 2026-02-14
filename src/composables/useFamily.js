@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 // Singleton pattern - shared state across all useFamily() calls
 const family = ref(null)
+const children = ref([])
 const loading = ref(false)
 const userRole = ref(null) // 'admin' or 'member'
 
@@ -10,6 +11,28 @@ const userRole = ref(null) // 'admin' or 'member'
 let checkInProgress = null
 
 export function useFamily() {
+
+  // Fetch children for the current family
+  async function fetchChildren() {
+    if (!family.value?.id) {
+      children.value = []
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('children')
+        .select('*')
+        .eq('family_id', family.value.id)
+        .order('created_at')
+
+      if (error) throw error
+      children.value = data || []
+    } catch (error) {
+      console.error('Error fetching children:', error)
+      children.value = []
+    }
+  }
 
   // Check if user belongs to a family or has pending invitations
   async function checkUserFamily(userId) {
@@ -50,6 +73,7 @@ export function useFamily() {
       if (data) {
         family.value = data.families
         userRole.value = data.role
+        await fetchChildren()
         return true
       }
 
@@ -92,6 +116,7 @@ export function useFamily() {
           if (familyData) {
             family.value = familyData.families
             userRole.value = familyData.role
+            await fetchChildren()
             return true
           }
         } else {
@@ -195,6 +220,7 @@ export function useFamily() {
       }
 
       family.value = familyData
+      await fetchChildren()
       return familyData
     } catch (error) {
       console.error('Error creating family:', error)
@@ -204,9 +230,11 @@ export function useFamily() {
 
   return {
     family,
+    children,
     loading,
     userRole,
     checkUserFamily,
-    createFamily
+    createFamily,
+    fetchChildren
   }
 }

@@ -1,15 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { useFamilyStore } from './family'
+import { useFamily } from '@/composables/useFamily'
 
 export const useDashboardStore = defineStore('dashboard', () => {
-  const familyStore = useFamilyStore()
+  const { children: familyChildren } = useFamily()
   const childrenStatus = ref({})
 
   const children = computed(() => {
-    return familyStore.children.map((child, index) => {
-      const childId = index + 1
-      const status = childrenStatus.value[childId] || {
+    return familyChildren.value.map((child) => {
+      const status = childrenStatus.value[child.id] || {
         status: 'withMom',
         nextEventTime: '16:00',
         nextEventLoc: 'school',
@@ -18,11 +17,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
       }
 
       return {
-        id: childId,
+        id: child.id,  // Use real UUID from database
         name: child.name,
         gender: child.gender,
-        dob: child.dob,
-        medical: child.medical,
+        dob: child.date_of_birth,
+        medical: child.medical_notes,
         ...status,
         todaysEvents: [
           { time: '08:00', label: 'School', pos: 33 },
