@@ -410,5 +410,13 @@ export default {
   showTodayOnly: '📅 Show Today Only',
   showSinceLastSeen: '🔄 Show Since Last Seen',
   notesOptional: 'Notes (Optional)',
-  notesPlaceholder: 'Why this expense? Any special context...'
+  notesPlaceholder: 'Why this expense? Any special context...',
+
+  // === STATUS ENGINE ===
+  dadDay: "Dad's Day",
+  momDay: "Mom's Day",
+  unexpectedPickupTitle: 'Not Your Custody Day',
+  unexpectedPickupMsg: "Today's custody is assigned to",
+  pickupAnyway: 'Pick Up Anyway',
+  pickupTitle: 'Confirm Pickup'
 }

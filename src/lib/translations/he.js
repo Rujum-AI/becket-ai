@@ -410,5 +410,13 @@ export default {
   showTodayOnly: '📅 הצג רק היום',
   showSinceLastSeen: '🔄 הצג מאז הפעם האחרונה',
   notesOptional: 'הערות (אופציונלי)',
-  notesPlaceholder: 'למה ההוצאה הזו? הקשר מיוחד כלשהו...'
+  notesPlaceholder: 'למה ההוצאה הזו? הקשר מיוחד כלשהו...',
+
+  // === STATUS ENGINE ===
+  dadDay: 'יום של אבא',
+  momDay: 'יום של אמא',
+  unexpectedPickupTitle: 'זה לא יום המשמורת שלך',
+  unexpectedPickupMsg: 'המשמורת היום שייכת ל',
+  pickupAnyway: 'אסוף בכל זאת',
+  pickupTitle: 'אישור איסוף'
 }

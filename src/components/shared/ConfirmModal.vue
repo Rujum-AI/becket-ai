@@ -17,7 +17,7 @@ const props = defineProps({
     required: true
   },
   icon: {
-    type: Object,
+    type: [Object, Function],
     default: () => AlertCircle
   },
   confirmText: {

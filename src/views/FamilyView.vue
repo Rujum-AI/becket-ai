@@ -7,10 +7,11 @@ import DropoffModal from '@/components/family/DropoffModal.vue'
 import BriefModal from '@/components/family/BriefModal.vue'
 import CalendarSection from '@/components/family/CalendarSection.vue'
 import AddEventModal from '@/components/family/AddEventModal.vue'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { useRouter } from 'vue-router'
-import { ChevronDown } from 'lucide-vue-next'
+import { ChevronDown, AlertTriangle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const dashboardStore = useSupabaseDashboardStore()
@@ -29,8 +30,20 @@ const activeModal = ref(null)
 const selectedChild = ref(null)
 const expandedIds = ref(new Set())
 const showAddEventModal = ref(false)
+const showUnexpectedParentModal = ref(false)
+const unexpectedPickupChildId = ref(null)
 
-// Router guard handles family check now, no need for manual redirect
+// Expected custody parent label for today
+const expectedParentLabel = computed(() => {
+  const today = new Date().toISOString().split('T')[0]
+  return dashboardStore.getExpectedParent(today)
+})
+
+// Message for unexpected parent modal
+const unexpectedPickupMessage = computed(() => {
+  const parentName = t(expectedParentLabel.value || 'partner')
+  return t('unexpectedPickupMsg') + ' ' + parentName
+})
 
 function toggleExpand(childId) {
   if (expandedIds.value.has(childId)) {
@@ -45,10 +58,8 @@ function isExpanded(childId) {
 }
 
 function openModal(child, modalType) {
-  console.log('Opening modal:', modalType, 'for child:', child.name)
   selectedChild.value = child
   activeModal.value = modalType
-  console.log('activeModal:', activeModal.value, 'selectedChild:', selectedChild.value)
 }
 
 function closeModal() {
@@ -56,16 +67,33 @@ function closeModal() {
   selectedChild.value = null
 }
 
-function confirmPickup(child) {
-  dashboardStore.confirmPickup(child.id)
-  console.log('Pickup confirmed for:', child.name)
-  // In Phase 3, this will update Supabase
+async function confirmPickup(child) {
+  const result = await dashboardStore.confirmPickup(child.id)
+
+  // If unexpected parent, show confirmation dialog
+  if (result?.unexpectedParent) {
+    unexpectedPickupChildId.value = result.childId
+    showUnexpectedParentModal.value = true
+    closeModal()
+    return
+  }
+}
+
+async function forcePickup() {
+  showUnexpectedParentModal.value = false
+  if (unexpectedPickupChildId.value) {
+    await dashboardStore.confirmPickup(unexpectedPickupChildId.value, { force: true })
+    unexpectedPickupChildId.value = null
+  }
+}
+
+function cancelUnexpectedPickup() {
+  showUnexpectedParentModal.value = false
+  unexpectedPickupChildId.value = null
 }
 
 function confirmDropoff(data) {
   dashboardStore.confirmDropoff(data.child.id, data.location, data.items)
-  console.log('Dropoff confirmed:', data)
-  // In Phase 3, this will update Supabase
 }
 
 function openAddEventModal() {
@@ -74,7 +102,6 @@ function openAddEventModal() {
 
 function saveEvent(eventData) {
   console.log('Saving event:', eventData)
-  // In Phase 4, this will save to Supabase
   showAddEventModal.value = false
 }
 </script>
@@ -114,9 +141,14 @@ function saveEvent(eventData) {
             </div>
             <div class="child-info text-start">
               <h4 class="text-2xl font-bold text-slate-800 leading-none mb-1.5 truncate">{{ child.name }}</h4>
-              <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/60 border border-white/50 w-fit max-w-full">
-                <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></div>
-                <span class="text-xs font-bold text-slate-600 whitespace-nowrap truncate">{{ t(child.status) }}</span>
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/60 border border-white/50 w-fit max-w-full">
+                  <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></div>
+                  <span class="text-xs font-bold text-slate-600 whitespace-nowrap truncate">{{ t(child.status) }}</span>
+                </div>
+                <span v-if="expectedParentLabel" class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                  {{ t(expectedParentLabel + 'Day') }}
+                </span>
               </div>
             </div>
             <div class="flex flex-col items-end text-end ms-auto flex-shrink-0">
@@ -204,6 +236,19 @@ function saveEvent(eventData) {
       v-if="showAddEventModal"
       @close="showAddEventModal = false"
       @save="saveEvent"
+    />
+
+    <!-- Unexpected Parent Confirmation -->
+    <ConfirmModal
+      :show="showUnexpectedParentModal"
+      :title="t('unexpectedPickupTitle')"
+      :message="unexpectedPickupMessage"
+      :icon="AlertTriangle"
+      :confirmText="t('pickupAnyway')"
+      :cancelText="t('cancel')"
+      confirmColor="bg-amber-500"
+      @confirm="forcePickup"
+      @close="cancelUnexpectedPickup"
     />
   </AppLayout>
 </template>

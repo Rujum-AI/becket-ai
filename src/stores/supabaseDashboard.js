@@ -132,9 +132,23 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
+  // Check if current user is the expected custody parent today
+  function isExpectedParentToday() {
+    const today = new Date().toISOString().split('T')[0]
+    const expected = getExpectedParent(today)
+    if (!expected) return true // No cycle = anyone can pick up
+    return expected === parentLabel.value
+  }
+
   // Confirm pickup — child is now WITH ME
-  async function confirmPickup(childId) {
+  // Returns { unexpectedParent: true } if user is not the expected parent
+  async function confirmPickup(childId, { force = false } = {}) {
     if (!user.value || !family.value) return
+
+    // Check if user is expected parent (unless force=true from confirmation dialog)
+    if (!force && !isExpectedParentToday()) {
+      return { unexpectedParent: true, childId }
+    }
 
     try {
       const child = children.value.find(c => c.id === childId)
