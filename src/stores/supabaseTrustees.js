@@ -2,15 +2,35 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/composables/useFamily'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 
 export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   const { family } = useFamily()
+  const dashboardStore = useSupabaseDashboardStore()
 
   const schools = ref([])
   const activities = ref([])
   const people = ref([])
   const loading = ref(false)
   const error = ref(null)
+
+  // Helper: generate events for this family after schedule changes
+  async function regenerateEvents() {
+    if (!family.value?.id) return
+    const today = new Date().toISOString().split('T')[0]
+    const threeMonths = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    try {
+      await supabase.rpc('generate_trustee_events', {
+        p_family_id: family.value.id,
+        p_from_date: today,
+        p_to_date: threeMonths
+      })
+      // Refresh dashboard events so calendar updates without hard refresh
+      await dashboardStore.loadFamilyData()
+    } catch (err) {
+      console.error('Error generating trustee events:', err)
+    }
+  }
 
   // ========== FETCH OPERATIONS ==========
 
@@ -227,6 +247,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       }
 
       await fetchSchools()
+      await regenerateEvents()
     } catch (err) {
       error.value = err.message
       throw err
@@ -316,6 +337,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       }
 
       await fetchSchools()
+      await regenerateEvents()
     } catch (err) {
       error.value = err.message
       throw err
@@ -393,6 +415,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       }
 
       await fetchActivities()
+      await regenerateEvents()
     } catch (err) {
       error.value = err.message
       throw err
@@ -482,6 +505,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
       }
 
       await fetchActivities()
+      await regenerateEvents()
     } catch (err) {
       error.value = err.message
       throw err
