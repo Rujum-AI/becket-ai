@@ -158,6 +158,7 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
 
       if (taskError) throw taskError
 
+      // Refresh data (notification created by DB trigger)
       await fetchAll()
     } catch (err) {
       error.value = err.message
@@ -187,6 +188,7 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
 
       if (askError) throw askError
 
+      // Refresh data (notification created by DB trigger)
       await fetchAll()
     } catch (err) {
       error.value = err.message

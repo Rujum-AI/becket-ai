@@ -135,7 +135,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
 
       if (insertError) throw insertError
 
-      // Reload expenses to refresh UI
+      // Reload expenses to refresh UI (notification created by DB trigger)
       await loadExpenses()
 
       return data

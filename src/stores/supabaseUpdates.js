@@ -172,51 +172,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     selectedTimeFilter.value = filter
   }
 
-  /**
-   * Create a new notification (used by other stores when events happen)
-   * This inserts into the notifications table
-   */
-  async function addUpdate(notification) {
-    if (!user.value?.id) {
-      console.warn('Cannot add notification: no authenticated user')
-      return
-    }
-
-    try {
-      const { data, error: insertError } = await supabase
-        .from('notifications')
-        .insert({
-          recipient_id: notification.recipient_id || user.value.id,
-          family_id: notification.family_id,
-          type: notification.type,
-          category: notification.category,
-          title: notification.title,
-          message: notification.message,
-          priority: notification.priority || 'normal',
-          related_entity_type: notification.related_entity_type || null,
-          related_entity_id: notification.related_entity_id || null,
-          requires_action: notification.requires_action || false,
-          read: false
-        })
-        .select()
-        .single()
-
-      if (insertError) throw insertError
-
-      // Add to local state with timestamp alias
-      updates.value.unshift({
-        ...data,
-        timestamp: data.created_at
-      })
-
-      console.log('✓ Created notification:', data.type)
-      return data
-    } catch (err) {
-      console.error('Error creating notification:', err)
-      throw err
-    }
-  }
-
   return {
     updates,
     loading,
@@ -230,7 +185,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     markAsRead,
     markAllAsRead,
     setCategory,
-    setTimeFilter,
-    addUpdate
+    setTimeFilter
   }
 })

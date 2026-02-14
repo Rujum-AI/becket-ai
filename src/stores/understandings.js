@@ -8,6 +8,11 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
   const isCycleEditing = ref(false)
   const originalCycleDays = ref([])
 
+  // Expense Rules State
+  const expenseRules = ref(null) // { rules: {...}, status: 'agreed', approvedDate: '...', creator: '...' }
+  const pendingExpenseRules = ref(null) // { rules: {...}, status: 'pending', creator: '...' }
+  const expenseRulesHistory = ref([]) // Array of previous rule versions
+
   // Understandings State
   const understandings = ref([
     // PARENTING
@@ -228,6 +233,64 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     localStorage.setItem('becket_understandings_v2', JSON.stringify(understandings.value))
   }
 
+  function saveExpenseRulesLocal() {
+    localStorage.setItem('becket_expense_rules', JSON.stringify({
+      active: expenseRules.value,
+      pending: pendingExpenseRules.value,
+      history: expenseRulesHistory.value
+    }))
+  }
+
+  // Expense Rules Actions
+  function proposeExpenseRules(rules) {
+    // If there are already active rules, push current to history
+    if (expenseRules.value) {
+      pendingExpenseRules.value = {
+        rules,
+        status: 'pending',
+        creator: 'Me',
+        proposedDate: new Date().toISOString().split('T')[0]
+      }
+    } else {
+      // No existing rules - first-time setup
+      pendingExpenseRules.value = {
+        rules,
+        status: 'pending',
+        creator: 'Me',
+        proposedDate: new Date().toISOString().split('T')[0]
+      }
+    }
+    saveExpenseRulesLocal()
+  }
+
+  function approveExpenseRules() {
+    if (!pendingExpenseRules.value) return
+
+    // Push current active rules to history (if they exist)
+    if (expenseRules.value) {
+      expenseRulesHistory.value.push({
+        ...expenseRules.value,
+        supersededDate: new Date().toISOString().split('T')[0]
+      })
+    }
+
+    // Promote pending to active
+    expenseRules.value = {
+      rules: pendingExpenseRules.value.rules,
+      status: 'agreed',
+      creator: pendingExpenseRules.value.creator,
+      approvedDate: new Date().toISOString().split('T')[0]
+    }
+    pendingExpenseRules.value = null
+    saveExpenseRulesLocal()
+  }
+
+  function rejectExpenseRules() {
+    if (!pendingExpenseRules.value) return
+    pendingExpenseRules.value = null
+    saveExpenseRulesLocal()
+  }
+
   // Initialize
   function init() {
     // Load cycle data
@@ -257,6 +320,19 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
         item.terminationRequested = false
       }
     })
+
+    // Load expense rules
+    try {
+      const savedRules = localStorage.getItem('becket_expense_rules')
+      if (savedRules) {
+        const parsed = JSON.parse(savedRules)
+        expenseRules.value = parsed.active || null
+        pendingExpenseRules.value = parsed.pending || null
+        expenseRulesHistory.value = parsed.history || []
+      }
+    } catch (e) {
+      // Ignore parse errors
+    }
   }
 
   return {
@@ -265,6 +341,9 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     cycleDays,
     isCycleEditing,
     understandings,
+    expenseRules,
+    pendingExpenseRules,
+    expenseRulesHistory,
 
     // Computed
     groupedUnderstandings,
@@ -286,6 +365,9 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     cancelProposal,
     reviveUnderstanding,
     toggleHistory,
+    proposeExpenseRules,
+    approveExpenseRules,
+    rejectExpenseRules,
     init
   }
 })

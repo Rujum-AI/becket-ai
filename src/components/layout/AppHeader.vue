@@ -1,10 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
-import { useUpdatesStore } from '@/stores/updates'
+import { useUpdatesStore } from '@/stores/supabaseUpdates'
 import { ChevronDown } from 'lucide-vue-next'
 import InviteCoParentModal from '@/components/shared/InviteCoParentModal.vue'
 
@@ -15,6 +15,11 @@ const { family, userRole } = useFamily()
 const updatesStore = useUpdatesStore()
 const isUserMenuOpen = ref(false)
 const showInviteModal = ref(false)
+
+// Fetch updates on mount to get real-time count
+onMounted(() => {
+  updatesStore.fetchUpdates()
+})
 
 const unreadCount = computed(() => updatesStore.unreadCount)
 

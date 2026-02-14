@@ -2,11 +2,9 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
-import { useNotifications } from '@/composables/useNotifications'
 
 export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => {
   const { user } = useAuth()
-  const { notifyPickup, notifyDropoff } = useNotifications()
 
   const children = ref([])
   const family = ref(null)
@@ -176,10 +174,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         console.error('Handoff insert error:', handoffError)
       }
 
-      // 3. Notify co-parent (non-blocking)
-      notifyPickup(family.value.id, user.value.id, child.name)
-
-      // 4. Reload to refresh UI
+      // 3. Reload to refresh UI (notification created by DB trigger)
       await loadFamilyData()
     } catch (err) {
       console.error('Error confirming pickup:', err)
@@ -238,10 +233,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         console.error('Handoff insert error:', handoffError)
       }
 
-      // 3. Notify partner (non-blocking)
-      notifyDropoff(family.value.id, user.value.id, child.name, location)
-
-      // 4. Reload to refresh UI
+      // 3. Reload to refresh UI (notification created by DB trigger)
       await loadFamilyData()
     } catch (err) {
       console.error('Error confirming dropoff:', err)

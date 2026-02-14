@@ -1,13 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useUnderstandingsStore } from '@/stores/understandings'
+import { useUnderstandingsStore } from '@/stores/supabaseUnderstandings'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import UnderstandingItem from '@/components/understandings/UnderstandingItem.vue'
 import CustodyCycleEditor from '@/components/understandings/CustodyCycleEditor.vue'
 import CustodyAssignModal from '@/components/understandings/CustodyAssignModal.vue'
 import UnderstandingFormModal from '@/components/understandings/UnderstandingFormModal.vue'
+import ExpenseRulesPanel from '@/components/understandings/ExpenseRulesPanel.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { Upload, Plus, AlertCircle, ChevronUp, ChevronDown } from 'lucide-vue-next'
 
@@ -230,6 +231,9 @@ function executeConfirmAction() {
         :has-action="true"
         @action="openCreateModal(subject)"
       />
+
+      <!-- Expense Rules Panel (only in expenses section) -->
+      <ExpenseRulesPanel v-if="subject === 'expenses'" />
 
       <div class="flex flex-col">
         <UnderstandingItem

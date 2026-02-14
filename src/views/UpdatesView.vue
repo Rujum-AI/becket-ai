@@ -1,8 +1,8 @@
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
-import { useUpdatesStore } from '@/stores/updates'
+import { useUpdatesStore } from '@/stores/supabaseUpdates'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import {
   ArrowUpDown,
@@ -19,8 +19,21 @@ import {
 } from 'lucide-vue-next'
 
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 const updatesStore = useUpdatesStore()
+
+// Fetch updates on mount
+onMounted(() => {
+  updatesStore.fetchUpdates()
+})
+
+// Refresh when navigating back to this view
+watch(() => route.path, (newPath) => {
+  if (newPath === '/updates') {
+    updatesStore.fetchUpdates()
+  }
+})
 
 function goBack() {
   router.push('/family')
@@ -55,13 +68,16 @@ function getColor(category) {
 }
 
 function formatTime(timestamp) {
-  const date = new Date(timestamp)
+  // Handle both created_at (DB field) and timestamp (UI alias)
+  const dateString = timestamp || new Date().toISOString()
+  const date = new Date(dateString)
   const now = new Date()
   const diff = now - date
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
 
+  if (minutes < 1) return 'Just now'
   if (minutes < 60) return `${minutes}m ago`
   if (hours < 24) return `${hours}h ago`
   if (days === 1) return 'Yesterday'

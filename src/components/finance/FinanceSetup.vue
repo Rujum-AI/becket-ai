@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 import { ChevronDown, ChevronUp, Plus, X } from 'lucide-vue-next'
@@ -24,14 +24,6 @@ const cycleStartDate = ref('')
 
 const saving = ref(false)
 
-// Preset split options
-const presets = [
-  { label: '50/50', dad: 50, mom: 50 },
-  { label: '60/40', dad: 60, mom: 40 },
-  { label: '70/30', dad: 70, mom: 30 },
-  { label: '80/20', dad: 80, mom: 20 }
-]
-
 // All available categories
 const allCategories = [
   'education',
@@ -45,33 +37,29 @@ const allCategories = [
 
 // Load existing rules on mount
 onMounted(() => {
-  // Load children
   financeStore.loadChildren()
 
   if (financeStore.expenseRules?.expense_rules) {
     const rules = financeStore.expenseRules.expense_rules
 
-    // Load default split
     if (rules.default_split) {
       dadPercent.value = rules.default_split.dad_percent || 50
       momPercent.value = rules.default_split.mom_percent || 50
     }
 
-    // Load cycle start date
     if (rules.cycle_start_date) {
       cycleStartDate.value = rules.cycle_start_date
     }
 
-    // Load fixed transfers
     if (rules.fixed_transfers && rules.fixed_transfers.length > 0) {
       fixedTransfers.value = rules.fixed_transfers.map(t => ({
         ...t,
-        due_day: t.due_day || 1
+        due_day: t.due_day || 1,
+        expires: t.expires || ''
       }))
       showFixedPayments.value = true
     }
 
-    // Load category overrides
     if (rules.categories && rules.categories.length > 0) {
       categoryOverrides.value = [...rules.categories]
       showCategoryOverrides.value = true
@@ -79,13 +67,21 @@ onMounted(() => {
   }
 })
 
-function setPreset(dad, mom) {
-  dadPercent.value = dad
-  momPercent.value = mom
+// Slider snaps to nearest 10%
+function onSliderInput() {
+  dadPercent.value = Math.round(dadPercent.value / 10) * 10
+  momPercent.value = 100 - dadPercent.value
 }
 
-function updateMomPercent() {
+// Typed inputs allow any value 0-100
+function onDadTyped() {
+  dadPercent.value = Math.max(0, Math.min(100, dadPercent.value))
   momPercent.value = 100 - dadPercent.value
+}
+
+function onMomTyped() {
+  momPercent.value = Math.max(0, Math.min(100, momPercent.value))
+  dadPercent.value = 100 - momPercent.value
 }
 
 function addFixedTransfer() {
@@ -93,9 +89,10 @@ function addFixedTransfer() {
     from: 'dad',
     to: 'mom',
     amount: 0,
-    label: 'Child Support',
+    label: '',
     period: 'monthly',
-    due_day: 1
+    due_day: 1,
+    expires: ''
   })
 }
 
@@ -122,7 +119,9 @@ function removeCategoryOverride(index) {
   categoryOverrides.value.splice(index, 1)
 }
 
-function updateCategoryMomPercent(override) {
+// Category slider also snaps to 10%
+function onCategorySliderInput(override) {
+  override.dad_percent = Math.round(override.dad_percent / 10) * 10
   override.mom_percent = 100 - override.dad_percent
 }
 
@@ -165,32 +164,40 @@ async function saveRules() {
         <h3 class="section-title">{{ t('baseSplit') }}</h3>
         <p class="section-desc">{{ t('baseSplitDesc') }}</p>
 
-        <!-- Preset Buttons -->
-        <div class="preset-buttons">
-          <button
-            v-for="preset in presets"
-            :key="preset.label"
-            @click="setPreset(preset.dad, preset.mom)"
-            :class="['preset-btn', { active: dadPercent === preset.dad }]"
-          >
-            {{ preset.label }}
-          </button>
-        </div>
-
-        <!-- Split Slider -->
         <div class="split-control">
-          <div class="split-labels">
-            <span class="split-label bidi-isolate">{{ t('dad') }}: {{ dadPercent }}%</span>
-            <span class="split-label bidi-isolate">{{ t('mom') }}: {{ momPercent }}%</span>
+          <div class="split-typed-row">
+            <div class="typed-input-group dad-input-group">
+              <span class="typed-label">{{ t('dad') }}</span>
+              <div class="typed-field">
+                <input type="number" v-model.number="dadPercent" @input="onDadTyped" min="0" max="100" class="percent-input" />
+                <span class="percent-sign">%</span>
+              </div>
+            </div>
+            <div class="typed-input-group mom-input-group">
+              <span class="typed-label">{{ t('mom') }}</span>
+              <div class="typed-field">
+                <input type="number" v-model.number="momPercent" @input="onMomTyped" min="0" max="100" class="percent-input" />
+                <span class="percent-sign">%</span>
+              </div>
+            </div>
           </div>
-          <input
-            type="range"
-            v-model.number="dadPercent"
-            @input="updateMomPercent"
-            min="0"
-            max="100"
-            class="split-slider"
-          />
+          <div class="slider-wrapper">
+            <div class="tick-marks">
+              <div v-for="i in 11" :key="i" class="tick" :style="{ left: ((i - 1) * 10) + '%' }">
+                <div class="tick-line"></div>
+                <span v-if="(i - 1) % 2 === 0" class="tick-label">{{ (i - 1) * 10 }}</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              v-model.number="dadPercent"
+              @input="onSliderInput"
+              min="0"
+              max="100"
+              step="1"
+              class="split-slider"
+            />
+          </div>
         </div>
       </div>
 
@@ -224,41 +231,55 @@ async function saveRules() {
             :key="idx"
             class="transfer-form"
           >
-            <select v-model="transfer.from" class="form-select">
-              <option value="dad">{{ t('dad') }}</option>
-              <option value="mom">{{ t('mom') }}</option>
-            </select>
-            <span class="arrow">→</span>
-            <select v-model="transfer.to" class="form-select">
-              <option value="dad">{{ t('dad') }}</option>
-              <option value="mom">{{ t('mom') }}</option>
-            </select>
-            <input
-              v-model.number="transfer.amount"
-              type="number"
-              class="form-input amount-input"
-              placeholder="0"
-            />
-            <span class="currency">₪</span>
-            <input
-              v-model="transfer.label"
-              type="text"
-              class="form-input label-input"
-              :placeholder="t('labelPlaceholder')"
-            />
-            <div class="due-day-group">
-              <label class="due-day-label">{{ t('paymentDueDay') }}</label>
+            <div class="transfer-top-row">
+              <div class="direction-flow">
+                <select v-model="transfer.from" class="form-select">
+                  <option value="dad">{{ t('dad') }}</option>
+                  <option value="mom">{{ t('mom') }}</option>
+                </select>
+                <span class="arrow">→</span>
+                <select v-model="transfer.to" class="form-select">
+                  <option value="dad">{{ t('dad') }}</option>
+                  <option value="mom">{{ t('mom') }}</option>
+                </select>
+              </div>
               <input
-                v-model.number="transfer.due_day"
+                v-model.number="transfer.amount"
                 type="number"
-                min="1"
-                max="31"
-                class="form-input due-day-input"
+                class="form-input amount-input"
+                placeholder="0"
               />
+              <span class="currency">₪</span>
+              <button @click="removeFixedTransfer(idx)" class="remove-btn">
+                <X :size="18" />
+              </button>
             </div>
-            <button @click="removeFixedTransfer(idx)" class="remove-btn">
-              <X :size="18" />
-            </button>
+            <div class="transfer-bottom-row">
+              <input
+                v-model="transfer.label"
+                type="text"
+                class="form-input label-input"
+                :placeholder="t('labelPlaceholder')"
+              />
+              <div class="due-day-group">
+                <label class="due-day-label">{{ t('paymentDueDay') }}</label>
+                <input
+                  v-model.number="transfer.due_day"
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="form-input due-day-input"
+                />
+              </div>
+              <div class="expiry-group">
+                <label class="expiry-label">{{ t('paymentExpiry') }}</label>
+                <input
+                  v-model="transfer.expires"
+                  type="date"
+                  class="form-input expiry-input"
+                />
+              </div>
+            </div>
           </div>
 
           <button @click="addFixedTransfer" class="add-btn">
@@ -294,16 +315,17 @@ async function saveRules() {
             </select>
 
             <div class="split-control-small">
-              <span class="split-label-small bidi-isolate">{{ t('dad') }}: {{ override.dad_percent }}%</span>
+              <span class="split-label-small bidi-isolate dad-color">{{ t('dad') }}: {{ override.dad_percent }}%</span>
               <input
                 type="range"
                 v-model.number="override.dad_percent"
-                @input="updateCategoryMomPercent(override)"
+                @input="onCategorySliderInput(override)"
                 min="0"
                 max="100"
+                step="1"
                 class="split-slider-small"
               />
-              <span class="split-label-small bidi-isolate">{{ t('mom') }}: {{ override.mom_percent }}%</span>
+              <span class="split-label-small bidi-isolate mom-color">{{ t('mom') }}: {{ override.mom_percent }}%</span>
             </div>
 
             <div class="budget-control">
@@ -445,71 +467,142 @@ async function saveRules() {
   border-radius: 1rem;
 }
 
-/* Preset Buttons */
-.preset-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-}
-
-.preset-btn {
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 1rem;
-  background: white;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.preset-btn:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-}
-
-.preset-btn.active {
-  border-color: #1e293b;
-  background: #1e293b;
-  color: white;
-}
-
-/* Split Control */
+/* Split Control with typed inputs + snapping slider */
 .split-control {
   display: flex;
   flex-direction: column;
+  gap: 0.75rem;
+}
+
+.split-typed-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.typed-input-group {
+  display: flex;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.split-labels {
-  display: flex;
-  justify-content: space-between;
+.dad-input-group .typed-label {
+  color: #0f766e;
+  background: #CCFBF1;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
 }
 
-.split-label {
+.mom-input-group .typed-label {
+  color: #9a3412;
+  background: #FFEDD5;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+}
+
+.typed-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.typed-field {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.percent-input {
+  width: 3.5rem;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+.percent-input::-webkit-inner-spin-button,
+.percent-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.percent-sign {
   font-size: 0.875rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #94a3b8;
+}
+
+/* Slider with tick marks */
+.slider-wrapper {
+  position: relative;
+  padding: 0.5rem 0 1.75rem 0;
+  direction: ltr;
+}
+
+.tick-marks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.tick {
+  position: absolute;
+  top: 0.25rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tick-line {
+  width: 2px;
+  height: 0.75rem;
+  background: #cbd5e1;
+  border-radius: 1px;
+}
+
+.tick-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-top: 0.75rem;
 }
 
 .split-slider {
   width: 100%;
-  height: 0.5rem;
-  border-radius: 0.25rem;
-  background: linear-gradient(to right, #FFEDD5 0%, #CCFBF1 100%);
+  height: 0.75rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(to right, #CCFBF1 0%, #FFEDD5 100%);
   outline: none;
   cursor: pointer;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  margin: 0;
 }
 
 .split-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
   background: #1e293b;
   cursor: pointer;
   border: 3px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .split-slider::-moz-range-thumb {
@@ -519,11 +612,34 @@ async function saveRules() {
   background: #1e293b;
   cursor: pointer;
   border: 3px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 /* Forms */
-.transfer-form,
+.transfer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.transfer-top-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.transfer-bottom-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .category-override-form {
   display: flex;
   align-items: center;
@@ -599,7 +715,39 @@ async function saveRules() {
   text-align: center;
 }
 
-.arrow,
+.expiry-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.expiry-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #d97706;
+  letter-spacing: 0.05em;
+}
+
+.expiry-input {
+  min-width: 130px;
+  font-size: 0.8rem;
+}
+
+/* Direction flow — always LTR so From → To reads correctly */
+.direction-flow {
+  direction: ltr;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.arrow {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
 .currency {
   font-size: 0.875rem;
   color: #64748b;
@@ -612,25 +760,35 @@ async function saveRules() {
   align-items: center;
   gap: 0.5rem;
   min-width: 200px;
+  direction: ltr;
 }
 
 .split-label-small {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #1e293b;
   white-space: nowrap;
+}
+
+.split-label-small.dad-color {
+  color: #0f766e;
+}
+
+.split-label-small.mom-color {
+  color: #9a3412;
 }
 
 .split-slider-small {
   flex: 1;
-  height: 0.375rem;
+  height: 0.5rem;
   border-radius: 0.25rem;
-  background: linear-gradient(to right, #FFEDD5 0%, #CCFBF1 100%);
+  background: linear-gradient(to right, #CCFBF1 0%, #FFEDD5 100%);
   outline: none;
   cursor: pointer;
+  -webkit-appearance: none;
 }
 
 .split-slider-small::-webkit-slider-thumb {
+  -webkit-appearance: none;
   width: 1rem;
   height: 1rem;
   border-radius: 50%;

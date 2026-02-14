@@ -9,22 +9,23 @@ const financeStore = useSupabaseFinanceStore()
 const balanceData = computed(() => financeStore.balanceData)
 const fixedTransfers = computed(() => financeStore.fixedTransfers)
 
-// Calculate bar segment widths as percentages
-const momBarWidth = computed(() => {
-  const { totalShared, momPaid } = balanceData.value
-  if (totalShared === 0) return 50
-  return (momPaid / totalShared) * 100
-})
-
+// Calculate bar segment widths as percentages (Dad first, Mom second)
 const dadBarWidth = computed(() => {
-  return 100 - momBarWidth.value
+  const { totalShared, dadPaid } = balanceData.value
+  if (totalShared === 0) return 50
+  return (dadPaid / totalShared) * 100
 })
 
-// Calculate target marker position
+const momBarWidth = computed(() => {
+  return 100 - dadBarWidth.value
+})
+
+// Calculate target marker position (Dad's target %, since Dad is the start segment)
 const targetPosition = computed(() => {
   const { totalShared, targetMom } = balanceData.value
   if (totalShared === 0) return 50
-  return (targetMom / totalShared) * 100
+  // Dad's target = totalShared - targetMom
+  return ((totalShared - targetMom) / totalShared) * 100
 })
 
 function formatAmount(amount) {
@@ -44,7 +45,7 @@ function formatAmount(amount) {
         <span class="transfer-icon">📌</span>
         <span class="transfer-label">{{ transfer.label }}:</span>
         <span class="transfer-amount bidi-isolate">{{ formatAmount(transfer.amount) }} ₪/{{ t(transfer.period) }}</span>
-        <span class="transfer-direction">
+        <span class="transfer-direction" dir="ltr">
           ({{ t(transfer.from) }} → {{ t(transfer.to) }})
         </span>
       </div>
@@ -67,17 +68,7 @@ function formatAmount(amount) {
       <!-- Balance Bar -->
       <div v-else class="balance-bar-wrapper">
         <div class="balance-bar">
-          <!-- Mom Segment -->
-          <div
-            class="bar-segment mom"
-            :style="{ width: momBarWidth + '%' }"
-          >
-            <span v-if="momBarWidth > 15" class="segment-label">
-              {{ t('mom') }} {{ formatAmount(balanceData.momPaid) }} ₪
-            </span>
-          </div>
-
-          <!-- Dad Segment -->
+          <!-- Dad Segment (start side) -->
           <div
             class="bar-segment dad"
             :style="{ width: dadBarWidth + '%' }"
@@ -87,10 +78,20 @@ function formatAmount(amount) {
             </span>
           </div>
 
+          <!-- Mom Segment (end side) -->
+          <div
+            class="bar-segment mom"
+            :style="{ width: momBarWidth + '%' }"
+          >
+            <span v-if="momBarWidth > 15" class="segment-label">
+              {{ t('mom') }} {{ formatAmount(balanceData.momPaid) }} ₪
+            </span>
+          </div>
+
           <!-- Target Marker -->
           <div
             class="target-marker"
-            :style="{ left: targetPosition + '%' }"
+            :style="{ insetInlineStart: targetPosition + '%' }"
           >
             <div class="marker-line"></div>
             <div class="marker-label bidi-isolate">
@@ -180,8 +181,6 @@ function formatAmount(amount) {
   justify-content: space-between;
   align-items: center;
   padding: 0 0.25rem;
-  /* Force LTR so labels match bar segment order */
-  direction: ltr;
 }
 
 .balance-title {
@@ -230,8 +229,6 @@ function formatAmount(amount) {
   border-radius: 1.5rem;
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  /* Force LTR so bar segments don't flip in Hebrew RTL mode */
-  direction: ltr;
 }
 
 .bar-segment {
