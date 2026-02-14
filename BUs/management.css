@@ -1,0 +1,204 @@
+/* MANAGEMENT BOARD (Monday.com Style) */
+
+/* The Scrollable Wrapper (for mobile) */
+.board-container {
+    overflow-x: auto;
+    padding-bottom: 2rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* The Grid Layout */
+.board-grid {
+    display: grid;
+    /* Columns: Name (Flexible), Status, Urgency, Due, Owner, Creator */
+    grid-template-columns: minmax(200px, 1fr) 130px 100px 110px 70px 70px;
+    min-width: 700px; /* Forces scroll on small screens */
+    gap: 0;
+}
+
+/* --- HEADER --- */
+.board-header {
+    display: contents; /* Allows children to sit on the grid parent */
+}
+
+.header-cell {
+    background: #F8FAFC;
+    padding: 1rem 0.8rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-bottom: 2px solid #e2e8f0;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.header-cell:hover {
+    background: #f1f5f9;
+    color: var(--deep-slate);
+}
+
+.header-cell.active {
+    color: var(--deep-slate);
+    background: #e2e8f0;
+}
+
+/* First cell (Name) specific styling */
+.header-cell:first-child, .row-cell:first-child {
+    padding-left: 1rem;
+    position: sticky;
+    left: 0;
+    background: inherit; /* Inherit row bg */
+    z-index: 10;
+}
+.header-cell:first-child { z-index: 20; } /* Header sits on top of sticky column */
+
+/* --- ROWS --- */
+.board-row {
+    display: contents;
+    transition: all 0.2s;
+}
+
+/* The actual cells */
+.row-cell {
+    background: white;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.8rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--deep-slate);
+    height: 60px; /* Fixed height for consistency */
+}
+
+/* Row Hover Effect - need to target cells because of display: contents */
+.board-row:hover .row-cell {
+    background-color: #f8fafc;
+}
+
+/* Specific Cell Styles */
+.cell-name { font-weight: 700; border-right: 1px solid transparent; }
+.cell-center { justify-content: center; }
+
+/* MONDAY.COM STYLE STATUS PILLS */
+.status-block {
+    width: 100%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    border-radius: 4px; /* Slightly rounded rects like Monday */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.st-pending { background-color: #F59E0B; }      /* Amber */
+.st-in-progress { background-color: #3B82F6; }  /* Blue */
+.st-completed { background-color: #10B981; }    /* Green */
+.st-failed { background-color: #EF4444; }       /* Red */
+.st-rejected { background-color: #94A3B8; text-decoration: line-through; opacity: 0.7; }
+
+/* URGENCY BADGES (Minimal) */
+.urgency-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.u-urgent { background-color: #EF4444; }
+.u-high { background-color: #F97316; }
+.u-mid { background-color: #3B82F6; }
+.u-low { background-color: #94A3B8; }
+
+.avatar-cell img {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Type Indicator Strip (Task vs Ask) */
+.row-indicator {
+    width: 4px; height: 100%; position: absolute; left: 0; top: 0;
+}
+.is-ask .row-cell:first-child { border-left: 4px solid var(--teal-action); }
+.is-task .row-cell:first-child { border-left: 4px solid transparent; }
+
+/* MODAL STYLES */
+.chat-thread { background: #f8fafc; border-radius: 1.5rem; padding: 1rem; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem; }
+.chat-msg { display: flex; gap: 0.8rem; }
+.msg-bubble { background: white; padding: 0.8rem 1.2rem; border-radius: 0 1.2rem 1.2rem 1.2rem; font-size: 0.9rem; color: var(--deep-slate); box-shadow: 0 2px 4px rgba(0,0,0,0.03); flex: 1; }
+.msg-bubble.me { background: var(--deep-slate); color: white; border-radius: 1.2rem 0 1.2rem 1.2rem; }
+.chat-input-area { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.chat-input { flex: 1; padding: 1rem; border-radius: 1rem; border: 1px solid #e2e8f0; outline: none; }
+.chat-send { width: 50px; background: var(--deep-slate); color: white; border-radius: 1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+/* --- NEW GRAPHICAL TOGGLES --- */
+.graphic-toggle-container {
+    display: flex; gap: 1rem; justify-content: center; margin-bottom: 2rem;
+}
+
+.graphic-btn {
+    flex: 1;
+    background: white;
+    border: 2px solid #f1f5f9;
+    border-radius: 1.5rem;
+    padding: 1.5rem 1rem;
+    display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    opacity: 0.6;
+    transform: scale(0.95);
+}
+
+.graphic-btn.active {
+    border-color: var(--deep-slate);
+    background: #fff;
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1);
+}
+
+.graphic-btn img {
+    height: 60px; /* Good size for the icons */
+    object-fit: contain;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.graphic-label {
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--deep-slate);
+    letter-spacing: 0.05em;
+}
+
+/* --- UNASSIGNED STYLES --- */
+.avatar-unassigned {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px dashed #cbd5e1;
+    display: flex; align-items: center; justify-content: center;
+    color: #cbd5e1; background: #f8fafc;
+}
+
+.unassigned-row {
+    background-color: #fff7ed; /* Very light orange tint for visibility */
+}
+.unassigned-row:hover .row-cell {
+    background-color: #ffedd5 !important;
+}
+
+/* Modal Unassigned Button */
+.btn-assign-option {
+    flex: 1; padding: 0.75rem; border-radius: 0.75rem;
+    border: 2px solid #f1f5f9; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    transition: all 0.2s;
+}
+.btn-assign-option.active {
+    border-color: var(--deep-slate); background: #f8fafc;
+}

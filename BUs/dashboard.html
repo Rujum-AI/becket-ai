@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Becket AI | Family Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        
+        <app-header :lang="lang" @toggle-lang="toggleLang"></app-header>
+        
+        <ai-chat></ai-chat>
+
+        <main class="content-wrap px-6 sm:px-8">
+            
+            <div class="mb-12">
+                <section-header :title="t('children')" icon="family.png"></section-header>
+
+                <div class="flex flex-col gap-4">
+                    <div v-for="child in children" :key="child.id" 
+                         class="child-card-wrapper" 
+                         :class="[child.gender === 'boy' ? 'card-boy' : 'card-girl', child.expanded ? 'expanded' : '']">
+                        
+                        <div class="child-header">
+                            <div class="child-thumb">
+                                <img :src="child.gender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png'" class="w-full h-full object-contain scale-110 translate-y-1">
+                            </div>
+                            <div class="child-info text-start">
+                                <h4 class="text-2xl font-bold text-slate-800 leading-none mb-1.5 truncate">{{child.name}}</h4>
+                                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/60 border border-white/50 w-fit max-w-full">
+                                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0"></div>
+                                    <span class="text-xs font-bold text-slate-600 whitespace-nowrap truncate">{{ t(child.status) }}</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end text-end ms-auto flex-shrink-0">
+                                <span class="text-sm font-black text-slate-800 leading-tight bidi-isolate">{{ t(child.nextEventTime) }}</span>
+                                <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide truncate max-w-[80px]">{{ t(child.nextEventLoc) }}</span>
+                            </div>
+                            <img :src="child.nextAction === 'pick' ? 'src/assets/pickme_button.png' : 'src/assets/dropfoff_button.png'" 
+                                 @click.stop="openModal(child)" class="btn-status" alt="Status Action">
+                            <div class="card-toggle-btn flex items-center justify-center" @click="child.expanded = !child.expanded">
+                                <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500 transition-transform"></i>
+                            </div>
+                        </div>
+
+                        <div class="child-drawer" :class="{'expanded': child.expanded}">
+                            <div class="drawer-content">
+                                <div class="timeline-container">
+                                    <h5 class="text-[15px] font-bold text-slate-400 uppercase tracking-widest mb-4 text-start">{{ t('myDay') }}</h5>
+                                    <div class="timeline-bar">
+                                        <div class="progress-fill" :style="{width: child.dayProgress + '%'}"></div>
+                                        <div class="current-time-dot" :style="{left: child.dayProgress + '%'}"></div>
+                                        <div v-for="ev in child.todaysEvents" class="timeline-event" :class="{'past': ev.pos < child.dayProgress}" :style="{left: ev.pos + '%'}">
+                                            <span class="event-time bidi-isolate">{{ev.time}}</span>
+                                            <div class="event-marker"></div>
+                                            <span class="event-label">{{ t(ev.label) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="drawer-actions">
+                                    <img src="src/assets/check.png" class="btn-check" alt="Check">
+                                    <div class="drawer-separator"></div>
+                                    <img :src="child.gender === 'boy' ? 'src/assets/brief_boy.png' : 'src/assets/brief_girl.png'" 
+                                         class="btn-brief" 
+                                         alt="Brief"
+                                         @click.stop="openBrief(child)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <transition name="pop">
+                <div v-if="activeModal" class="modal-overlay" @click.self="closeModal">
+                    <div class="modal-container">
+                        <div class="modal-close-btn" @click="closeModal"><i data-lucide="x" class="w-6 h-6"></i></div>
+                        
+                        <div v-if="activeModal === 'pick'">
+                            <div class="modal-header-banner pick-banner">
+                                <h2 class="modal-title text-4xl uppercase tracking-tight leading-tight">
+                                    {{ modalTitle }}
+                                </h2>
+                            </div>
+                            <div class="modal-body">
+                                <div class="modal-section">
+                                    <img src="src/assets/backpack.png" class="modal-section-img w-14 h-14">
+                                    <h3 class="modal-title text-2xl text-slate-800 text-start">{{ selectedChild.name }} - {{ t('gearChecklist') }}</h3>
+                                </div>
+                                <div class="flex flex-wrap gap-3 justify-center">
+                                    <div v-for="tag in selectedChild.items" class="tag-pill">
+                                        <i data-lucide="check-circle" class="w-5 h-5 text-green-500"></i> {{ t(tag) }}
+                                    </div>
+                                    <p v-if="!selectedChild.items.length" class="text-slate-400 font-bold italic">{{ t('noItems') }}</p>
+                                </div>
+                                <div class="snapshot-zone">
+                                    <img src="src/assets/snapshot.png">
+                                    <span class="snapshot-text">{{ t('lastSnapshot') }}</span>
+                                </div>
+                                <div class="modal-action-row">
+                                    <button class="huge-action-btn btn-modal-cancel" @click="closeModal">{{ t('cancel') }}</button>
+                                    <button class="huge-action-btn btn-pick-confirm" @click="confirmAction">{{ t('confirmPickup') }}</button>
+                                </div>
+                                <p class="text-center text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">{{ t('notifyParent') }}</p>
+                            </div>
+                        </div>
+
+                        <div v-if="activeModal === 'drop'">
+                            <div class="modal-header-banner drop-banner">
+                                <h2 class="modal-title text-4xl uppercase tracking-tight leading-tight">
+                                    {{ modalTitle }}
+                                </h2>
+                                <div class="mt-8 px-10">
+                                    <select v-model="dropLocation" class="big-select">
+                                        <option v-for="loc in locations" :value="loc" class="text-slate-800">{{ t(loc) }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-body">
+                                <div class="modal-section">
+                                    <img src="src/assets/backpack.png" class="modal-section-img w-14 h-14">
+                                    <h3 class="modal-title text-2xl text-slate-800 text-start">{{ t('whatGear') }} {{ selectedChild.name }}?</h3>
+                                </div>
+                                <div class="flex flex-col gap-6">
+                                    <div class="flex flex-wrap gap-3">
+                                        <div v-for="(tag, i) in tempItems" :key="i" class="tag-pill">
+                                            {{ t(tag) }} <span class="text-slate-300 ms-2 cursor-pointer" @click="tempItems.splice(i, 1)">×</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex gap-3">
+                                        <input type="text" v-model="newItem" :placeholder="t('addCustom')" @keyup.enter="addItem" class="flex-1 p-5 bg-white rounded-2xl border-2 border-slate-900 font-bold text-lg outline-none text-start">
+                                        <button @click="addItem" class="w-16 h-16 bg-slate-900 text-white rounded-2xl font-black text-3xl flex items-center justify-center">+</button>
+                                    </div>
+                                </div>
+                                <div class="snapshot-zone">
+                                    <img src="src/assets/snapshot.png">
+                                    <span class="snapshot-text">{{ t('takeSnapshot') }}</span>
+                                </div>
+                                <div class="modal-action-row">
+                                    <button class="huge-action-btn btn-modal-cancel" @click="closeModal">{{ t('cancel') }}</button>
+                                    <button class="huge-action-btn btn-drop-confirm" @click="confirmAction">{{ t('confirmDropoff') }}</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="activeModal === 'brief'">
+                            <div class="modal-header-banner bg-slate-800 py-10 px-8">
+                                <h2 class="modal-title text-2xl md:text-3xl text-white leading-tight">
+                                    {{ briefTitle }}
+                                </h2>
+                            </div>
+                            <div class="modal-body">
+                                <img :src="selectedChild.gender === 'boy' ? 'src/assets/mockup_story.png' : 'src/assets/mockup_story_f.png'" 
+                                     class="story-img">
+                                
+                                <button class="huge-action-btn bg-slate-200 text-slate-600 hover:bg-slate-300 w-full mt-4" @click="closeModal">
+                                    {{ t('close') }}
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+            <div class="mb-12">
+                <section-header :title="t('calendar')" icon="calendar.png"></section-header>
+
+                <div class="calendar-container">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+                        <div class="flex items-center gap-4">
+                            <h4 class="text-2xl font-serif font-bold text-slate-800">{{ currentMonthName }} 2026</h4>
+                            <div class="flex gap-1">
+                                <button class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                                <button class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600"><i data-lucide="chevron-right" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
+                        <div class="flex bg-slate-50 p-1 rounded-full border border-slate-100">
+                            <div v-for="view in ['day', 'week', 'month']" :key="view" 
+                                 @click="calendarView = view"
+                                 class="cal-ctrl-btn"
+                                 :class="calendarView === view ? 'active' : 'inactive'">
+                                 {{ t(view) }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="calendarView === 'month'">
+                        <div class="cal-grid-header">
+                            <div v-for="d in weekDays" class="cal-day-label">{{ t(d) }}</div>
+                        </div>
+                        <div class="cal-month-grid">
+                            <div v-for="day in calendarDays" :key="day.date" 
+                                 class="cal-day-cell"
+                                 :class="[day.bgClass, day.isToday ? 'day-today' : '']">
+                                <span class="cal-num">{{ day.date }}</span>
+                                <div v-if="day.hasEvent" class="event-dot"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else-if="calendarView === 'week'" class="flex flex-col">
+                        <div class="text-center p-2 mb-4 bg-slate-50 rounded-xl">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest bidi-isolate">{{ t('weekRange') }}</span>
+                        </div>
+                        <div v-for="day in weekData" :key="day.date" class="week-row" :class="day.isToday ? 'bg-slate-50' : ''">
+                            <div class="week-day-col">
+                                <span class="week-day-name">{{ t(day.name) }}</span>
+                                <span class="week-day-num bidi-isolate">{{day.num}}</span>
+                            </div>
+                            <div class="week-events-col">
+                                <div class="week-event-chip" :class="day.bgClass">
+                                    <span>{{ day.parentText }}</span>
+                                </div>
+                                <div v-for="ev in day.events" class="flex items-center gap-2 text-xs font-bold text-slate-600">
+                                    <div class="w-1.5 h-1.5 bg-slate-400 rounded-full"></div>
+                                    {{ t(ev) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-else class="flex flex-col">
+                        <div class="text-center p-2 mb-4 bg-slate-50 rounded-xl">
+                            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest bidi-isolate">{{ t('todayDate') }}</span>
+                        </div>
+                        <div v-for="slot in timeSlots" :key="slot.time" class="time-row">
+                            <div class="time-col bidi-isolate">{{ slot.time }}</div>
+                            <div v-if="slot.event" class="event-card" :class="slot.parent === 'dad' ? 'parent-cyan' : 'parent-orange'">{{ t(slot.event) }}</div>
+                            <div v-else class="flex-1 h-2 border-b border-dashed border-slate-200"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <app-footer :lang="lang"></app-footer>
+
+    </div>
+
+    <script src="components.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+        
+        const app = createApp({
+            data() {
+                return {
+                    lang: 'he', 
+                    calendarView: 'month',
+                    activeModal: null, 
+                    selectedChild: null,
+                    dropLocation: 'School',
+                    newItem: '',
+                    tempItems: ['Backpack', 'Hat', 'Bottle'],
+                    locations: ['School', 'Soccer Club', 'Tennis', 'Grandma', 'Music Lesson', 'Dance Class'],
+                    children: [
+                        { 
+                            id: 1, name: 'Rom', gender: 'boy', status: 'At School', 
+                            nextAction: 'pick', nextEventTime: 'in 2 hrs', nextEventLoc: 'from School', expanded: false,
+                            dayProgress: 60, items: ['Backpack', 'Water Bottle', 'Soccer Gear'],
+                            todaysEvents: [
+                                {time: '08:00', label: 'School', pos: 10},
+                                {time: '13:30', label: 'Pickup', pos: 55},
+                                {time: '16:00', label: 'Soccer', pos: 75}
+                            ]
+                        },
+                        { 
+                            id: 2, name: 'Kai', gender: 'girl', status: 'With Mommy', 
+                            nextAction: 'drop', nextEventTime: 'Tomorrow', nextEventLoc: 'at Tennis', expanded: false,
+                            dayProgress: 60, items: [],
+                            todaysEvents: [
+                                {time: '08:00', label: 'School', pos: 10},
+                                {time: '15:00', label: 'Tennis', pos: 66}
+                            ]
+                        }
+                    ],
+                    weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                    timeSlots: [
+                        { time: '08:00', event: 'Drop off at School', parent: 'dad' },
+                        { time: '10:00', event: '', parent: '' },
+                        { time: '13:30', event: 'Pickup Rom', parent: 'dad' },
+                        { time: '16:00', event: 'Soccer Practice', parent: 'mom' },
+                        { time: '19:00', event: '', parent: '' }
+                    ],
+                    cycleData: [],
+                    translations: {
+                        en: {
+                            children: 'Children', calendar: 'Calendar', day: 'Day', week: 'Week', month: 'Month',
+                            weekRange: 'Feb 02 - Feb 08', todayDate: 'Monday, Feb 02',
+                            dadHome: 'With Dad', momHome: 'With Mom', splitHome: 'Split / Transition', myDay: 'Today\'s Journey',
+                            confirm: 'Confirm', cancel: 'Cancel', close: 'Close', confirmPickup: 'Confirm Pickup', confirmDropoff: 'Confirm Dropoff',
+                            
+                            // Statuses & Items
+                            'At School': 'At School', 'With Mommy': 'With Mommy', 'With Dad': 'With Dad',
+                            'in 2 hrs': 'in 2 hrs', 'Tomorrow': 'Tomorrow',
+                            'from School': 'from School', 'at Tennis': 'at Tennis',
+                            'Backpack': 'Backpack', 'Water Bottle': 'Water Bottle', 'Soccer Gear': 'Soccer Gear',
+                            'Hat': 'Hat', 'Bottle': 'Bottle', 'School': 'School', 'Pickup': 'Pickup', 'Soccer': 'Soccer',
+                            'Tennis': 'Tennis', 'Soccer Club': 'Soccer Club', 'Grandma': 'Grandma', 
+                            'Music Lesson': 'Music Lesson', 'Dance Class': 'Dance Class',
+                            'Family Lunch': 'Family Lunch', 'School Pickup': 'School Pickup', 'Dentist': 'Dentist',
+                            'Birthday Party': 'Birthday Party', 'Drop off at School': 'Drop off at School',
+                            'Pickup Rom': 'Pickup Rom', 'Soccer Practice': 'Soccer Practice',
+
+                            // Modal
+                            gearChecklist: 'Gear Checklist', noItems: 'No items logged at drop-off.',
+                            lastSnapshot: 'LAST HANDOFF SNAPSHOT', takeSnapshot: 'TAKE A HANDOFF SNAPSHOT',
+                            notifyParent: 'The other parent will be notified immediately',
+                            whatGear: 'What gear is with', addCustom: 'Add custom item...',
+                            Sun: 'Sun', Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sat: 'Sat'
+                        },
+                        he: {
+                            children: 'הילדים שלנו', calendar: 'יומן משותף', day: 'יום', week: 'שבוע', month: 'חודש',
+                            weekRange: '02 פבר - 08 פבר', todayDate: 'יום שני, 02 פבר',
+                            dadHome: 'אצל אבא', momHome: 'אצל אמא', splitHome: 'משמורת משולבת', myDay: 'היום שלי',
+                            confirm: 'אישור', cancel: 'ביטול', close: 'סגור', confirmPickup: 'אשר איסוף', confirmDropoff: 'אשר פיזור',
+
+                            // Statuses & Items
+                            'At School': 'בבית הספר', 'With Mommy': 'אצל אמא', 'With Dad': 'אצל אבא',
+                            'in 2 hrs': 'בעוד שעתיים', 'Tomorrow': 'מחר',
+                            'from School': 'מבית הספר', 'at Tennis': 'בטניס',
+                            'Backpack': 'תיק גב', 'Water Bottle': 'בקבוק מים', 'Soccer Gear': 'ציוד כדורגל',
+                            'Hat': 'כובע', 'Bottle': 'בקבוק', 'School': 'בית ספר', 'Pickup': 'איסוף', 'Soccer': 'כדורגל',
+                            'Tennis': 'טניס', 'Soccer Club': 'חוג כדורגל', 'Grandma': 'סבתא', 
+                            'Music Lesson': 'שיעור נגינה', 'Dance Class': 'חוג ריקוד',
+                            'Family Lunch': 'ארוחה משפחתית', 'School Pickup': 'איסוף מבי״ס', 'Dentist': 'רופא שיניים',
+                            'Birthday Party': 'מסיבת יום הולדת', 
+                            'Drop off at School': 'פיזור לבית ספר',
+                            'Pickup Rom': 'לאסוף את רום', 'Soccer Practice': 'אימון כדורגל',
+
+                            // Modal
+                            gearChecklist: 'רשימת ציוד', noItems: 'לא נרשמו פריטים בפיזור',
+                            lastSnapshot: 'תמונת מצב אחרונה', takeSnapshot: 'צלם תמונת מצב',
+                            notifyParent: 'ההורה השני יקבל התראה מידית',
+                            whatGear: 'עם איזה ציוד יוצא/ת', addCustom: 'הוסף פריט...',
+                            Sun: 'א׳', Mon: 'ב׳', Tue: 'ג׳', Wed: 'ד׳', Thu: 'ה׳', Fri: 'ו׳', Sat: 'ש׳'
+                        }
+                    }
+                }
+            },
+            
+            watch: {
+                lang: {
+                    immediate: true,
+                    handler(newLang) {
+                        document.body.className = newLang === 'en' ? 'lang-en' : 'lang-he';
+                        document.documentElement.dir = newLang === 'en' ? 'ltr' : 'rtl';
+                        this.$nextTick(() => lucide.createIcons());
+                    }
+                }
+            },
+
+            computed: {
+                briefTitle() {
+                    if (!this.selectedChild) return '';
+                    if (this.lang === 'en') {
+                        return `${this.selectedChild.name}'s experiences in the last 24 hours`;
+                    } else {
+                        return `החוויות של ${this.selectedChild.name} ב-24 השעות האחרונות`;
+                    }
+                },
+
+                modalTitle() {
+                    if (!this.selectedChild) return '';
+                    
+                    const name = this.selectedChild.name;
+                    const statusRaw = this.selectedChild.status; 
+                    const status = this.translations[this.lang][statusRaw] || statusRaw; 
+                    const isHebrew = this.lang === 'he';
+
+                    if (this.activeModal === 'pick') {
+                        if (!isHebrew) return `Picking up ${name} from ${status}!`;
+                        
+                        let loc = status; 
+                        if (loc.startsWith('ב')) loc = 'מ' + loc.substring(1); 
+                        else loc = 'מ' + loc;
+                        
+                        return `אוספים את ${name} ${loc}!`;
+                    } 
+                    else if (this.activeModal === 'drop') {
+                        if (!isHebrew) return `Dropping off ${name} at...`;
+                        return `מפזרים את ${name} ב...`;
+                    }
+                    return '';
+                },
+
+                currentMonthName() { return this.lang === 'en' ? 'February' : 'פברואר'; },
+                calendarDays() {
+                    const days = [];
+                    const cycleLen = this.cycleData.length || 14;
+
+                    for(let i=1; i<=28; i++) { 
+                        let bgClass = '';
+                        const cycleIndex = (i - 1) % cycleLen;
+                        
+                        if(this.cycleData.length > 0) {
+                            const cycleDay = this.cycleData[cycleIndex];
+                            const dadCount = cycleDay.allocation.filter(a => a.parent === 'dad').length;
+                            const momCount = cycleDay.allocation.filter(a => a.parent === 'mom').length;
+                            const total = 2; 
+                            
+                            if (dadCount === total) bgClass = 'parent-cyan';
+                            else if (momCount === total) bgClass = 'parent-orange';
+                            else bgClass = 'bg-gradient-to-br from-[#ECFEFF] to-[#FFF7ED] border border-slate-200'; 
+                        } else {
+                            const isDad = Math.floor((i-1)/2) % 2 === 0;
+                            bgClass = isDad ? 'parent-cyan' : 'parent-orange';
+                        }
+
+                        days.push({ 
+                            date: i, 
+                            bgClass: bgClass,
+                            isToday: i === 2, 
+                            hasEvent: [5, 12, 15, 22].includes(i) 
+                        });
+                    }
+                    return days;
+                },
+                weekData() {
+                    const weekDates = [1, 2, 3, 4, 5, 6, 7]; 
+                    const cycleLen = this.cycleData.length || 14;
+
+                    return weekDates.map((date, idx) => {
+                        let bgClass = '';
+                        let parentText = '';
+                        
+                        if(this.cycleData.length > 0) {
+                            const cycleIndex = (date - 1) % cycleLen;
+                            const cycleDay = this.cycleData[cycleIndex];
+                            const dadCount = cycleDay.allocation.filter(a => a.parent === 'dad').length;
+                            const momCount = cycleDay.allocation.filter(a => a.parent === 'mom').length;
+                            const total = 2;
+
+                            if (dadCount === total) { bgClass = 'parent-cyan'; parentText = this.t('dadHome'); }
+                            else if (momCount === total) { bgClass = 'parent-orange'; parentText = this.t('momHome'); }
+                            else { bgClass = 'bg-gradient-to-br from-[#ECFEFF] to-[#FFF7ED] border border-slate-200 text-slate-500'; parentText = this.t('splitHome'); }
+                        } else {
+                            const isDad = Math.floor((date-1)/2) % 2 === 0;
+                            bgClass = isDad ? 'parent-cyan' : 'parent-orange';
+                            parentText = isDad ? this.t('dadHome') : this.t('momHome');
+                        }
+
+                        const events = [];
+                        if(idx === 0) events.push('Family Lunch');
+                        if(idx === 1) events.push('School Pickup');
+                        if(idx === 2) events.push('Soccer');
+                        if(idx === 4) events.push('Dentist');
+                        if(idx === 6) events.push('Birthday Party');
+
+                        return {
+                            name: this.weekDays[idx],
+                            num: '0' + date,
+                            bgClass: bgClass,
+                            parentText: parentText,
+                            events: events,
+                            isToday: date === 2
+                        };
+                    });
+                }
+            },
+            created() {
+                const saved = localStorage.getItem('becket_cycle_data');
+                if(saved) {
+                    this.cycleData = JSON.parse(saved);
+                }
+            },
+            methods: {
+                t(key) { 
+                   if(!this.translations[this.lang]) return key;
+                   return this.translations[this.lang][key] || key; 
+                },
+                toggleLang() { 
+                    this.lang = this.lang === 'en' ? 'he' : 'en'; 
+                },
+                openModal(child) {
+                    this.selectedChild = child;
+                    this.activeModal = child.nextAction;
+                    if(this.activeModal === 'drop') {
+                        this.tempItems = ['Backpack', 'Hat', 'Bottle'];
+                        this.dropLocation = 'School';
+                    }
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                // NEW: Open Brief Method
+                openBrief(child) {
+                    this.selectedChild = child;
+                    this.activeModal = 'brief';
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeModal() { this.activeModal = null; },
+                addItem() { if(this.newItem.trim()) { this.tempItems.push(this.newItem.trim()); this.newItem = ''; } },
+                confirmAction() {
+                    if(this.activeModal === 'drop') {
+                        this.selectedChild.status = 'At ' + this.dropLocation;
+                        this.selectedChild.items = [...this.tempItems];
+                        this.selectedChild.nextAction = 'pick';
+                    } else {
+                        this.selectedChild.status = 'With Dad';
+                        this.selectedChild.nextAction = 'drop';
+                    }
+                    this.closeModal();
+                }
+            },
+            mounted() { lucide.createIcons(); }
+        });
+        
+        app.component('app-header', AppHeader);
+        app.component('app-footer', AppFooter);
+        app.component('section-header', SectionHeader);
+        app.component('ai-chat', AiChat);
+        
+        app.mount('#app');
+    </script>
+</body>
+</html>

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rujum AI | Understandings</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="understandings.css">
+</head>
+<body>
+    <div id="app">
+        
+        <app-header :lang="lang" @toggle-lang="toggleLang"></app-header>
+        <ai-chat></ai-chat>
+
+        <main class="content-wrap px-6 sm:px-8 pb-32">
+
+            <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                    <h1 class="text-4xl font-serif text-slate-900 mb-2">{{ t('understandings') }}</h1>
+                    <p class="text-slate-400 font-bold text-sm">{{ t('pageSubtitle') }}</p>
+                </div>
+                
+                <button @click="triggerUpload" class="bg-white border border-slate-200 shadow-sm text-slate-700 px-5 py-3 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-transform">
+                    <lucide-icon name="upload" class="w-4 h-4"></lucide-icon>
+                    {{ t('uploadAgreement') }}
+                </button>
+                <input type="file" ref="fileInput" class="hidden" @change="handleFileUpload">
+            </div>
+
+            <div class="mb-12">
+                <section-header 
+                    :title="t('parentingTime')" 
+                    icon="calendar.png" 
+                    :has-action="true" 
+                    action-type="edit" 
+                    :is-editing="isCycleEditing"
+                    @action="startEditing"
+                    @save="triggerCustodySave"
+                    @discard="discardChanges">
+                </section-header>
+
+                <div class="bg-slate-50 rounded-[2.5rem] p-6 border border-slate-100 shadow-sm mb-6 transition-colors" :class="{'ring-2 ring-slate-800 ring-offset-2': isCycleEditing}">
+                    <div class="flex justify-between items-center mb-6 px-2">
+                        <span class="text-xs font-black text-slate-400 uppercase tracking-widest">{{ t('custodyCycle') }} <span v-if="isCycleEditing" class="text-red-500 animate-pulse ms-2">â— {{ t('editing') }}</span></span>
+                        <div class="flex bg-white p-1 rounded-full border border-slate-200 shadow-sm">
+                            <button @click="setCycle(7)" :class="cycleLength === 7 ? 'bg-slate-800 text-white' : 'text-slate-400'" class="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase transition-colors" :disabled="!isCycleEditing">{{ t('1week') }}</button>
+                            <button @click="setCycle(14)" :class="cycleLength === 14 ? 'bg-slate-800 text-white' : 'text-slate-400'" class="px-4 py-1.5 rounded-full text-[10px] font-bold uppercase transition-colors" :disabled="!isCycleEditing">{{ t('2weeks') }}</button>
+                        </div>
+                    </div>
+
+                    <div class="cycle-grid">
+                        <div v-for="d in 7" class="day-header">{{ t(weekDays[d-1]) }}</div>
+                        <div v-for="(day, index) in cycleDays" 
+                             :key="index" 
+                             @click="handleDayClick(index)" 
+                             class="cycle-cell" 
+                             :class="[getDayClass(day), {'cursor-pointer hover:border-slate-400': isCycleEditing, 'cursor-default opacity-90': !isCycleEditing}]">
+                            <span class="cell-label bidi-isolate">{{ index + 1 }}</span>
+                            <div class="cell-content">
+                                <div v-if="!isDayFilled(day)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                </div>
+                                <div v-else-if="day.dadCount === children.length" class="mini-icon-wrapper">
+                                    <img src="src/assets/profile/king_profile.png" class="mini-icon rounded-full">
+                                </div>
+                                <div v-else-if="day.momCount === children.length" class="mini-icon-wrapper">
+                                    <img src="src/assets/profile/queen_profile.png" class="mini-icon rounded-full">
+                                </div>
+                                <div v-else class="split-icons">
+                                    <div v-for="alloc in day.allocation" class="mini-split-avatar">
+                                        <img :src="alloc.childGender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png'">
+                                        <div class="dot-indicator" :class="alloc.parent === 'dad' ? 'dot-dad' : 'dot-mom'"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-for="(items, subject) in groupedUnderstandings" :key="subject" class="mb-10">
+                <section-header 
+                    :title="t(subject)" 
+                    icon="understandings.png"
+                    :has-action="true"
+                    @action="openCreateModal(subject)">
+                </section-header>
+                
+                <div class="flex flex-col">
+                    <div v-for="item in items" :key="item.id" class="understanding-item">
+                        <div class="item-main-row">
+                            <div class="u-status-icon" 
+                                 :class="{
+                                    'u-status-agreed': item.status === 'agreed',
+                                    'u-status-pending': item.status === 'pending' && !item.terminationRequested,
+                                    'u-status-rejected': item.terminationRequested,
+                                    'strobe-anim': item.status === 'pending' && item.creator !== 'Me' 
+                                 }">
+                                 <lucide-icon v-if="item.status === 'agreed'" name="check" class="w-3 h-3"></lucide-icon>
+                                 <lucide-icon v-else-if="item.terminationRequested" name="trash-2" class="w-3 h-3"></lucide-icon>
+                                 <span v-else-if="item.status === 'pending'" class="font-bold">?</span>
+                            </div>
+
+                            <div class="u-content w-full">
+                                <div class="flex justify-between items-start">
+                                    <p class="u-text text-start" :class="{'line-through text-slate-400': item.terminationRequested}">{{ item.content }}</p>
+                                    <button @click="openEditModal(item)" class="u-btn-edit flex items-center justify-center flex-shrink-0 hover:bg-slate-200">
+                                        <lucide-icon name="pencil" class="w-3 h-3"></lucide-icon>
+                                    </button>
+                                </div>
+                                
+                                <div class="u-meta flex-wrap">
+                                    <span v-if="item.terminationRequested" class="text-red-500 font-bold uppercase text-[10px]">
+                                        {{ t('terminationRequested') }}
+                                    </span>
+                                    <span v-else-if="item.status === 'pending'" class="text-orange-500 font-bold uppercase text-[10px]">
+                                        {{ item.creator === 'Me' ? t('waitingForPartner') : t('waitingForYou') }}
+                                    </span>
+                                    
+                                    <span v-if="item.status === 'agreed' && item.approvedDate" class="text-teal-600 bidi-isolate">
+                                        {{ t('approved') }}: {{ item.approvedDate }}
+                                    </span>
+
+                                    <span v-if="item.expiration" class="bidi-isolate text-slate-400"> â€¢ EXP: {{ item.expiration }}</span>
+                                    
+                                    <div v-if="item.history && item.history.length" class="history-badge flex items-center gap-1 ms-auto" @click="toggleHistory(item)">
+                                        <span>v{{ item.history.length + 1 }}</span>
+                                        <lucide-icon :name="item.isHistoryOpen ? 'chevron-up' : 'chevron-down'" class="w-3 h-3"></lucide-icon>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <transition name="pop">
+                            <div v-if="item.isHistoryOpen" class="history-container">
+                                <p class="text-[10px] font-black uppercase text-slate-300">{{ t('versionHistory') }}</p>
+                                <div v-for="(hist, idx) in item.history" :key="idx" class="history-row">
+                                    <p class="history-text text-start">{{ hist.content }}</p>
+                                    <span class="history-date bidi-isolate">{{ hist.date }}</span>
+                                </div>
+                            </div>
+                        </transition>
+
+                        <div v-if="item.status === 'pending' && item.creator !== 'Me'" class="u-actions">
+                            <button @click="rejectItem(item)" class="u-btn u-btn-reject">
+                                <lucide-icon name="x" class="w-3 h-3"></lucide-icon>
+                                {{ item.terminationRequested ? t('keepAgreement') : t('reject') }}
+                            </button>
+                            <button @click="approveItem(item)" class="u-btn u-btn-approve">
+                                <lucide-icon name="check" class="w-3 h-3"></lucide-icon>
+                                {{ item.terminationRequested ? t('confirmTermination') : t('accept') }}
+                            </button>
+                        </div>
+
+                        <div v-if="item.status === 'pending' && item.creator === 'Me'" class="u-actions">
+                            <button @click="triggerForfeit(item)" class="u-btn u-btn-reject w-full">
+                                <lucide-icon name="trash-2" class="w-3 h-3"></lucide-icon> 
+                                {{ t('cancelProposal') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="add-center-btn" @click="openCreateModal(null)">
+                <lucide-icon name="plus" class="w-8 h-8"></lucide-icon>
+            </div>
+
+            <div class="rejected-section" v-if="rejectedItems.length">
+                <div class="rejected-header" @click="isRejectedOpen = !isRejectedOpen">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ t('rejectedList') }} ({{rejectedItems.length}})</span>
+                    <div class="rejected-line"></div>
+                    <lucide-icon :name="isRejectedOpen ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-slate-400"></lucide-icon>
+                </div>
+                
+                <div v-if="isRejectedOpen" class="rejected-list flex flex-col gap-2">
+                    <div v-for="item in rejectedItems" :key="item.id" class="understanding-item rejected-item">
+                        <div class="item-main-row">
+                            <div class="u-status-icon u-status-rejected"><lucide-icon name="x" class="w-3 h-3"></lucide-icon></div>
+                            <div class="u-content">
+                                <p class="u-text text-start">{{ item.content }}</p>
+                                <div class="u-meta flex-wrap gap-2">
+                                    <span v-if="item.terminatedDate" class="text-red-500 bidi-isolate">{{ t('terminatedOn') }}: {{ item.terminatedDate }}</span>
+                                    <span v-else>{{ t('rejected') }}</span>
+                                    
+                                    <button @click="reviveItem(item)" class="text-[10px] font-bold uppercase underline ms-2 text-slate-500">{{ t('revive') }}</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <transition name="pop">
+                <div v-if="isModalOpen" class="modal-overlay" @click.self="closeModal">
+                    <div class="modal-container w-[90%] md:w-[600px]">
+                        <div class="modal-close-btn" @click="closeModal"><lucide-icon name="x" class="w-6 h-6"></lucide-icon></div>
+                        
+                        <div class="p-8">
+                            <h2 class="text-2xl font-serif font-bold text-slate-900 mb-6">
+                                {{ editingItem ? t('editUnderstanding') : t('newUnderstanding') }}
+                            </h2>
+
+                            <div class="mb-6">
+                                <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 px-1 text-start">{{ t('subject') }}</label>
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    <button v-for="sub in subjects" :key="sub"
+                                            @click="form.subject = sub; isCustomSubject=false"
+                                            class="px-4 py-2 rounded-full text-xs font-bold uppercase border transition-all"
+                                            :class="form.subject === sub && !isCustomSubject ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200'">
+                                        {{ t(sub) }}
+                                    </button>
+                                    <button @click="isCustomSubject = true; form.subject = ''"
+                                            class="px-4 py-2 rounded-full text-xs font-bold uppercase border border-slate-200 text-slate-500 bg-white hover:border-slate-400"
+                                            :class="{'bg-slate-800 text-white border-slate-800': isCustomSubject}">
+                                        + {{ t('new') }}
+                                    </button>
+                                </div>
+                                <input v-if="isCustomSubject" v-model="form.customSubject" type="text" :placeholder="t('enterSubject')" 
+                                       class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 font-bold text-sm text-start outline-none focus:border-slate-800">
+                            </div>
+
+                            <div class="mb-6">
+                                <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 px-1 text-start">{{ t('theUnderstanding') }}</label>
+                                <textarea v-model="form.content" rows="4" class="w-full p-4 rounded-xl bg-slate-50 border border-slate-200 focus:border-slate-800 focus:outline-none font-medium text-slate-800 text-start" :placeholder="t('typeHere')"></textarea>
+                            </div>
+
+                            <div class="mb-8">
+                                <div class="flex items-center gap-3 mb-4 cursor-pointer group" @click="form.hasExpiration = !form.hasExpiration">
+                                    <div class="w-6 h-6 rounded-md border-2 border-slate-300 flex items-center justify-center transition-colors group-hover:border-slate-500"
+                                         :class="{'bg-slate-800 border-slate-800 group-hover:border-slate-800': form.hasExpiration}">
+                                         <lucide-icon v-if="form.hasExpiration" name="check" class="w-4 h-4 text-white"></lucide-icon>
+                                    </div>
+                                    <span class="text-sm font-bold text-slate-600 select-none">{{ t('isTemporary') }}</span>
+                                </div>
+
+                                <transition name="pop">
+                                    <div v-if="form.hasExpiration">
+                                        <label class="text-[10px] font-black uppercase text-slate-400 block mb-2 px-1 text-start">{{ t('expirationDate') }}</label>
+                                        <input type="date" v-model="form.expiration" class="w-full p-3 rounded-xl bg-slate-50 border border-slate-200 font-bold text-sm text-slate-600 outline-none">
+                                    </div>
+                                </transition>
+                            </div>
+
+                            <div class="flex flex-col gap-3">
+                                <div class="flex gap-4">
+                                    <button @click="closeModal" class="flex-1 py-3 text-slate-400 font-bold uppercase">{{ t('cancel') }}</button>
+                                    <button @click="saveUnderstanding" class="flex-1 py-3 bg-slate-900 text-white rounded-full font-bold uppercase tracking-wider shadow-lg">
+                                        {{ t('save') }}
+                                    </button>
+                                </div>
+                                <button v-if="editingItem && editingItem.status === 'agreed'" @click="triggerTermination" 
+                                        class="mt-2 py-3 border border-red-100 bg-red-50 text-red-500 rounded-full font-bold uppercase tracking-wider hover:bg-red-100 transition-colors flex items-center justify-center">
+                                    <lucide-icon name="trash-2" class="w-4 h-4 inline me-2"></lucide-icon> {{ t('terminateAgreement') }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="pop">
+                <div v-if="confirmModal.isOpen" class="modal-overlay" @click.self="closeConfirmModal">
+                    <div class="modal-container w-[90%] md:w-[400px]">
+                        <div class="p-8 text-center">
+                            <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
+                                <lucide-icon name="alert-circle" class="w-8 h-8"></lucide-icon>
+                            </div>
+                            <h2 class="text-xl font-serif font-bold text-slate-900 mb-2">{{ confirmModal.title }}</h2>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-8">{{ confirmModal.message }}</p>
+                            
+                            <div class="flex gap-4">
+                                <button @click="closeConfirmModal" class="flex-1 py-3 bg-white border border-slate-200 rounded-full font-bold text-slate-600 uppercase">{{ t('cancel') }}</button>
+                                <button @click="executeConfirmAction" class="flex-1 py-3 bg-red-500 text-white rounded-full font-bold uppercase shadow-lg">{{ t('confirm') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="pop">
+                <div v-if="activeDayIndex !== null" class="modal-overlay" @click.self="closeAssignModal">
+                    <div class="modal-container w-[90%] md:w-[500px]">
+                        <div class="modal-close-btn" @click="closeAssignModal"><lucide-icon name="x" class="w-6 h-6"></lucide-icon></div>
+                        <div class="modal-header-banner bg-slate-800 py-8">
+                            <h2 class="modal-title text-2xl text-white">{{ t('assignCustody') }}</h2>
+                            <p class="text-white/60 text-sm font-bold uppercase tracking-widest mt-2">
+                                {{ t(weekDays[activeDayIndex % 7]) }} 
+                                <span class="bidi-isolate">({{ t('day') }} {{ activeDayIndex + 1 }})</span>
+                            </p>
+                        </div>
+                        <div class="modal-body p-6">
+                            <div class="mb-6">
+                                <label class="text-[10px] font-black uppercase text-slate-400 block mb-3 px-1 text-start">{{ t('who') }}</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div v-for="child in children" @click="toggleChildSelection(child.id)" class="kid-toggle" :class="{active: selectedKids.includes(child.id)}">
+                                        <img :src="child.gender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png'" class="w-8 h-8 object-contain">
+                                        <span class="font-bold text-sm text-slate-700">{{ child.name }}</span>
+                                        <div v-if="selectedKids.includes(child.id)" class="ms-auto text-teal-600"><lucide-icon name="check" class="w-4 h-4"></lucide-icon></div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 text-center"><button @click="selectAllKids" class="text-[10px] font-bold text-slate-400 uppercase underline">{{ t('selectAll') }}</button></div>
+                            </div>
+                            <div class="mb-6">
+                                <label class="text-[10px] font-black uppercase text-slate-400 block mb-3 px-1 text-start">{{ t('where') }}</label>
+                                <div class="flex gap-4">
+                                    <div @click="selectedParent = 'dad'" class="parent-select-btn bg-cyan-50" :class="{selected: selectedParent === 'dad'}">
+                                        <img src="src/assets/profile/king_profile.png" class="w-12 h-12 rounded-full"><span class="font-bold text-slate-800">{{ t('Dad') }}</span>
+                                    </div>
+                                    <div @click="selectedParent = 'mom'" class="parent-select-btn bg-orange-50" :class="{selected: selectedParent === 'mom'}">
+                                        <img src="src/assets/profile/queen_profile.png" class="w-12 h-12 rounded-full"><span class="font-bold text-slate-800">{{ t('Mom') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-100 cursor-pointer mb-6" @click="isRepeat = !isRepeat">
+                                <div class="w-10 h-6 rounded-full relative transition-colors duration-200" :class="isRepeat ? 'bg-slate-800' : 'bg-slate-300'">
+                                    <div class="absolute top-1 start-1 w-4 h-4 bg-white rounded-full transition-transform duration-200" :style="{transform: isRepeat ? (lang === 'he' ? 'translateX(-16px)' : 'translateX(16px)') : 'translateX(0)'}"></div>
+                                </div>
+                                <span class="text-xs font-bold text-slate-600">{{ t('repeatFor') }} {{ t(weekDays[activeDayIndex % 7]) }}</span>
+                            </div>
+                            <button @click="confirmAssignment" :disabled="!selectedParent || selectedKids.length === 0" class="w-full py-4 bg-slate-900 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-transform disabled:opacity-50 disabled:scale-100">{{ t('confirm') }}</button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="pop">
+                <div v-if="isCustodySaveModalOpen" class="modal-overlay" @click.self="isCustodySaveModalOpen = false">
+                    <div class="modal-container w-[90%] md:w-[500px]">
+                        <div class="modal-close-btn" @click="isCustodySaveModalOpen = false"><lucide-icon name="x" class="w-6 h-6"></lucide-icon></div>
+                        <div class="p-8 text-center">
+                            <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
+                                <lucide-icon name="alert-triangle" class="w-8 h-8"></lucide-icon>
+                            </div>
+                            <h2 class="text-2xl font-serif font-bold text-slate-900 mb-2">{{ t('confirmChanges') }}</h2>
+                            <p class="text-slate-500 text-sm leading-relaxed mb-8">{{ t('warningText') }}</p>
+                            
+                            <div class="flex gap-4">
+                                <button @click="isCustodySaveModalOpen = false" class="flex-1 py-3 bg-white border border-slate-200 rounded-full font-bold text-slate-600 uppercase">{{ t('cancel') }}</button>
+                                <button @click="finalSaveCycle" class="flex-1 py-3 bg-red-500 text-white rounded-full font-bold uppercase shadow-lg">{{ t('yesApply') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+        </main>
+        <app-footer :lang="lang"></app-footer>
+    </div>
+
+    <script src="components.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+        
+        // --- 1. NEW SAFE ICON COMPONENT ---
+        const LucideIcon = {
+            props: ['name', 'class'],
+            template: `
+                <i v-if="svgHtml" v-html="svgHtml" :class="['flex items-center justify-center', $props.class]" style="font-style: normal; line-height: 0;"></i>
+            `,
+            computed: {
+                svgHtml() {
+                    if (window.lucide && window.lucide.icons[this.name]) {
+                        return window.lucide.icons[this.name].toSvg({ 
+                            class: 'w-full h-full', 
+                            'stroke-width': 2.5 
+                        });
+                    }
+                    return '';
+                }
+            }
+        };
+
+        createApp({
+            components: {
+                LucideIcon 
+            },
+            data() {
+                return {
+                    lang: 'en',
+                    
+                    // Generic Confirmation Modal
+                    confirmModal: {
+                        isOpen: false,
+                        title: '',
+                        message: '',
+                        action: null
+                    },
+
+                    // Custody Logic
+                    isCycleEditing: false, 
+                    isCustodySaveModalOpen: false, 
+                    activeDayIndex: null, 
+                    selectedKids: [],
+                    selectedParent: null,
+                    isRepeat: false,
+                    cycleLength: 14,
+                    weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                    children: [{ id: 'rom', name: 'Rom', gender: 'boy' }, { id: 'kai', name: 'Kai', gender: 'girl' }],
+                    cycleDays: [],
+                    originalCycleDays: [],
+                    
+                    // Understandings Logic
+                    isModalOpen: false,
+                    isRejectedOpen: false,
+                    editingItem: null,
+                    isCustomSubject: false,
+                    form: {
+                        subject: 'expenses',
+                        customSubject: '',
+                        content: '',
+                        expiration: '',
+                        hasExpiration: false
+                    },
+                    
+                    // NEW: EXTRACTED CONTENT FROM CONTRACT
+                    understandings: [
+                        // -- PARENTING --
+                        { id: 101, subject: 'parenting', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×™×ž×™ ×—×•×œ: ×\' ×•-×’\' ××¦×œ ××“×, ×‘\' ×•-×“\' ××¦×œ ×”×™×œ×”. ×™×ž×™ ×”\' ×œ×¡×™×¨×•×’×™×Ÿ.' },
+                        { id: 102, subject: 'parenting', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×¡×•×¤×™ ×©×‘×•×¢: ×œ×¡×™×¨×•×’×™×Ÿ. ×©×™×©×™ ×ž×¡×™×•× ×ž×¡×’×¨×ª ×¢×“ ×¨××©×•×Ÿ ×‘×‘×•×§×¨.' },
+                        { id: 103, subject: 'parenting', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×ž×—×œ×”: ×™×œ×“ ×—×•×œ×” × ×©××¨ ××™×¤×” ×©×”×ª×¢×•×¨×¨. ××™×¡×•×£ ×ž×ž×•×¡×“ ×—×™× ×•×›×™ - ×¢×´×™ ×”×”×•×¨×” ×©×œ ××•×ª×• ×™×•×.' },
+                        { id: 104, subject: 'parenting', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×ž×’×•×¨×™×: ×ž×¨×›×– ×”×—×™×™× ×‘×ž×•×“×™×¢×™×Ÿ. ×ž×¢×‘×¨ ×ž×¢×œ 30 ×“×§×³ ×ž×—×™×™×‘ ×”×¡×›×ž×”.' },
+                        { id: 105, subject: 'parenting', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×“×¨×›×•× ×™×: ×“×¨×›×•×Ÿ ××—×“ ××¦×œ ×›×œ ×”×•×¨×”. ×”×¢×‘×¨×” ×œ×”×•×¨×” ×”×˜×¡ ×œ×¤×™ ×”×¦×•×¨×š.' },
+                        
+                        // -- HOLIDAYS --
+                        { id: 201, subject: 'holidays', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×—×’×™×: ×¡×‘×‘ ×œ×¡×™×¨×•×’×™×Ÿ (×¨××© ×”×©× ×”, ×›×™×¤×•×¨, ×¡×•×›×•×ª, ×¤×¡×—) ×œ×¤×™ ×˜×‘×œ×ª ×”×”×¡×›×.' },
+                        { id: 202, subject: 'holidays', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×—×•×¤×© ×’×“×•×œ: ×—×œ×•×§×” ×©×•×•×”. ×–×›×•×ª ×¨××©×•× ×™× ×œ×ª×™××•× ×ž×ª×—×œ×¤×ª (2025 - ××ž×).' },
+                        { id: 203, subject: 'holidays', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×™×ž×™ ×”×•×œ×“×ª: ×©×•××¤×™× ×œ×—×’×™×’×” ×ž×©×•×ª×¤×ª. ×× ×œ× ×ž×¡×ª×™×™×¢, ×›×œ ×”×•×¨×” ×—×•×’×’ ×‘× ×¤×¨×“.' },
+
+                        // -- EXPENSES --
+                        { id: 301, subject: 'expenses', status: 'agreed', creator: 'System', history: [], expiration: '2026-10-31', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×ž×–×•× ×•×ª (×¨×•×): ××“× ×ž×©×œ× 2,000 â‚ª ×¢×“ ×’×™×œ 6 (10/2026).' },
+                        { id: 302, subject: 'expenses', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×§×¦×‘×ª × ×›×•×ª: ×œ×× ×¢×“ ×’×™×œ 6. ××—×´×› ×—×œ×•×§×” ×©×•×•×” (50/50).' },
+                        { id: 303, subject: 'expenses', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×ž×—×¦×™×•×ª: ×—×œ×•×§×” ×©×•×•×” (50/50) ×‘×”×•×¦××•×ª ×—×™× ×•×š (×—×•×’×™×, ×¦×™×•×“) ×•×¨×¤×•××” ×—×¨×™×’×”.' },
+                        { id: 304, subject: 'expenses', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×‘×™×’×•×“: ×‘×ª×™× × ×¤×¨×“×™×. ×§× ×™×™×” ×©× ×ª×™×ª ×ž×©×•×ª×¤×ª ×‘×¡×š 5,000 â‚ª ×œ×—×œ×•×§×” ×‘×™×Ÿ ×”×‘×ª×™×.' },
+                        { id: 305, subject: 'expenses', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×§× ×¡×•×ª: ××™-××™×¡×•×£ ×œ×œ× ×”×ª×¨××” - 150 â‚ª (×™×•× ×œ×™×ž×•×“×™×) / 300 â‚ª (×—×•×¤×©).' },
+
+                        // -- OTHERS --
+                        { id: 401, subject: 'others', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×ž×—×œ×•×§×•×ª: ×”×›×¨×¢×” ×¢×´×™ ×’×•×¨× ×ž×§×¦×•×¢×™ (×¨×•×¤×/×™×•×¢×¦×ª) ×‘×”×¢×“×¨ ×”×¡×›×ž×”.' },
+                        { id: 402, subject: 'others', status: 'agreed', creator: 'System', history: [], expiration: '', approvedDate: '2025-08-17', isHistoryOpen: false, content: '×”×•×“×¢×” ×¢×œ ××™×¨×•×¢×™×: ×—×•×‘×ª ×¢×“×›×•×Ÿ ×”×“×“×™×ª ×¢×œ ××™×¨×•×¢×™ ×’×Ÿ/×‘×™×ª ×¡×¤×¨ ×œ××¤×©×¨×•×ª ×”×’×¢×” ×ž×©×•×ª×¤×ª.' }
+                    ],
+
+                    translations: {
+                        en: {
+                            understandings: 'Understandings', pageSubtitle: 'Rules of Engagement & Logic',
+                            parentingTime: 'Parenting Time', custodyCycle: 'Custody Cycle',
+                            '1week': '1 Week', '2weeks': '2 Weeks', editing: 'Editing',
+                            expenses: 'Expenses', parenting: 'Parenting', holidays: 'Holidays', others: 'Other Understandings',
+                            waitingForPartner: 'Waiting for Partner', waitingForYou: 'Action Required',
+                            reject: 'Reject', accept: 'Accept', rejectedList: 'Rejected / Outdated',
+                            newUnderstanding: 'New Understanding', editUnderstanding: 'Edit Understanding',
+                            subject: 'Subject', new: 'New', enterSubject: 'Enter Subject Name',
+                            theUnderstanding: 'Clause / Rule', typeHere: 'e.g. 50/50 Split on dental...',
+                            expirationDate: 'Expiration Date', optional: 'Optional', save: 'Save Proposal', cancel: 'Cancel',
+                            revive: 'Revive & Edit', rejected: 'Rejected', versionHistory: 'Version History',
+                            uploadAgreement: 'Upload Agreement', approved: 'Approved on',
+                            isTemporary: 'This is a temporary agreement', cancelProposal: 'Cancel Proposal',
+                            confirmForfeit: 'Cancel Proposal?', 
+                            forfeitMsg: 'This will remove the pending proposal permanently.',
+                            terminateAgreement: 'Terminate Agreement',
+                            terminateTitle: 'Request Termination?',
+                            terminateMsg: 'This will ask the other parent to approve the termination of this agreement. Until approved, it remains active.',
+                            terminationRequested: 'Termination Requested',
+                            terminatedOn: 'Terminated on',
+                            confirmTermination: 'Confirm Termination',
+                            keepAgreement: 'Keep Agreement',
+                            completeToSave: 'Assign all days to save', readOnlyMode: 'Read Only Mode - Click Edit to Change',
+                            confirmChanges: 'Confirm Changes?', warningText: 'You are about to modify the core custody schedule. These settings serve as the "Source of Truth" for all future calendar events and logic. Are you sure you want to apply these changes?',
+                            yesApply: 'Yes, Apply', assignCustody: 'Assign Custody', who: 'Who?', where: 'Where?', day: 'Day',
+                            selectAll: 'Select All', Dad: 'Dad', Mom: 'Mom', confirm: 'Confirm',
+                            repeatFor: 'Repeat for all',
+                            Sun: 'Sun', Mon: 'Mon', Tue: 'Tue', Wed: 'Wed', Thu: 'Thu', Fri: 'Fri', Sat: 'Sat'
+                        },
+                        he: {
+                            understandings: '×”×¡×›×ž×•×ª', pageSubtitle: '×—×•×§×™ ×”×’×™×•×Ÿ ×•×ž×¢×•×¨×‘×•×ª',
+                            parentingTime: '×–×ž× ×™ ×©×”×•×ª', custodyCycle: '×ž×—×–×•×¨ ×ž×©×ž×•×¨×ª',
+                            '1week': '×©×‘×•×¢', '2weeks': '×©×‘×•×¢×™×™×', editing: '×¢×¨×™×›×”',
+                            expenses: '×”×•×¦××•×ª', parenting: '×”×•×¨×•×ª', holidays: '×—×’×™×', others: '×”×¡×›×ž×•×ª ××—×¨×•×ª',
+                            waitingForPartner: '×ž×ž×ª×™×Ÿ ×œ××™×©×•×¨', waitingForYou: '× ×“×¨×©×ª ×¤×¢×•×œ×”',
+                            reject: '×“×—×™×™×”', accept: '××™×©×•×¨', rejectedList: '×”×¡×›×ž×•×ª ×©× ×“×—×• / ×¤×’ ×ª×•×§×£',
+                            newUnderstanding: '×”×‘× ×” ×—×“×©×”', editUnderstanding: '×¢×¨×™×›×ª ×”×‘× ×”',
+                            subject: '× ×•×©×', new: '×—×“×©', enterSubject: '×©× ×”× ×•×©×',
+                            theUnderstanding: '×¡×¢×™×£ / ×—×•×§', typeHere: '×œ×“×•×’×ž×”: ×—×œ×•×§×” ×©×•×•×” ×‘×˜×™×¤×•×œ×™ ×©×™× ×™×™×...',
+                            expirationDate: '×ª××¨×™×š ×ª×¤×•×’×”', optional: '××•×¤×¦×™×•× ×œ×™', save: '×©×ž×•×¨ ×”×¦×¢×”', cancel: '×‘×™×˜×•×œ',
+                            revive: '×©×—×–×¨ ×•×¢×¨×•×š', rejected: '× ×“×—×”', versionHistory: '×”×™×¡×˜×•×¨×™×™×ª ×’×¨×¡××•×ª',
+                            uploadAgreement: '×”×¢×œ××ª ×”×¡×›×', approved: '××•×©×¨ ×‘-',
+                            isTemporary: '×–×•×”×™ ×”×¡×›×ž×” ×–×ž× ×™×ª / ×ž×•×’×‘×œ×ª ×‘×–×ž×Ÿ', cancelProposal: '×‘×˜×œ ×”×¦×¢×”',
+                            confirmForfeit: '×œ×‘×˜×œ ×”×¦×¢×”?',
+                            forfeitMsg: '×”×¤×¢×•×œ×” ×ª×¡×™×¨ ××ª ×”×”×¦×¢×” ×œ×¦×ž×™×ª×•×ª.',
+                            terminateAgreement: '×¡×™×™× ×”×¡×›×',
+                            terminateTitle: '×‘×§×©×ª ×¡×™×•× ×”×¡×›×?',
+                            terminateMsg: '×¤×¢×•×œ×” ×–×• ×ª×©×œ×— ×‘×§×©×” ×œ×¦×“ ×”×©× ×™ ×œ×¡×™×™× ××ª ×”×”×¡×›×. ×¢×“ ×œ××™×©×•×¨, ×”×”×¡×›× × ×©××¨ ×¤×¢×™×œ.',
+                            terminationRequested: '×‘×§×©×ª ×¡×™×•×',
+                            terminatedOn: '×”×•×¤×¡×§ ×‘-',
+                            confirmTermination: '××©×¨ ×¡×™×•×',
+                            keepAgreement: '×”×©××¨ ×”×¡×›×',
+                            completeToSave: '×™×© ×œ×©×‘×¥ ××ª ×›×œ ×”×™×ž×™× ×œ×©×ž×™×¨×”', readOnlyMode: '×ž×¦×‘ ×¦×¤×™×™×” - ×œ×—×¥ ×¢×¨×™×›×” ×œ×©×™× ×•×™',
+                            confirmChanges: '××™×©×•×¨ ×©×™× ×•×™×™×', warningText: '×©×™× ×•×™ ×–×” ×™×¢×“×›×Ÿ ××ª ×”×’×“×¨×•×ª ×”×‘×¡×™×¡ ×©×œ ×–×ž× ×™ ×”×©×”×•×ª. ×›×œ ×”××™×¨×•×¢×™× ×”×¢×ª×™×“×™×™× ×‘×™×•×ž×Ÿ ×™×•×©×¤×¢×• ×ž×›×š. ×”×× ×œ×”×—×™×œ ××ª ×”×©×™× ×•×™×™×?',
+                            yesApply: '×›×Ÿ, ×”×—×œ ×©×™× ×•×™×™×', assignCustody: '×©×™×‘×•×¥ ×ž×©×ž×•×¨×ª', who: '××ª ×ž×™ ×ž×©×‘×¦×™×?', where: '××¦×œ ×ž×™?', day: '×™×•×',
+                            selectAll: '×‘×—×¨ ×”×›×œ', Dad: '××‘×', Mom: '××ž×', confirm: '××™×©×•×¨',
+                            repeatFor: '×—×–×•×¨ ×¢×‘×•×¨ ×›×œ ×™×ž×™',
+                            Sun: '××³', Mon: '×‘×³', Tue: '×’×³', Wed: '×“×³', Thu: '×”×³', Fri: '×•×³', Sat: '×©×³'
+                        }
+                    }
+                }
+            },
+            
+            watch: {
+                lang: {
+                    immediate: true,
+                    handler(newLang) {
+                        document.body.className = newLang === 'en' ? 'lang-en' : 'lang-he';
+                        document.documentElement.dir = newLang === 'en' ? 'ltr' : 'rtl';
+                        // No need for global lucide createIcons anymore!
+                    }
+                }
+            },
+
+            computed: {
+                subjects() {
+                    const subs = new Set(['expenses', 'parenting', 'holidays', 'others']);
+                    this.understandings.forEach(u => subs.add(u.subject));
+                    return Array.from(subs);
+                },
+                groupedUnderstandings() {
+                    const groups = {};
+                    this.understandings.forEach(u => {
+                        if(u.status !== 'rejected') {
+                            if(!groups[u.subject]) groups[u.subject] = [];
+                            groups[u.subject].push(u);
+                        }
+                    });
+                    return groups;
+                },
+                rejectedItems() {
+                    return this.understandings.filter(u => u.status === 'rejected');
+                },
+                isFullyAssigned() {
+                    if (this.cycleDays.length === 0) return false;
+                    return this.cycleDays.every(day => {
+                        return this.children.every(child => 
+                            day.allocation && day.allocation.find(a => a.childId === child.id)
+                        );
+                    });
+                }
+            },
+
+            created() {
+                this.initCycle();
+                try {
+                    const savedCycle = localStorage.getItem('rujum_cycle_data');
+                    if(savedCycle) {
+                        const parsed = JSON.parse(savedCycle);
+                        if(Array.isArray(parsed) && parsed.length > 0) this.cycleDays = parsed;
+                    }
+                } catch(e) {}
+
+                // NOTE: We do not load from local storage here to enforce the new contract data for this demo.
+                // In a real app, we would merge or check versions.
+                
+                this.understandings.forEach(item => {
+                    if (typeof item.isHistoryOpen === 'undefined') item.isHistoryOpen = false;
+                });
+            },
+
+            methods: {
+                t(key) { return this.translations[this.lang][key] || key; },
+                toggleLang() { this.lang = this.lang === 'en' ? 'he' : 'en'; },
+
+                // --- MODAL LOGIC (NOW CRASH-PROOF) ---
+                openConfirmModal(title, message, actionFn) {
+                    this.confirmModal.title = title;
+                    this.confirmModal.message = message;
+                    this.confirmModal.action = actionFn;
+                    this.confirmModal.isOpen = true;
+                },
+                closeConfirmModal() {
+                    this.confirmModal.isOpen = false;
+                    this.confirmModal.action = null;
+                },
+                executeConfirmAction() {
+                    try {
+                        if(this.confirmModal.action) this.confirmModal.action();
+                    } catch (err) {
+                        console.error("Action failed:", err);
+                    } finally {
+                        this.closeConfirmModal();
+                    }
+                },
+
+                // --- CUSTODY LOGIC ---
+                initCycle() {
+                    this.cycleDays = Array.from({ length: this.cycleLength }, (_, i) => ({ 
+                        index: i, 
+                        dayName: this.weekDays[i % 7],
+                        allocation: [] 
+                    }));
+                },
+                setCycle(len) { 
+                    this.cycleLength = len; 
+                    this.initCycle();
+                }, 
+                startEditing() { 
+                    this.originalCycleDays = JSON.parse(JSON.stringify(this.cycleDays));
+                    this.isCycleEditing = true; 
+                    // Safe due to component usage
+                },
+                discardChanges() { 
+                    this.cycleDays = JSON.parse(JSON.stringify(this.originalCycleDays));
+                    this.isCycleEditing = false; 
+                },
+                triggerCustodySave() { 
+                    if(!this.isFullyAssigned) {
+                        alert(this.lang === 'he' ? '×™×© ×œ×”×©×œ×™× ××ª ×›×œ ×”×©×™×‘×•×¦×™×' : 'Please complete all assignments');
+                        return;
+                    }
+                    this.isCustodySaveModalOpen = true; 
+                },
+                finalSaveCycle() {
+                    localStorage.setItem('rujum_cycle_data', JSON.stringify(this.cycleDays));
+                    this.isCycleEditing = false;
+                    this.isCustodySaveModalOpen = false;
+                },
+                getDayClass(day) { 
+                    if (!day.allocation || day.allocation.length === 0) return '';
+                    const dadCount = day.allocation.filter(a => a.parent === 'dad').length;
+                    const momCount = day.allocation.filter(a => a.parent === 'mom').length;
+                    day.dadCount = dadCount; day.momCount = momCount;
+                    if (dadCount === this.children.length) return 'bg-dad filled';
+                    if (momCount === this.children.length) return 'bg-mom filled';
+                    if (day.allocation.length > 0) return 'bg-split filled';
+                    return '';
+                },
+                isDayFilled(day) { return day.allocation && day.allocation.length > 0; },
+                handleDayClick(idx) { 
+                    if(!this.isCycleEditing) return; 
+                    this.openAssignModal(idx);
+                },
+                openAssignModal(idx) {
+                    this.activeDayIndex = idx;
+                    this.selectedKids = this.children.map(c => c.id);
+                    this.selectedParent = null;
+                    this.isRepeat = false;
+                },
+                closeAssignModal() { this.activeDayIndex = null; },
+                toggleChildSelection(id) {
+                    if(this.selectedKids.includes(id)) this.selectedKids = this.selectedKids.filter(k => k !== id);
+                    else this.selectedKids.push(id);
+                },
+                selectAllKids() { this.selectedKids = this.children.map(c => c.id); },
+                confirmAssignment() {
+                    try {
+                        if (!this.selectedParent || this.selectedKids.length === 0) return;
+                        const indices = [this.activeDayIndex];
+                        if (this.isRepeat) {
+                            const target = this.activeDayIndex % 7;
+                            this.cycleDays.forEach(day => {
+                                if (day.index % 7 === target && day.index !== this.activeDayIndex) indices.push(day.index);
+                            });
+                        }
+                        indices.forEach(idx => {
+                            const day = this.cycleDays[idx];
+                            if(!day.allocation) day.allocation = [];
+                            this.selectedKids.forEach(kidId => {
+                                const kidObj = this.children.find(c => c.id === kidId);
+                                day.allocation = day.allocation.filter(a => a.childId !== kidId);
+                                day.allocation.push({ childId: kidId, childGender: kidObj.gender, parent: this.selectedParent });
+                            });
+                        });
+                        this.closeAssignModal();
+                    } catch(err) { console.error(err); this.closeAssignModal(); }
+                },
+
+                // --- UPLOAD LOGIC ---
+                triggerUpload() { this.$refs.fileInput.click(); },
+                handleFileUpload(e) {
+                    const file = e.target.files[0];
+                    if(!file) return;
+                    alert("Simulating AI Analysis for: " + file.name);
+                    setTimeout(() => {
+                        this.understandings.push({ 
+                            id: Date.now(), subject: 'expenses', 
+                            content: 'Extracted: Parents split extra-curriculars 50/50.', 
+                            status: 'pending', creator: 'Me', history: [], expiration: '', approvedDate: null 
+                        });
+                        this.saveToStorage();
+                    }, 1000);
+                },
+
+                // --- UNDERSTANDINGS LOGIC ---
+                openCreateModal(preselectedSubject) {
+                    this.editingItem = null;
+                    const defaultSub = preselectedSubject || 'expenses';
+                    this.form = { 
+                        subject: defaultSub, content: '', expiration: '', customSubject: '',
+                        hasExpiration: false
+                    };
+                    this.isCustomSubject = false;
+                    this.isModalOpen = true;
+                },
+                openEditModal(item) {
+                    this.editingItem = item;
+                    this.form = { ...item, hasExpiration: !!item.expiration };
+                    this.isCustomSubject = false;
+                    this.isModalOpen = true;
+                },
+                closeModal() { this.isModalOpen = false; },
+
+                saveUnderstanding() {
+                    if(!this.form.content.trim()) return;
+                    const finalSubject = this.isCustomSubject ? this.form.customSubject : this.form.subject;
+                    if(!finalSubject) return;
+                    const finalExpiration = this.form.hasExpiration ? this.form.expiration : '';
+
+                    if (this.editingItem) {
+                        if (this.editingItem.status === 'agreed') {
+                            this.editingItem.history.push({
+                                content: this.editingItem.content,
+                                date: new Date().toISOString().split('T')[0]
+                            });
+                        }
+                        this.editingItem.subject = finalSubject;
+                        this.editingItem.content = this.form.content;
+                        this.editingItem.expiration = finalExpiration;
+                        this.editingItem.status = 'pending';
+                        this.editingItem.creator = 'Me'; 
+                    } else {
+                        this.understandings.push({
+                            id: Date.now(),
+                            subject: finalSubject,
+                            content: this.form.content,
+                            status: 'pending',
+                            creator: 'Me',
+                            history: [],
+                            expiration: finalExpiration,
+                            isHistoryOpen: false,
+                            approvedDate: null
+                        });
+                    }
+                    this.saveToStorage();
+                    this.isModalOpen = false;
+                },
+
+                triggerTermination() {
+                    this.closeModal(); 
+                    this.openConfirmModal(
+                        this.t('terminateTitle'),
+                        this.t('terminateMsg'),
+                        () => {
+                            if (this.editingItem) {
+                                this.editingItem.status = 'pending';
+                                this.editingItem.terminationRequested = true;
+                                this.editingItem.creator = 'Me'; 
+                                this.saveToStorage();
+                            }
+                        }
+                    );
+                },
+
+                approveItem(item) {
+                    if (item.terminationRequested) {
+                        item.status = 'rejected';
+                        item.terminationRequested = false;
+                        item.terminatedDate = new Date().toISOString().split('T')[0];
+                    } else {
+                        item.status = 'agreed';
+                        item.approvedDate = new Date().toISOString().split('T')[0];
+                    }
+                    this.saveToStorage();
+                },
+
+                rejectItem(item) {
+                    if (item.terminationRequested) {
+                        item.status = 'agreed';
+                        item.terminationRequested = false;
+                    } else {
+                        if(item.history.length > 0) {
+                            const lastVer = item.history.pop();
+                            item.content = lastVer.content;
+                            item.status = 'agreed';
+                        } else {
+                            item.status = 'rejected';
+                            item.approvedDate = null;
+                        }
+                    }
+                    this.saveToStorage();
+                },
+
+                triggerForfeit(item) {
+                    this.openConfirmModal(
+                        this.t('confirmForfeit'),
+                        this.t('forfeitMsg'),
+                        () => {
+                            if(item.history.length > 0) {
+                                const lastVer = item.history.pop();
+                                item.content = lastVer.content;
+                                item.status = 'agreed';
+                            } else {
+                                this.understandings = this.understandings.filter(u => u.id !== item.id);
+                            }
+                            this.saveToStorage();
+                        }
+                    );
+                },
+
+                reviveItem(item) {
+                    item.terminatedDate = null; 
+                    this.openEditModal(item);
+                },
+
+                toggleHistory(item) {
+                    item.isHistoryOpen = !item.isHistoryOpen;
+                },
+
+                saveToStorage() {
+                    localStorage.setItem('rujum_understandings_v2', JSON.stringify(this.understandings));
+                }
+            }
+        }).component('app-header', AppHeader)
+          .component('app-footer', AppFooter)
+          .component('section-header', SectionHeader)
+          .component('ai-chat', AiChat)
+          .mount('#app');
+    </script>
+</body>
+</html>

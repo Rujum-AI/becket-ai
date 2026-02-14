@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rujum AI | Finance</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        
+        <app-header :lang="lang" @toggle-lang="toggleLang"></app-header>
+        <ai-chat></ai-chat>
+
+        <main class="content-wrap px-6 sm:px-8">
+
+            <div class="mb-12">
+                <section-header :title="t('overview')" icon="finance.png"></section-header>
+
+                <div class="flex flex-col gap-6 px-2">
+                    
+                    <div class="flex justify-center">
+                        <div class="flex bg-slate-100 p-1 rounded-full border border-slate-200 shadow-sm">
+                            <button v-for="tf in timeframes" :key="tf" 
+                                    @click="activeTimeframe = tf"
+                                    class="px-5 py-2 rounded-full text-[11px] font-bold uppercase tracking-wide transition-all"
+                                    :class="activeTimeframe === tf ? 'bg-slate-800 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'">
+                                {{ t(tf) }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="chart-container mt-2">
+                        <div class="clean-pie textured shadow-xl" :style="{ background: pieGradient }"></div>
+                        <div class="pie-hole">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{{ t('total') }}</span>
+                            <span class="text-3xl font-black text-slate-800 tracking-tight bidi-isolate">{{ totalAmount }}</span>
+                            <span class="text-[10px] font-bold text-slate-400">ILS</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div v-for="cat in categories" :key="cat.id" class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full border border-slate-200 bg-white p-0 flex-shrink-0 overflow-hidden">
+                                <img :src="'src/assets/' + cat.icon" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex flex-col leading-none text-start">
+                                <span class="text-sm font-bold text-slate-800">{{ t(cat.name) }}</span>
+                                <span class="text-[11px] text-slate-500 font-bold mt-0.5 bidi-isolate">{{ cat.percent }}% â€¢ {{ cat.amount }} â‚ª</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="flex justify-between text-[10px] font-black uppercase text-slate-400 mb-2 px-1 tracking-wider">
+                            <span>{{ t('dadPaid') }} <span class="bidi-isolate">({{ dadShare }}%)</span></span>
+                            <span>{{ t('momPaid') }} <span class="bidi-isolate">({{ 100 - dadShare }}%)</span></span>
+                        </div>
+                        <div class="split-bar-container shadow-sm">
+                            <div class="textured h-full bg-[#CFFAFE]" :style="{ width: dadShare + '%' }"></div>
+                            <div class="textured h-full bg-[#FFEDD5]" :style="{ width: (100 - dadShare) + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-24">
+                <section-header :title="t('transactions')" icon="finance.png" :has-action="true" @action="openAddModal"></section-header>
+
+                <div class="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 mt-4">
+                    <div v-for="exp in filteredExpenses" :key="exp.id" class="expense-row">
+                        <div class="flex items-center gap-4">
+                            <div class="icon-img-wrapper">
+                                <img :src="'src/assets/' + exp.icon" :alt="exp.catName">
+                            </div>
+                            <div class="flex flex-col gap-1 text-start">
+                                <span class="font-bold text-slate-800 text-[15px] leading-none">{{ exp.title }}</span>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                    {{ t(exp.payer) }} â€¢ <span class="bidi-isolate">{{ exp.date }}</span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="font-black text-slate-800 text-lg bidi-isolate">{{ exp.amount }} â‚ª</div>
+                    </div>
+                </div>
+            </div>
+
+            <transition name="pop">
+                <div v-if="isAddModalOpen" class="modal-overlay" @click.self="isAddModalOpen = false">
+                    <div class="modal-container w-[90%] md:w-[500px]">
+                        <div class="modal-close-btn" @click="isAddModalOpen = false"><i data-lucide="x" class="w-6 h-6"></i></div>
+                        
+                        <div class="modal-header-banner bg-slate-800 py-10">
+                            <h2 class="modal-title text-2xl text-white">{{ t('newExpense') }}</h2>
+                        </div>
+                        
+                        <div class="modal-body">
+                            <div class="mb-4">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1 text-start">{{ t('whatIsIt') }}</label>
+                                <input type="text" v-model="newExpTitle" :placeholder="t('descPlaceholder')" 
+                                       class="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none font-bold text-slate-800 focus:border-slate-800 transition-colors text-start">
+                            </div>
+
+                            <div class="mb-8">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1 text-start">{{ t('amount') }} (ILS)</label>
+                                <div class="relative">
+                                    <input type="number" v-model="newExpAmount" placeholder="0" 
+                                           class="w-full p-4 bg-slate-50 rounded-2xl border border-slate-200 outline-none font-black text-2xl text-slate-800 focus:border-slate-800 transition-colors text-start">
+                                    <div class="absolute end-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">â‚ª</div>
+                                </div>
+                            </div>
+
+                            <div class="mb-8">
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3 px-1 text-start">{{ t('category') }}</label>
+                                <div class="grid grid-cols-3 gap-3">
+                                    <div v-for="cat in categories" @click="newExpCategory = cat.id"
+                                         class="circle-select-btn"
+                                         :class="{'selected': newExpCategory === cat.id}">
+                                        <img :src="'src/assets/' + cat.icon" class="object-contain">
+                                        <span class="text-[9px] font-bold text-slate-500 uppercase text-center leading-tight">{{ t(cat.name) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button @click="addExpense" 
+                                    class="w-full py-4 bg-slate-900 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-transform">
+                                {{ t('saveExpense') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+        </main>
+        <app-footer :lang="lang"></app-footer>
+    </div>
+
+    <script src="components.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+        
+        const app = createApp({
+            data() {
+                return {
+                    lang: 'he', 
+                    activeTimeframe: 'month',
+                    timeframes: ['month', 'year', 'custom'],
+                    isAddModalOpen: false,
+                    newExpTitle: '',
+                    newExpAmount: '',
+                    newExpCategory: 'education',
+                    categories: [
+                        { id: 'education', name: 'education', color: '#FCD34D', percent: 35, amount: '2,100', icon: 'education.png' },
+                        { id: 'activities', name: 'activities', color: '#F87171', percent: 20, amount: '1,200', icon: 'activities.png' },
+                        { id: 'healthcare', name: 'healthcare', color: '#34D399', percent: 10, amount: '600', icon: 'healthcare.png' },
+                        { id: 'clothing', name: 'clothing', color: '#60A5FA', percent: 10, amount: '600', icon: 'clothing.png' },
+                        { id: 'food', name: 'food', color: '#FB923C', percent: 10, amount: '600', icon: 'food_beverages.png' },
+                        { id: 'legal', name: 'legal', color: '#94A3B8', percent: 10, amount: '600', icon: 'legal_bills.png' },
+                        { id: 'events', name: 'events', color: '#F472B6', percent: 5, amount: '300', icon: 'birthday_events.png' }
+                    ],
+                    expenses: [
+                        { id: 101, title: 'Math Tutor', amount: 200, payer: 'me', date: 'Feb 02', icon: 'education.png', catName: 'education' },
+                        { id: 102, title: 'Tennis Shoes', amount: 350, payer: 'partner', date: 'Feb 01', icon: 'clothing.png', catName: 'clothing' },
+                        { id: 103, title: 'Dentist Checkup', amount: 400, payer: 'me', date: 'Jan 28', icon: 'healthcare.png', catName: 'healthcare' }
+                    ],
+                    translations: {
+                        en: {
+                            overview: 'Overview', transactions: 'Transactions', add: 'Add Expense',
+                            month: 'Month', year: 'Year', custom: 'Date',
+                            total: 'Total', dadPaid: 'Dad Paid', momPaid: 'Mom Paid',
+                            education: 'Education', activities: 'Activities', healthcare: 'Healthcare', 
+                            clothing: 'Clothing', legal: 'Bills & Legal', food: 'Food', events: 'Events',
+                            all: 'All', newExpense: 'New Expense', amount: 'Amount', category: 'Category', saveExpense: 'Save Transaction',
+                            whatIsIt: 'What is it?', descPlaceholder: 'e.g. Piano Lesson',
+                            me: 'Me', partner: 'Partner'
+                        },
+                        he: {
+                            overview: '×ž×‘×˜ ×¢×œ', transactions: '×ª× ×•×¢×•×ª ××—×¨×•× ×•×ª', add: '×”×•×¡×¤×ª ×”×•×¦××”',
+                            month: '×—×•×“×©×™', year: '×©× ×ª×™', custom: '×ª××¨×™×š',
+                            total: '×¡×š ×”×›×œ', dadPaid: '×©×•×œ× ×¢×´×™ ××‘×', momPaid: '×©×•×œ× ×¢×´×™ ××ž×',
+                            education: '×—×™× ×•×š', activities: '×—×•×’×™× ×•×¤× ××™', healthcare: '×‘×¨×™××•×ª', 
+                            clothing: '×‘×™×’×•×“ ×•×”× ×¢×œ×”', legal: '×—×©×‘×•× ×•×ª ×©×•×˜×¤×™×', food: '×ž×–×•×Ÿ ×•×›×œ×›×œ×”', events: '××™×¨×•×¢×™×',
+                            all: '×”×›×œ', newExpense: '×”×•×¦××” ×—×“×©×”', amount: '×¡×›×•× ×œ×ª×©×œ×•×', category: '×§×˜×’×•×¨×™×”', saveExpense: '×©×ž×•×¨ ×ª× ×•×¢×”',
+                            whatIsIt: '×¢×œ ×ž×” ×”×”×•×¦××”?', descPlaceholder: '×œ×“×•×’×ž×”: ×©×™×¢×•×¨ ×¤×¡× ×ª×¨',
+                            me: '×× ×™', partner: '×¤×¨×˜× ×¨'
+                        }
+                    }
+                }
+            },
+            watch: {
+                lang: {
+                    immediate: true,
+                    handler(newLang) {
+                        document.body.className = newLang === 'en' ? 'lang-en' : 'lang-he';
+                        document.documentElement.dir = newLang === 'en' ? 'ltr' : 'rtl';
+                        this.$nextTick(() => lucide.createIcons());
+                    }
+                }
+            },
+            computed: {
+                totalAmount() { return this.activeTimeframe === 'month' ? '6,000' : '72,000'; },
+                dadShare() { return this.activeTimeframe === 'month' ? 65 : 50; },
+                pieGradient() {
+                    let css = 'conic-gradient(';
+                    let currentPos = 0;
+                    this.categories.forEach((cat, index) => {
+                        css += `${cat.color} ${currentPos}% ${currentPos + cat.percent}%`;
+                        if(index < this.categories.length - 1) css += ', ';
+                        currentPos += cat.percent;
+                    });
+                    css += ')';
+                    return css;
+                },
+                filteredExpenses() { return this.expenses; }
+            },
+            methods: {
+                t(key) { 
+                   if(!this.translations[this.lang]) return key;
+                   return this.translations[this.lang][key] || key; 
+                },
+                toggleLang() { 
+                    this.lang = this.lang === 'en' ? 'he' : 'en'; 
+                },
+                openAddModal() {
+                    this.newExpTitle = '';
+                    this.newExpAmount = '';
+                    this.newExpCategory = 'education';
+                    this.isAddModalOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                addExpense() {
+                    if(!this.newExpAmount || !this.newExpTitle) return;
+                    const cat = this.categories.find(c => c.id === this.newExpCategory);
+                    this.expenses.unshift({
+                        id: Date.now(),
+                        title: this.newExpTitle, 
+                        amount: this.newExpAmount,
+                        payer: 'me',
+                        date: 'Today',
+                        icon: cat ? cat.icon : 'finance.png',
+                        catName: cat ? cat.name : 'other'
+                    });
+                    this.isAddModalOpen = false;
+                }
+            },
+            mounted() { lucide.createIcons(); }
+        });
+
+        app.component('app-header', AppHeader);
+        app.component('app-footer', AppFooter);
+        app.component('section-header', SectionHeader);
+        app.component('ai-chat', AiChat);
+        app.mount('#app');
+    </script>
+</body>
+</html>

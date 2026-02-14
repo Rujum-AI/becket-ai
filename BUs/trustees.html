@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rujum AI | Trustees</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700;800;900&family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        /* --- CARD STYLES --- */
+        .entity-card {
+            background: white; border-radius: 1.5rem;
+            border: 1px solid #f1f5f9; 
+            padding: 1.2rem; display: flex; flex-direction: column; gap: 0.8rem;
+            position: relative; transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -2px rgba(0,0,0,0.02);
+        }
+        .entity-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.05); border-color: #cbd5e1; }
+        
+        .card-header-flex { display: flex; gap: 1rem; align-items: flex-start; }
+        
+        .card-icon-box { 
+            width: 48px; height: 48px; border-radius: 1rem; 
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; border: 1px solid rgba(0,0,0,0.05);
+        }
+        .bg-school { background: #f0fdfa; color: #0d9488; }
+        .bg-activity { background: #fff1f2; color: #be123c; }
+        .bg-trustee { background: #fff7ed; color: #c2410c; }
+
+        .card-main-content { flex: 1; min-width: 0; }
+        .card-title { font-family: 'Fraunces', serif; font-size: 1.2rem; font-weight: 700; color: #1e293b; line-height: 1.2; margin-bottom: 0.2rem; }
+        
+        .child-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+        .child-tiny-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #cbd5e1; }
+        .schedule-summary { font-size: 0.8rem; font-weight: 600; color: #64748b; }
+        .schedule-summary strong { color: #334155; font-weight: 800; }
+
+        .meta-row { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem; padding-top: 0.8rem; border-top: 1px dashed #f1f5f9; }
+        .meta-item { display: flex; items-center; gap: 0.4rem; font-size: 0.75rem; font-weight: 600; color: #94a3b8; }
+        
+        .items-flex { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+        .item-pill { font-size: 0.65rem; font-weight: 700; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 2px 8px; border-radius: 6px; }
+
+        .card-actions { display: flex; flex-direction: column; gap: 0.3rem; margin-inline-start: auto; }
+        .action-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #cbd5e1; transition: all 0.2s; }
+        .action-dot:hover { background: #f1f5f9; color: #1e293b; }
+        .action-dot.danger:hover { background: #fef2f2; color: #ef4444; }
+
+        /* --- NEW MODAL STRUCTURE --- */
+        /* Overrides specific to Trustees to handle fixed header + scrolling body */
+        .modal-container {
+            display: flex; flex-direction: column; 
+            max-height: 85vh; /* Ensure it fits in viewport */
+        }
+        
+        .modal-header-banner {
+            flex-shrink: 0; /* Prevents header from shrinking */
+            padding: 2.5rem 2rem 1.5rem; /* Compact banner */
+            position: relative;
+        }
+
+        .modal-body-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex; flex-direction: column; gap: 1.5rem;
+        }
+
+        /* --- FORM ELEMENTS --- */
+        .form-label { font-size: 0.65rem; font-weight: 900; text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 0.4rem; margin-inline-start: 4px; letter-spacing: 0.05em; }
+        .form-input { 
+            width: 100%; padding: 0.9rem 1rem; background: #f8fafc; border-radius: 1rem; 
+            border: 1px solid #e2e8f0; font-weight: 700; color: #334155; outline: none; transition: border-color 0.2s;
+            font-size: 0.9rem;
+        }
+        .form-input:focus { border-color: #0f172a; background: white; }
+
+        /* --- NEW SCHEDULE UI --- */
+        .day-toggle-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #fff; border: 1px solid #e2e8f0; padding: 0.5rem; border-radius: 99px;
+            margin-bottom: 1rem;
+        }
+        
+        .day-bubble {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 800; color: #94a3b8;
+            cursor: pointer; transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        .day-bubble:hover { background: #f1f5f9; }
+        .day-bubble.active {
+            background: #0f172a; color: white; box-shadow: 0 4px 6px rgba(15, 23, 42, 0.2);
+        }
+
+        .time-row-edit {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.8rem; background: #f8fafc; border-radius: 0.8rem;
+            margin-bottom: 0.5rem; border: 1px solid #f1f5f9;
+        }
+        .time-row-label { width: 30px; font-weight: 800; font-size: 0.75rem; color: #64748b; text-transform: uppercase; }
+        
+        .compact-time {
+            background: white; border: 1px solid #cbd5e1; border-radius: 0.5rem;
+            padding: 0.3rem; font-size: 0.8rem; font-weight: 700; color: #1e293b;
+            text-align: center; width: 85px; outline: none;
+        }
+        .compact-time:focus { border-color: #0f172a; }
+
+        .copy-all-btn {
+            font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
+            color: #0d9488; cursor: pointer; text-decoration: underline; margin-inline-start: auto;
+        }
+
+        /* Child Toggles */
+        .child-toggles { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 1rem; }
+        .c-tog { 
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; 
+            opacity: 0.5; filter: grayscale(100%); transition: all 0.2s; transform: scale(0.95);
+        }
+        .c-tog.selected { opacity: 1; filter: grayscale(0); transform: scale(1.1); }
+        .c-img { 
+            width: 56px; height: 56px; border-radius: 50%; object-fit: cover; 
+            border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 0.4rem;
+        }
+        .c-tog.selected .c-img { border-color: #0f172a; }
+
+        .modal-action-bar {
+            padding: 1.5rem 2rem; border-top: 1px solid #f1f5f9;
+            background: white; flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        
+        <app-header :lang="lang" @toggle-lang="toggleLang"></app-header>
+        <ai-chat></ai-chat>
+
+        <main class="content-wrap px-4 sm:px-8">
+
+            <div class="mb-10">
+                <section-header :title="t('schoolsTitle')" icon="school.png" :has-action="true" @action="openModal('school')"></section-header>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div v-for="school in schools" :key="school.id" class="entity-card">
+                        <div class="card-header-flex">
+                            <div class="card-icon-box bg-school"><i data-lucide="graduation-cap" class="w-6 h-6"></i></div>
+                            <div class="card-main-content">
+                                <div class="card-title">{{ school.name }}</div>
+                                
+                                <div v-for="childId in school.children" :key="childId" class="child-row">
+                                    <img :src="getChildImg(childId)" class="child-tiny-avatar">
+                                    <span class="schedule-summary" v-html="formatScheduleSummary(school.schedule)"></span>
+                                </div>
+
+                                <div class="items-flex" v-if="school.items && school.items.length">
+                                    <div v-for="item in school.items" class="item-pill">{{ item }}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="card-actions">
+                                <div class="action-dot" @click="editItem('school', school)"><i data-lucide="pencil" class="w-4 h-4"></i></div>
+                                <div class="action-dot danger" @click="confirmDelete('school', school)"><i data-lucide="trash-2" class="w-4 h-4"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="meta-row">
+                            <div class="meta-item"><i data-lucide="map-pin" class="w-3 h-3"></i> {{ school.address }}</div>
+                            <div class="meta-item"><i data-lucide="phone" class="w-3 h-3"></i> <span class="bidi-isolate">{{ school.contact }}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-10">
+                <section-header :title="t('activitiesTitle')" icon="activities.png" :has-action="true" @action="openModal('activity')"></section-header>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div v-for="act in sortedActivities" :key="act.id" class="entity-card">
+                        <div class="card-header-flex">
+                            <div class="card-icon-box bg-activity"><i data-lucide="trophy" class="w-6 h-6"></i></div>
+                            <div class="card-main-content">
+                                <div class="card-title">{{ act.name }}</div>
+                                
+                                <div v-for="childId in act.children" :key="childId" class="child-row">
+                                    <img :src="getChildImg(childId)" class="child-tiny-avatar">
+                                    <span class="schedule-summary" v-html="formatScheduleSummary(act.schedule)"></span>
+                                </div>
+
+                                <div class="items-flex" v-if="act.items && act.items.length">
+                                    <div v-for="item in act.items" class="item-pill">{{ item }}</div>
+                                </div>
+                            </div>
+
+                            <div class="card-actions">
+                                <div class="action-dot" @click="editItem('activity', act)"><i data-lucide="pencil" class="w-4 h-4"></i></div>
+                                <div class="action-dot danger" @click="confirmDelete('activity', act)"><i data-lucide="trash-2" class="w-4 h-4"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="meta-row">
+                            <div class="meta-item"><i data-lucide="map-pin" class="w-3 h-3"></i> {{ act.address }}</div>
+                            <div class="meta-item"><i data-lucide="phone" class="w-3 h-3"></i> <span class="bidi-isolate">{{ act.contact }}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-24">
+                <section-header :title="t('familyFriendsTitle')" icon="trustees.png" :has-action="true" @action="openModal('trustee')"></section-header>
+
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div v-for="person in trustees" :key="person.id" class="entity-card">
+                        <div class="card-header-flex">
+                            <div class="card-icon-box bg-trustee"><i data-lucide="user" class="w-6 h-6"></i></div>
+                            <div class="card-main-content">
+                                <div class="card-title">{{ person.name }}</div>
+                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">{{ t(person.relationship) }}</span>
+                            </div>
+                            <div class="card-actions">
+                                <div class="action-dot" @click="editItem('trustee', person)"><i data-lucide="pencil" class="w-4 h-4"></i></div>
+                                <div class="action-dot danger" @click="confirmDelete('trustee', person)"><i data-lucide="trash-2" class="w-4 h-4"></i></div>
+                            </div>
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-item"><i data-lucide="map-pin" class="w-3 h-3"></i> {{ person.address }}</div>
+                            <div class="meta-item"><i data-lucide="phone" class="w-3 h-3"></i> <span class="bidi-isolate">{{ person.contact }}</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <transition name="pop">
+                <div v-if="activeModal === 'school' || activeModal === 'activity'" class="modal-overlay" @click.self="closeModal">
+                    <div class="modal-container w-[90%] md:w-[500px]">
+                        
+                        <div class="modal-header-banner" :class="activeModal === 'school' ? 'bg-teal-600' : 'bg-rose-500'">
+                            <div class="modal-close-btn" @click="closeModal"><i data-lucide="x" class="w-6 h-6"></i></div>
+                            <div class="flex flex-col items-center">
+                                <div class="bg-white/20 p-3 rounded-2xl mb-3 backdrop-blur-md border border-white/30">
+                                    <img :src="activeModal === 'school' ? 'src/assets/school.png' : 'src/assets/activities.png'" class="w-8 h-8 object-contain brightness-0 invert">
+                                </div>
+                                <h2 class="text-2xl font-bold text-white text-center">{{ getModalTitle() }}</h2>
+                            </div>
+                        </div>
+
+                        <div class="modal-body-scroll">
+                            
+                            <div class="child-toggles">
+                                <div v-for="child in children" 
+                                     @click="toggleChild(child.id)"
+                                     class="c-tog" 
+                                     :class="{selected: form.children.includes(child.id)}">
+                                    <img :src="child.gender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png'" class="c-img">
+                                    <span class="c-name">{{ child.name }}</span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="form-label">{{ t('nameLabel') }}</label>
+                                <input v-model="form.name" type="text" class="form-input" :placeholder="activeModal === 'school' ? 'e.g. Rainbow Kindergarten' : 'e.g. Judo Class'">
+                            </div>
+
+                            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                                <label class="form-label mb-3 text-center">{{ t('scheduleLabel') }}</label>
+                                
+                                <div class="day-toggle-row">
+                                    <div v-for="(day, idx) in weekDaysShort" :key="idx" 
+                                         class="day-bubble" 
+                                         :class="{active: form.schedule.days[idx].active}"
+                                         @click="toggleDay(idx)">
+                                        {{ day.charAt(0) }}
+                                    </div>
+                                </div>
+
+                                <div v-if="hasActiveDays">
+                                    <div class="flex justify-between items-center mb-2 px-1">
+                                        <span class="text-[10px] font-bold text-slate-400 uppercase">{{ t('setTimes') }}</span>
+                                        <span @click="syncTimes" class="copy-all-btn">{{ t('syncTimes') }}</span>
+                                    </div>
+                                    
+                                    <div class="flex flex-col gap-1">
+                                        <div v-for="(day, idx) in form.schedule.days" :key="idx">
+                                            <transition name="pop">
+                                                <div v-if="day.active" class="time-row-edit">
+                                                    <span class="time-row-label">{{ weekDaysShort[idx] }}</span>
+                                                    <input type="time" v-model="day.start" class="compact-time">
+                                                    <span class="text-slate-300 font-bold">-</span>
+                                                    <input type="time" v-model="day.end" class="compact-time">
+                                                </div>
+                                            </transition>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-else class="text-center py-4 text-slate-400 text-xs italic">
+                                    {{ t('selectDaysMsg') }}
+                                </div>
+
+                                <div class="mt-4 pt-4 border-t border-dashed border-slate-200 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="form-label">{{ t('frequency') }}</label>
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" v-model="form.schedule.repeatFreq" min="1" class="form-input text-center h-10 py-1">
+                                            <span class="text-xs font-bold text-slate-400">{{ t('weeks') }}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="form-label">{{ t('untilDate') }}</label>
+                                        <input type="date" v-model="form.schedule.endDate" class="form-input h-10 py-1 text-xs">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="form-label">{{ t('addressLabel') }}</label>
+                                    <input v-model="form.address" type="text" class="form-input">
+                                </div>
+                                <div>
+                                    <label class="form-label">{{ t('contactLabel') }}</label>
+                                    <input v-model="form.contact" type="tel" class="form-input">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="form-label">{{ t('itemsLabel') }}</label>
+                                <div class="flex gap-2 mb-3">
+                                    <input v-model="newItemInput" @keyup.enter="addItem" type="text" :placeholder="t('addItemPlace')" class="form-input">
+                                    <button @click="addItem" class="w-12 bg-slate-900 text-white rounded-xl flex items-center justify-center shadow-lg active:scale-95 transition-transform"><i data-lucide="plus" class="w-5 h-5"></i></button>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <div v-for="(tag, idx) in form.items" class="item-pill border-slate-200">
+                                        {{ tag }} <span @click="removeItem(idx)" class="ms-1 cursor-pointer text-slate-400 hover:text-red-500 font-black">Ã—</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-action-bar">
+                            <div class="flex gap-4">
+                                <button @click="closeModal" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-full font-black text-xs uppercase">{{ t('discard') }}</button>
+                                <button @click="saveEntity" class="flex-1 py-4 bg-slate-900 text-white rounded-full font-black text-xs uppercase shadow-lg active:scale-95 transition-transform">{{ t('save') }}</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="pop">
+                <div v-if="activeModal === 'trustee'" class="modal-overlay" @click.self="closeModal">
+                    <div class="modal-container w-[90%] md:w-[500px]">
+                        
+                        <div class="modal-header-banner bg-orange-400">
+                            <div class="modal-close-btn" @click="closeModal"><i data-lucide="x" class="w-6 h-6"></i></div>
+                            <div class="flex flex-col items-center">
+                                <div class="bg-white/20 p-3 rounded-2xl mb-3 backdrop-blur-md border border-white/30">
+                                    <img src="src/assets/trustees.png" class="w-8 h-8 object-contain brightness-0 invert">
+                                </div>
+                                <h2 class="text-2xl font-bold text-white text-center">{{ isEditing ? t('editPerson') : t('addPerson') }}</h2>
+                            </div>
+                        </div>
+
+                        <div class="modal-body-scroll">
+                            <div>
+                                <label class="form-label">{{ t('nameLabel') }}</label>
+                                <input v-model="form.name" type="text" class="form-input">
+                            </div>
+                            <div>
+                                <label class="form-label">{{ t('relationLabel') }}</label>
+                                <select v-if="!isCustomRel" v-model="form.relationship" @change="checkCustomRel" class="form-input cursor-pointer">
+                                    <option value="Family">{{ t('Family') }}</option>
+                                    <option value="Friend">{{ t('Friend') }}</option>
+                                    <option value="Babysitter">{{ t('Babysitter') }}</option>
+                                    <option value="custom">+ {{ t('addNewRel') }}</option>
+                                </select>
+                                <div v-else class="flex gap-2">
+                                    <input v-model="form.relationship" type="text" :placeholder="t('typeRel')" class="form-input">
+                                    <button @click="isCustomRel = false; form.relationship = 'Family'" class="w-12 flex items-center justify-center text-slate-400 hover:text-red-500"><i data-lucide="x"></i></button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label class="form-label">{{ t('addressLabel') }}</label>
+                                    <input v-model="form.address" type="text" class="form-input">
+                                </div>
+                                <div>
+                                    <label class="form-label">{{ t('contactLabel') }}</label>
+                                    <input v-model="form.contact" type="tel" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-action-bar">
+                            <div class="flex gap-4">
+                                <button @click="closeModal" class="flex-1 py-4 bg-slate-100 text-slate-500 rounded-full font-black text-xs uppercase">{{ t('discard') }}</button>
+                                <button @click="saveTrustee" class="flex-1 py-4 bg-orange-500 text-white rounded-full font-black text-xs uppercase shadow-lg active:scale-95 transition-transform">{{ t('save') }}</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </transition>
+
+            <transition name="pop">
+                <div v-if="deleteModal.isOpen" class="modal-overlay" @click.self="closeDeleteModal">
+                    <div class="modal-container w-[90%] md:w-[400px]">
+                        <div class="p-8 text-center flex flex-col items-center">
+                            <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
+                                <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+                            </div>
+                            <h2 class="text-xl font-serif font-bold text-slate-900 mb-2">{{ t('deleteTitle') }}</h2>
+                            <p class="text-slate-500 text-sm font-bold mb-6">{{ t('deleteMsg') }}</p>
+                            <div class="flex gap-4 w-full">
+                                <button @click="closeDeleteModal" class="flex-1 py-3 bg-white border border-slate-200 rounded-full font-bold text-slate-600 uppercase">{{ t('cancel') }}</button>
+                                <button @click="executeDelete" class="flex-1 py-3 bg-red-500 text-white rounded-full font-bold uppercase shadow-lg">{{ t('delete') }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+
+        </main>
+        <app-footer :lang="lang"></app-footer>
+    </div>
+
+    <script src="components.js"></script>
+
+    <script>
+        const { createApp } = Vue;
+        
+        createApp({
+            data() {
+                return {
+                    lang: 'en',
+                    activeModal: null, 
+                    isEditing: false, 
+                    isCustomRel: false, 
+                    newItemInput: '',
+                    editingDayIdx: null,
+                    deleteModal: { isOpen: false, type: null, item: null },
+
+                    children: [
+                        { id: 'rom', name: 'Rom', gender: 'boy' },
+                        { id: 'kai', name: 'Kai', gender: 'girl' }
+                    ],
+
+                    form: {
+                        id: null, name: '', address: '', contact: '',
+                        children: [], items: [], relationship: 'Family',
+                        schedule: {
+                            days: Array(7).fill(null).map(() => ({ active: false, start: '', end: '' })),
+                            repeatFreq: 1, startDate: new Date().toISOString().split('T')[0], endDate: ''
+                        }
+                    },
+
+                    schools: [],
+                    activities: [],
+                    trustees: [
+                         { id: 1, name: 'Grandma Ruth', relationship: 'Family', address: 'Tel Aviv', contact: '052-9999999' }
+                    ],
+
+                    translations: {
+                        en: {
+                            schoolsTitle: 'Daycares & Schools', activitiesTitle: 'After School Activities', familyFriendsTitle: 'Family & Friends',
+                            addSchool: 'Add Institution', editSchool: 'Edit Institution', addActivity: 'Add Activity', editActivity: 'Edit Activity', addPerson: 'Add Person', editPerson: 'Edit Person',
+                            nameLabel: 'Name', scheduleLabel: 'Schedule', setTimeFor: 'Set time for',
+                            addressLabel: 'Address', contactLabel: 'Phone', itemsLabel: 'Daily Gear', addItemPlace: 'Add item...',
+                            weekDays: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+                            weekDaysShort: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+                            start: 'Start', end: 'End', done: 'Done',
+                            startDate: 'Starts', endDate: 'Ends', untilDate: 'Ends on', repeatEvery: 'Every', weeks: 'Weeks', frequency: 'Repeats Every',
+                            relationLabel: 'Relationship', Family: 'Family', Friend: 'Friend', Babysitter: 'Babysitter', addNewRel: 'Add New', typeRel: 'Relation...',
+                            save: 'Save', discard: 'Discard', cancel: 'Cancel', delete: 'Delete', deleteTitle: 'Delete Item?', deleteMsg: 'This action cannot be undone.',
+                            selectDaysMsg: 'Tap days above to add times.', setTimes: 'Set Times', syncTimes: 'Copy first time to all'
+                        },
+                        he: {
+                            schoolsTitle: '×ž×¡×’×¨×•×ª ×—×™× ×•×š', activitiesTitle: '×—×•×’×™× ×•×¤×¢×™×œ×•×™×•×ª', familyFriendsTitle: '×ž×©×¤×—×” ×•×—×‘×¨×™×',
+                            addSchool: '×”×•×¡×£ ×ž×¡×’×¨×ª', editSchool: '×¢×¨×™×›×ª ×ž×¡×’×¨×ª', addActivity: '×”×•×¡×£ ×—×•×’', editActivity: '×¢×¨×™×›×ª ×—×•×’', addPerson: '×”×•×¡×£ ××™×© ×§×©×¨', editPerson: '×¢×¨×™×›×ª ××™×© ×§×©×¨',
+                            nameLabel: '×©× ×”×ž×§×•×', scheduleLabel: '×™×ž×™× ×•×©×¢×•×ª', setTimeFor: '×”×’×“×¨×ª ×©×¢×•×ª ×œ×™×•×',
+                            addressLabel: '×›×ª×•×‘×ª', contactLabel: '×˜×œ×¤×•×Ÿ', itemsLabel: '×¦×™×•×“ ×§×‘×•×¢', addItemPlace: '×”×•×¡×£ ×¤×¨×™×˜...',
+                            weekDays: ['×¨××©×•×Ÿ','×©× ×™','×©×œ×™×©×™','×¨×‘×™×¢×™','×—×ž×™×©×™','×©×™×©×™','×©×‘×ª'],
+                            weekDaysShort: ['×','×‘','×’','×“','×”','×•','×©'],
+                            start: '×”×ª×—×œ×”', end: '×¡×™×•×', done: '×¡×™×™×',
+                            startDate: '×”×ª×—×œ×”', endDate: '×¡×™×•×', untilDate: '×ª××¨×™×š ×¡×™×•×', repeatEvery: '×›×œ', weeks: '×©×‘×•×¢×•×ª', frequency: '×ª×“×™×¨×•×ª (×‘×©×‘×•×¢×•×ª)',
+                            relationLabel: '×§×¨×‘×”', Family: '×ž×©×¤×—×”', Friend: '×—×‘×¨/×”', Babysitter: '×‘×™×™×‘×™×¡×™×˜×¨', addNewRel: '××—×¨...', typeRel: '×”×–×Ÿ ×§×¨×‘×”...',
+                            save: '×©×ž×™×¨×”', discard: '×‘×™×˜×•×œ', cancel: '×‘×™×˜×•×œ', delete: '×ž×—×§', deleteTitle: '×œ×ž×—×•×§?', deleteMsg: '×”×¤×¢×•×œ×” ×ª×¡×™×¨ ××ª ×”×¤×¨×™×˜ ×œ×¦×ž×™×ª×•×ª.',
+                            selectDaysMsg: '×™×© ×œ×‘×—×•×¨ ×™×ž×™× ×‘×˜×‘×¢×ª ×œ×ž×¢×œ×”.', setTimes: '×”×’×“×¨×ª ×©×¢×•×ª', syncTimes: '×”×¢×ª×§ ×©×¢×” ×œ×›×•×œ×'
+                        }
+                    }
+                }
+            },
+            computed: {
+                weekDays() { return this.translations[this.lang].weekDays; },
+                weekDaysShort() { return this.translations[this.lang].weekDaysShort; },
+                hasActiveDays() {
+                    return this.form.schedule.days.some(d => d.active);
+                },
+                sortedActivities() {
+                    return [...this.activities].sort((a, b) => {
+                        if(!a.schedule || !a.schedule.days) return 0;
+                        if(!b.schedule || !b.schedule.days) return 0;
+                        let dayA = a.schedule.days.findIndex(d => d.active);
+                        let dayB = b.schedule.days.findIndex(d => d.active);
+                        if (dayA === -1) dayA = 99; if (dayB === -1) dayB = 99;
+                        return dayA - dayB;
+                    });
+                }
+            },
+            watch: {
+                lang: {
+                    immediate: true,
+                    handler(newLang) {
+                        document.body.className = newLang === 'en' ? 'lang-en' : 'lang-he';
+                        document.documentElement.dir = newLang === 'en' ? 'ltr' : 'rtl';
+                        this.$nextTick(() => lucide.createIcons());
+                    }
+                }
+            },
+            created() {
+                this.resetForm();
+                // Load example data
+                if(this.schools.length === 0) {
+                     this.schools = [{ 
+                        id: 1, name: 'Rainbow Kindergarten', address: 'Herzl 45, Modiin', contact: '050-1234567', children: ['kai'], items: ['Water Bottle'], 
+                        schedule: this.createMockSchedule([0,1,2,3,4], '07:30', '16:00')
+                    }];
+                }
+                if(this.activities.length === 0) {
+                    this.activities = [{
+                         id: 2, name: 'Judo', address: 'Community Center', contact: '050-000000', children: ['rom'], items: ['Gi'],
+                         schedule: this.createMockSchedule([1,3], '17:00', '18:00')
+                    }];
+                }
+            },
+            methods: {
+                t(key) { return this.translations[this.lang][key] || key; },
+                toggleLang() { this.lang = this.lang === 'en' ? 'he' : 'en'; },
+
+                createMockSchedule(activeIndices, start, end) {
+                    const days = Array(7).fill(null).map(() => ({ active: false, start: '', end: '' }));
+                    activeIndices.forEach(i => { days[i] = { active: true, start, end }; });
+                    return { days, repeatFreq: 1, startDate: new Date().toISOString().split('T')[0], endDate: '' };
+                },
+
+                getChildImg(id) {
+                    const child = this.children.find(c => c.id === id);
+                    return child && child.gender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png';
+                },
+
+                formatScheduleSummary(schedule) {
+                    if (!schedule || !schedule.days) return '';
+                    const dayNames = this.weekDaysShort;
+                    let parts = [];
+                    schedule.days.forEach((d, i) => {
+                        if(d.active) parts.push(`<strong>${dayNames[i]}</strong> ${d.start}-${d.end}`);
+                    });
+                    if(parts.length === 0) return '<span class="text-slate-300">No schedule</span>';
+                    // Show compact summary if lots of days
+                    if(parts.length > 2) return parts.length + ' days active';
+                    return parts.join(', ');
+                },
+
+                resetForm() {
+                    this.form = {
+                        id: null, name: '', address: '', contact: '', children: [], items: [], relationship: 'Family',
+                        schedule: {
+                            days: Array(7).fill(null).map(() => ({ active: false, start: '', end: '' })),
+                            repeatFreq: 1, startDate: new Date().toISOString().split('T')[0], endDate: ''
+                        }
+                    };
+                    this.editingDayIdx = null;
+                },
+                openModal(type) {
+                    this.activeModal = type;
+                    this.isEditing = false;
+                    this.resetForm();
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                editItem(type, item) {
+                    this.activeModal = type;
+                    this.isEditing = true;
+                    // Deep copy to prevent mutating list directly
+                    const copy = JSON.parse(JSON.stringify(item));
+                    // Fix potential missing structure in old data
+                    if(!copy.schedule) copy.schedule = this.resetForm().schedule;
+                    if(!copy.schedule.days) copy.schedule.days = this.resetForm().schedule.days;
+                    
+                    this.form = copy;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeModal() { this.activeModal = null; },
+                
+                getModalTitle() {
+                    if(this.activeModal === 'school') return this.isEditing ? this.t('editSchool') : this.t('addSchool');
+                    return this.isEditing ? this.t('editActivity') : this.t('addActivity');
+                },
+
+                // --- NEW SCHEDULE INTERACTION ---
+                toggleDay(idx) {
+                    const d = this.form.schedule.days[idx];
+                    d.active = !d.active;
+                    // Optional: Default time if empty
+                    if(d.active && !d.start && !d.end) {
+                        // Inherit from first active day if exists, else defaults
+                        const first = this.form.schedule.days.find(x => x.active && x !== d && x.start);
+                        if(first) {
+                            d.start = first.start;
+                            d.end = first.end;
+                        } else {
+                            d.start = '08:00'; d.end = '13:00';
+                        }
+                    }
+                },
+                
+                syncTimes() {
+                    const firstActive = this.form.schedule.days.find(d => d.active);
+                    if(firstActive) {
+                        const { start, end } = firstActive;
+                        this.form.schedule.days.forEach(d => {
+                            if(d.active) { d.start = start; d.end = end; }
+                        });
+                    }
+                },
+
+                toggleChild(id) {
+                    if (this.form.children.includes(id)) this.form.children = this.form.children.filter(c => c !== id);
+                    else this.form.children.push(id);
+                },
+                addItem() {
+                    if(this.newItemInput.trim()) {
+                        this.form.items.push(this.newItemInput.trim());
+                        this.newItemInput = '';
+                    }
+                },
+                removeItem(idx) { this.form.items.splice(idx, 1); },
+                checkCustomRel() {
+                     if(this.form.relationship === 'custom') { this.isCustomRel = true; this.form.relationship = ''; }
+                },
+
+                saveEntity() {
+                    if(!this.form.name) return;
+                    
+                    const list = this.activeModal === 'school' ? this.schools : this.activities;
+                    if(this.isEditing) {
+                        const idx = list.findIndex(x => x.id === this.form.id);
+                        if(idx !== -1) list[idx] = { ...this.form };
+                    } else {
+                        list.push({ ...this.form, id: Date.now() });
+                    }
+                    this.syncToCalendar();
+                    this.closeModal();
+                },
+
+                saveTrustee() {
+                    if(!this.form.name) return;
+                    if(this.isEditing) {
+                        const idx = this.trustees.findIndex(t => t.id === this.form.id);
+                        if(idx !== -1) this.trustees[idx] = { ...this.form };
+                    } else {
+                        this.trustees.push({ ...this.form, id: Date.now() });
+                    }
+                    this.closeModal();
+                },
+
+                syncToCalendar() {
+                    const allData = { schools: this.schools, activities: this.activities };
+                    localStorage.setItem('rujum_activities_data', JSON.stringify(allData));
+                    
+                    let events = [];
+                    const entities = [...this.schools, ...this.activities];
+                    
+                    entities.forEach(ent => {
+                        if(!ent.schedule || !ent.schedule.days) return;
+                        ent.schedule.days.forEach((day, dayIdx) => {
+                            if(day.active && day.start) {
+                                events.push({
+                                    title: ent.name,
+                                    type: ent.id in this.schools ? 'school' : 'activity',
+                                    dayOfWeek: dayIdx,
+                                    startTime: day.start,
+                                    endTime: day.end,
+                                    childIds: ent.children
+                                });
+                            }
+                        });
+                    });
+                    localStorage.setItem('rujum_calendar_events_v2', JSON.stringify(events));
+                },
+
+                confirmDelete(type, item) {
+                    this.deleteModal = { isOpen: true, type, item };
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                closeDeleteModal() { this.deleteModal.isOpen = false; },
+                executeDelete() {
+                    const { type, item } = this.deleteModal;
+                    if (type === 'school') this.schools = this.schools.filter(s => s.id !== item.id);
+                    else if (type === 'activity') this.activities = this.activities.filter(a => a.id !== item.id);
+                    else this.trustees = this.trustees.filter(t => t.id !== item.id);
+                    
+                    this.syncToCalendar();
+                    this.closeDeleteModal();
+                }
+            },
+            mounted() {
+                lucide.createIcons();
+                this.syncToCalendar();
+            }
+        }).component('app-header', AppHeader)
+          .component('app-footer', AppFooter)
+          .component('section-header', SectionHeader)
+          .component('ai-chat', AiChat)
+          .mount('#app');
+    </script>
+</body>
+</html>

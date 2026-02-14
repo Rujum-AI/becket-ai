@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html :lang="lang" :dir="lang === 'he' ? 'rtl' : 'ltr'">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rujum AI | System Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Assistant:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --warm-linen: #FDFBF7;
+            --deep-slate: #1A1C1E;
+        }
+
+        body { 
+            background-color: var(--warm-linen); 
+            color: var(--deep-slate);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            direction: inherit;
+        }
+
+        .lang-en { font-family: 'Inter', sans-serif; }
+        .lang-en h1, .lang-en h2, .lang-en h3, .lang-en .font-serif { font-family: 'Fraunces', serif; font-weight: 700; }
+
+        .lang-he { font-family: 'Assistant', sans-serif; }
+        .lang-he h1, .lang-he h2, .lang-he h3, .lang-he .font-serif { font-family: 'Assistant', sans-serif; font-weight: 800; }
+
+        .btn-action {
+            transition: transform 0.1s ease, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            cursor: pointer;
+            transform: scale(1); 
+        }
+
+        .btn-action:hover {
+            filter: brightness(0.98); 
+        }
+
+        .btn-action:active {
+            transform: scale(0.97); 
+        }
+
+        .option-card {
+            background: white;
+            border-radius: 2rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            border: 2px solid transparent;
+        }
+
+        .card-selected {
+            border-color: #1e293b !important; /* Slate 800 */
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+        }
+
+        .card-fixed-boy { background-color: #f0fdfa !important; border-color: #5eead4 !important; }
+        .card-fixed-girl { background-color: #fff1f2 !important; border-color: #fda4af !important; }
+
+        .app-footer {
+            background: var(--deep-slate);
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .nav-btn {
+            padding: 0.75rem 2rem;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        [dir="rtl"] .mirror-icon { transform: scaleX(-1); }
+
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        .content-wrap { padding-bottom: 140px; }
+    </style>
+</head>
+<body :class="lang === 'en' ? 'lang-en' : 'lang-he'">
+    <div id="app">
+        
+        <nav class="p-6 md:p-8 flex justify-between items-center max-w-6xl mx-auto w-full">
+            <button @click="toggleLang" class="btn-action text-[11px] font-extrabold uppercase tracking-widest text-slate-400 hover:text-slate-800 w-24">
+                {{ lang === 'en' ? '×¢×‘×¨×™×ª' : 'English' }}
+            </button>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-[#1A1C1E] rounded-xl rotate-3 flex items-center justify-center shadow-lg">
+                    <i data-lucide="sparkles" class="text-white w-5 h-5"></i>
+                </div>
+                <span class="text-2xl font-serif tracking-tight">Rujum</span>
+            </div>
+            <div class="w-24"></div> 
+        </nav>
+
+        <main class="max-w-5xl mx-auto px-6 w-full content-wrap">
+            <transition name="fade" mode="wait">
+                
+                <div v-if="step === 1" key="step1">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl md:text-5xl mb-4">{{ t('step1Title') }}</h2>
+                        <p class="text-slate-400 text-lg mx-auto">{{ t('step1Sub') }}</p>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div @click="setMode('solo')" :class="{'card-selected': mode === 'solo'}" class="option-card btn-action p-10 flex flex-col items-center text-center">
+                            <div class="h-48 mb-6 flex items-center justify-center">
+                                <img src="src/assets/button_soloparent.png" class="max-h-full object-contain">
+                            </div>
+                            <h3 class="text-2xl mb-3">{{ t('soloTitle') }}</h3>
+                            <p class="text-slate-500 text-sm leading-relaxed">{{ t('soloDesc') }}</p>
+                        </div>
+                        <div @click="mode = 'co-parent'" :class="{'card-selected': mode === 'co-parent'}" class="option-card btn-action p-10 flex flex-col items-center text-center">
+                            <div class="h-48 mb-6 flex items-center justify-center">
+                                <img src="src/assets/button_coparents.png" class="max-h-full object-contain">
+                            </div>
+                            <h3 class="text-2xl mb-3">{{ t('coTitle') }}</h3>
+                            <p class="text-slate-500 text-sm leading-relaxed">{{ t('coDesc') }}</p>
+                            <div v-if="mode === 'co-parent'" class="mt-6 w-full" @click.stop>
+                                <input type="email" :placeholder="t('partnerEmail')" class="w-full p-4 rounded-xl bg-slate-50 border-none outline-none text-center font-bold focus:ring-2 ring-slate-200">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="step === 2" key="step2">
+                    <div class="text-center mb-10">
+                        <h2 class="text-4xl mb-3">{{ t('step2Title') }}</h2>
+                        <p class="text-slate-400">{{ t('step2Sub') }}</p>
+                    </div>
+                    <div class="space-y-6 max-w-3xl mx-auto">
+                        <div v-for="(child, index) in children" :key="child.id" 
+                             :class="[child.confirmed ? (child.gender === 'boy' ? 'card-fixed-boy' : 'card-fixed-girl') : 'shadow-sm']"
+                             class="option-card p-8 relative flex flex-col md:flex-row gap-8 items-center transition-all">
+                            
+                            <button v-if="children.length > 1" @click="removeChild(index)" 
+                                    class="absolute top-4 end-4 w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:bg-red-500 hover:text-white btn-action z-10">
+                                <span class="text-xl font-bold">Ã—</span>
+                            </button>
+
+                            <div class="flex flex-col items-center gap-4">
+                                <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-md overflow-hidden relative">
+                                    <img :src="child.gender === 'boy' ? 'src/assets/thumbnail_boy.png' : 'src/assets/thumbnail_girl.png'" 
+                                         class="w-full h-full object-contain scale-110 translate-y-1">
+                                </div>
+                                <div class="flex bg-slate-100 p-1 rounded-full" v-if="!child.confirmed">
+                                    <button @click="child.gender = 'boy'" :class="child.gender === 'boy' ? 'bg-white shadow-sm' : 'text-slate-400'" class="px-4 py-1 rounded-full text-[10px] font-black uppercase btn-action">{{ t('boy') }}</button>
+                                    <button @click="child.gender = 'girl'" :class="child.gender === 'girl' ? 'bg-white shadow-sm' : 'text-slate-400'" class="px-4 py-1 rounded-full text-[10px] font-black uppercase btn-action">{{ t('girl') }}</button>
+                                </div>
+                                <div v-else :class="child.gender === 'boy' ? 'text-teal-600 bg-teal-100/50' : 'text-rose-600 bg-rose-100/50'" class="text-[10px] font-black uppercase px-4 py-1 rounded-full">
+                                    {{ child.gender === 'boy' ? t('boy') : t('girl') }}
+                                </div>
+                            </div>
+
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">{{ t('labelName') }}</label>
+                                    <input type="text" v-model="child.name" :disabled="child.confirmed" 
+                                           class="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold disabled:bg-transparent disabled:text-slate-700">
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">{{ t('labelDob') }}</label>
+                                    <input type="date" :disabled="child.confirmed" 
+                                           class="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold disabled:bg-transparent disabled:text-slate-700">
+                                </div>
+                                <div class="md:col-span-2 flex flex-col md:flex-row gap-4 items-end">
+                                    <div class="flex-1 w-full">
+                                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 block">{{ t('labelMedical') }}</label>
+                                        <input type="text" :disabled="child.confirmed" 
+                                               class="w-full p-3 bg-slate-50 rounded-xl outline-none font-bold disabled:bg-transparent disabled:text-slate-700" :placeholder="t('medPlaceholder')">
+                                    </div>
+                                    
+                                    <button @click="toggleConfirm(child)" 
+                                            :disabled="!child.name"
+                                            :class="[
+                                                child.confirmed ? 'bg-slate-400 text-white' : (child.gender === 'boy' ? 'bg-teal-600 text-white shadow-lg' : 'bg-rose-500 text-white shadow-lg'),
+                                                'w-full md:w-44 py-4 rounded-2xl font-bold text-sm btn-action flex items-center justify-center gap-2'
+                                            ]">
+                                        <span v-if="!child.confirmed" class="text-xl">âœ“</span>
+                                        <span v-else class="text-lg">âœŽ</span>
+                                        <span>{{ child.confirmed ? t('edit') : t('confirm') }}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="addChild" class="w-full py-6 border-2 border-dashed border-slate-300 rounded-3xl text-slate-400 hover:text-orange-400 hover:border-orange-200 font-bold uppercase text-xs btn-action">+ {{ t('addChild') }}</button>
+                    </div>
+                </div>
+
+                <div v-if="step === 3" key="step3" class="max-w-4xl mx-auto">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl mb-4">{{ t('step3Title') }}</h2>
+                        <p class="text-slate-400">{{ t('step3Sub') }}</p>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-6 mb-12">
+                        <div @click="homes = 1" :class="{'card-selected': homes === 1}" class="option-card p-8 text-center flex flex-col items-center btn-action">
+                            <div class="h-32 mb-4">
+                                <img src="src/assets/button_house1.png" class="h-full object-contain">
+                            </div>
+                            <h4 class="text-xl font-bold">{{ t('singleHome') }}</h4>
+                            <p class="text-sm text-slate-400 mt-2">{{ t('singleHomeDesc') }}</p>
+                        </div>
+                        <div @click="homes = 2" :class="{'card-selected': homes === 2}" class="option-card p-8 text-center flex flex-col items-center btn-action">
+                            <div class="h-32 mb-4">
+                                <img src="src/assets/button_house2.png" class="h-full object-contain">
+                            </div>
+                            <h4 class="text-xl font-bold">{{ t('dualHome') }}</h4>
+                            <p class="text-sm text-slate-400 mt-2">{{ t('dualHomeDesc') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4 mb-10 text-center">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] block mb-4">{{ t('relLabel') }}</label>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <button v-for="s in statusOptions" @click="status = s.key" 
+                                :class="status === s.key ? 'bg-slate-800 text-white shadow-lg' : 'bg-white text-slate-500 shadow-sm'" 
+                                class="py-4 rounded-2xl font-bold btn-action transition-colors">{{ s.label }}</button>
+                        </div>
+                    </div>
+
+                    <div v-if="status === 'separated'" class="mt-12 space-y-4">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] block text-center mb-6">{{ t('agreementLabel') }}</label>
+                        <div class="flex flex-col gap-3">
+                            <button v-for="a in agreementOptions" @click="agreement = a.key" 
+                                :class="agreement === a.key ? 'bg-teal-600 text-white shadow-md' : 'bg-white text-slate-500'" 
+                                class="p-6 rounded-2xl text-center font-bold shadow-sm btn-action transition-colors">{{ a.label }}</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="step === 4" key="step4">
+                    <div class="text-center mb-12">
+                        <h2 class="text-4xl mb-4">{{ t('step4Title') }}</h2>
+                        <p class="text-teal-600 font-bold text-xs uppercase italic">{{ t('recommended') }}: {{ t(recommendedPlan) }}</p>
+                    </div>
+                    <div class="grid lg:grid-cols-4 md:grid-cols-2 gap-4">
+                        <div v-for="plan in plans" @click="selectedPlan = plan.name" class="option-card p-6 flex flex-col relative btn-action" 
+                             :class="{'border-teal-500 shadow-2xl z-10': plan.name === selectedPlan}">
+                            
+                            <div v-if="plan.name === recommendedPlan" class="absolute top-0 end-0 bg-teal-500 text-white px-4 py-1 rounded-be-2xl text-[10px] font-black uppercase">{{ t('recommended') }}</div>
+                            <div v-else-if="plan.name === selectedPlan" class="absolute top-0 end-0 bg-slate-800 text-white px-4 py-1 rounded-be-2xl text-[10px] font-black uppercase">Selected</div>
+
+                            <h4 class="font-bold text-slate-800 text-lg mb-4">{{ t(plan.name) }}</h4>
+                            <div class="mb-6">
+                                <span class="text-3xl font-serif font-bold">${{plan.price}}</span>
+                                <span class="text-slate-400 text-xs">/mo</span>
+                            </div>
+                            <ul class="space-y-3 mb-8 flex-1">
+                                <li v-for="f in plan.features" class="text-[11px] text-slate-500 flex flex-row items-start gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-orange-300 mt-1 flex-shrink-0"></div> 
+                                    <span class="text-start">{{ t(f) }}</span>
+                                </li>
+                            </ul>
+                            <button :class="plan.name === selectedPlan ? 'bg-slate-800 text-white shadow-lg' : 'bg-white border-2 border-slate-50'" class="w-full py-4 rounded-xl font-bold text-xs transition-colors">{{ t('select') }}</button>
+                        </div>
+                    </div>
+                </div>
+
+            </transition>
+        </main>
+
+        <footer class="app-footer">
+            <button @click="goBack" class="nav-btn btn-action text-white opacity-60 hover:opacity-100 flex items-center gap-2" :style="{visibility: step > 1 ? 'visible' : 'hidden'}">
+                <span class="text-xl mirror-icon">â†</span> {{ t('back') }}
+            </button>
+            <div class="hidden md:flex gap-3">
+                <div v-for="s in 4" :key="s" class="w-2.5 h-2.5 rounded-full transition-all duration-500" :class="step >= s ? 'bg-white w-8 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'bg-white/20'"></div>
+            </div>
+            <button @click="goNext" :disabled="!canGoNext" class="nav-btn btn-action bg-white text-slate-900 flex items-center gap-2 shadow-2xl">
+                {{ step === 4 ? t('complete') : t('next') }} <span class="text-xl mirror-icon">â†’</span>
+            </button>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() {
+                return {
+                    lang: 'he',
+                    step: 1,
+                    mode: '',
+                    homes: 1,
+                    status: 'together',
+                    agreement: '',
+                    selectedPlan: '',
+                    children: [{ id: Date.now(), name: '', gender: 'boy', confirmed: false }],
+                    translations: {
+                        en: {
+                            step1Title: 'Parenting Continuity', step1Sub: 'Define the operational mode for your family system.',
+                            soloTitle: 'Independent Setup', soloDesc: 'Building the framework solo for now. Invite partner later.',
+                            coTitle: 'Collaborative Setup', coDesc: 'Two parents, one shared operating system.',
+                            partnerEmail: "Co-Parent's Email", step2Title: 'Family Entities', step2Sub: 'The children at the center of the system.',
+                            boy: 'Boy', girl: 'Girl', labelName: 'Name', labelDob: 'Birth Date', labelMedical: 'Constraints', medPlaceholder: 'Medical / Allergies',
+                            addChild: 'Add Entity', step3Title: 'Operational Framework', step3Sub: 'How your family operates across time and space.',
+                            singleHome: 'Single Household', singleHomeDesc: 'Continuity within one primary location.',
+                            dualHome: 'Multi-Household', dualHomeDesc: 'Managing transitions and flow across locations.',
+                            relLabel: 'Relationship Context', together: 'Living Together', apart: 'Physically Distant', separated: 'Separated',
+                            agreementLabel: 'Operational Basis', agree1: 'Formal Agreement', agree2: 'Verbal Understanding', agree3: 'Building Foundation',
+                            step4Title: 'System Capability', recommended: 'Recommended',
+                            Essential: 'Essential', 'AI Assistant': 'AI Assistant', 'AI Mediator': 'AI Mediator', Complete: 'Complete',
+                            select: 'Select', back: 'Back', next: 'Next', complete: 'Initialize System', confirm: 'Confirm', edit: 'Edit',
+                            'Core Dashboards': 'Core Dashboards', 'Child Tracking': 'Child Tracking', 'Basic Expenses': 'Basic Expenses',
+                            'Advanced Presence Insights': 'Advanced Presence Insights', 'Context Preservation': 'Context Preservation', 'Daily Briefings': 'Daily Briefings',
+                            'Conflict Neutralizer': 'Conflict Neutralizer', 'Agreement Integration': 'Agreement Integration', 'Tone Guidance': 'Tone Guidance',
+                            'Full AI Suite': 'Full AI Suite', 'Mediator + Assistant': 'Mediator + Assistant', 'Unlimited History': 'Unlimited History'
+                        },
+                        he: {
+                            step1Title: '×¨×¦×£ ×”×•×¨×•×ª', step1Sub: '×”×’×“×¨×ª ×ž×•×“×œ ×”×¢×‘×•×“×” ×¢×‘×•×¨ ×”×ž×¢×¨×›×ª ×”×ž×©×¤×—×ª×™×ª.',
+                            soloTitle: '×”×§×ž×” ×¢×¦×ž××™×ª', soloDesc: '×‘× ×™×™×ª ×”×ª×©×ª×™×ª ×‘××•×¤×Ÿ ×¢×¦×ž××™. ×”×–×ž× ×ª ×¤×¨×˜× ×¨ ×‘×”×ž×©×š.',
+                            coTitle: '×”×§×ž×” ×ž×©×•×ª×¤×ª', coDesc: '×©× ×™ ×”×•×¨×™×, ×ž×¢×¨×›×ª ×”×¤×¢×œ×” ×ž×©×•×ª×¤×ª ××—×ª.',
+                            partnerEmail: '××™×ž×™×™×œ ×©×•×ª×£/×” ×œ×”×•×¨×•×ª', step2Title: '×”×’×“×¨×ª ×”×ž×©×¤×—×”', step2Sub: '×”×™×œ×“×™× ×‘×ž×¨×›×– ×”×¨×¦×£ ×”×˜×™×¤×•×œ×™.',
+                            boy: '×‘×Ÿ', girl: '×‘×ª', labelName: '×©×', labelDob: '×ª××¨×™×š ×œ×™×“×”', labelMedical: '×ž×’×‘×œ×•×ª/×¨×¤×•××™', medPlaceholder: '×¨×’×™×©×•×™×•×ª, ××œ×¨×’×™×•×ª, ×•×›×•×³',
+                            addChild: '×”×•×¡×¤×ª ×™×œ×“/×”', step3Title: '×ž×¡×’×¨×ª ×ª×¤×¢×•×œ×™×ª', step3Sub: '××•×¤×Ÿ ×”×”×ª× ×”×œ×•×ª ×¢×œ ×¦×™×¨ ×”×–×ž×Ÿ ×•×”×ž×¨×—×‘.',
+                            singleHome: '×ž×©×§ ×‘×™×ª ×™×—×™×“', singleHomeDesc: '× ×™×”×•×œ ×”×¨×¦×£ ×‘×ž×™×§×•× ×ž×¨×›×–×™ ××—×“.',
+                            dualHome: '×¨×™×‘×•×™ ×‘×ª×™×', dualHomeDesc: '× ×™×”×•×œ ×ž×¢×‘×¨×™× ×•×œ×•×’×™×¡×˜×™×§×” ×‘×™×Ÿ ×ž×•×§×“×™×.',
+                            relLabel: '×”×§×©×¨ ×”×”×•×¨×™', together: '×—×™×™× ×™×—×“', apart: '×ž×¨×—×§ ×¤×™×–×™', separated: '×¤×¨×•×“×™×/×’×¨×•×©×™×',
+                            agreementLabel: '×‘×¡×™×¡ ×”×”×¡×›×ž×•×ª', agree1: '×”×¡×›× ×¤×•×¨×ž×œ×™', agree2: '×”×‘× ×•×ª ×‘×¢×œ-×¤×”', agree3: '×‘× ×™×™×ª ×ª×©×ª×™×ª',
+                            step4Title: '×™×›×•×œ×•×ª ×”×ž×¢×¨×›×ª', recommended: '×ž×•×ž×œ×¥ ×¢×‘×•×¨×›×',
+                            Essential: 'Essential', 'AI Assistant': 'AI Assistant', 'AI Mediator': 'AI Mediator', Complete: 'Complete',
+                            select: '×‘×—×™×¨×”', back: '×—×–×¨×”', next: '×”×ž×©×š', complete: '××ª×—×•×œ ×ž×¢×¨×›×ª', confirm: '××™×©×•×¨', edit: '×¢×¨×™×›×”',
+                            'Core Dashboards': '×œ×•×—×•×ª ×‘×§×¨×” ×ž×¨×›×–×™×™×', 'Child Tracking': '×ž×¢×§×‘ ×•×¡× ×›×¨×•×Ÿ ×™×•×ž×Ÿ', 'Basic Expenses': '× ×™×”×•×œ ×”×•×¦××•×ª ×‘×¡×™×¡×™',
+                            'Advanced Presence Insights': '×ª×•×‘× ×•×ª × ×•×›×—×•×ª ×•×–×ž×Ÿ', 'Context Preservation': '×©×™×ž×•×¨ ×”×§×©×¨ ×•×”×§×©×¨×™×', 'Daily Briefings': '×ª×§×¦×™×¨ ××™×¨×•×¢×™× ×™×•×ž×™',
+                            'Conflict Neutralizer': '×ž× ×˜×¨×œ ×§×•× ×¤×œ×™×§×˜×™×', 'Agreement Integration': '××™× ×˜×’×¨×¦×™×™×ª ×”×¡×›×ž×™×', 'Tone Guidance': '× ×™×˜×•×¨ ×˜×•×Ÿ ×ª×§×©×•×¨×ª',
+                            'Full AI Suite': '×—×‘×™×œ×ª AI ×ž×œ××”', 'Mediator + Assistant': '×ž×’×©×¨ + ×¢×•×–×¨ ×—×›×', 'Unlimited History': '×”×™×¡×˜×•×¨×™×” ×œ×œ× ×”×’×‘×œ×”'
+                        }
+                    },
+                    plans: [
+                        { name: 'Essential', price: '0', features: ['Core Dashboards', 'Child Tracking', 'Basic Expenses'] },
+                        { name: 'AI Assistant', price: '12', features: ['Advanced Presence Insights', 'Context Preservation', 'Daily Briefings'] },
+                        { name: 'AI Mediator', price: '15', features: ['Conflict Neutralizer', 'Agreement Integration', 'Tone Guidance'] },
+                        { name: 'Complete', price: '22', features: ['Full AI Suite', 'Mediator + Assistant', 'Unlimited History'] }
+                    ]
+                }
+            },
+            computed: {
+                statusOptions() {
+                    return [
+                        { key: 'together', label: this.t('together') },
+                        { key: 'apart', label: this.t('apart') },
+                        { key: 'separated', label: this.t('separated') }
+                    ];
+                },
+                agreementOptions() {
+                    return [
+                        { key: 'written', label: this.t('agree1') },
+                        { key: 'informal', label: this.t('agree2') },
+                        { key: 'foundation', label: this.t('agree3') }
+                    ];
+                },
+                canGoNext() {
+                    if (this.step === 1) return this.mode !== '';
+                    if (this.step === 2) return this.children.length > 0 && this.children.every(c => c.name.length > 0 && c.confirmed);
+                    if (this.step === 3) return this.status !== '';
+                    return true;
+                },
+                recommendedPlan() {
+                    if (this.status === 'separated') return 'AI Mediator';
+                    if (this.status === 'apart') return 'AI Assistant';
+                    return 'Essential';
+                }
+            },
+            methods: {
+                t(key) { return this.translations[this.lang][key] || key; },
+                toggleLang() { this.lang = this.lang === 'en' ? 'he' : 'en'; this.$nextTick(() => lucide.createIcons()); },
+                setMode(m) { this.mode = m; setTimeout(() => { this.goNext(); }, 600); },
+                addChild() { this.children.push({ id: Date.now(), name: '', gender: 'boy', confirmed: false }); this.$nextTick(() => lucide.createIcons()); },
+                removeChild(index) { if (this.children.length > 1) this.children.splice(index, 1); this.$nextTick(() => lucide.createIcons()); },
+                toggleConfirm(child) { child.confirmed = !child.confirmed; this.$nextTick(() => lucide.createIcons()); },
+                goNext() { 
+                    if (this.canGoNext && this.step < 4) { 
+                        this.step++; 
+                        if (this.step === 4) {
+                            this.selectedPlan = this.recommendedPlan;
+                        }
+                        window.scrollTo(0,0); 
+                    } 
+                    this.$nextTick(() => lucide.createIcons()); 
+                },
+                goBack() { if (this.step > 1) { this.step--; window.scrollTo(0,0); } this.$nextTick(() => lucide.createIcons()); }
+            },
+            mounted() { lucide.createIcons(); }
+        }).mount('#app')
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+.textured { position: relative; overflow: hidden; }
+.textured::after {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.15'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply; pointer-events: none;
+}
+
+.chart-container { position: relative; width: 240px; height: 240px; margin: 0 auto; }
+.clean-pie {
+    width: 100%; height: 100%; border-radius: 50%;
+    border: 4px solid var(--deep-slate); position: relative; transform: rotate(-90deg);
+}
+.pie-hole {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 55%; height: 55%; background-color: var(--warm-linen);
+    border-radius: 50%; border: 3px solid var(--deep-slate); z-index: 10;
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.split-bar-container {
+    display: flex; width: 100%; height: 28px;
+    border-radius: 12px; overflow: hidden;
+    border: 2px solid var(--deep-slate); background: white;
+}
+
+.expense-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 1.2rem; border-bottom: 1px solid #f1f5f9;
+}
+.expense-row:last-child { border-bottom: none; }
+
+.icon-img-wrapper {
+    width: 50px; height: 50px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #e2e8f0; background: #fff;
+    padding: 0; overflow: hidden;
+}
+.icon-img-wrapper img { width: 100%; height: 100%; object-fit: cover; }
+
+.circle-select-btn {
+    aspect-ratio: 1; border-radius: 50%;
+    border: 2px solid #f1f5f9; background: white;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; cursor: pointer; transition: all 0.2s;
+    overflow: hidden; padding: 4px;
+}
+.circle-select-btn:hover { border-color: var(--deep-slate); }
+.circle-select-btn.selected { border-color: var(--deep-slate); background: #f8fafc; }
+.circle-select-btn img { width: 60%; height: 60%; object-fit: contain; }
