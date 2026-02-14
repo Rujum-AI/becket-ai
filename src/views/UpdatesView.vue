@@ -47,13 +47,17 @@ const iconMap = {
   understanding: FileCheck,
   event: Calendar,
   expense: DollarSign,
-  birthday: Gift
+  birthday: Gift,
+  custody_override_requested: Calendar,
+  custody_override_approved: Calendar,
+  custody_override_rejected: Calendar
 }
 
 const colorMap = {
   handoff: 'bg-cyan-50 text-cyan-600 border-cyan-100',
   task: 'bg-purple-50 text-purple-600 border-purple-100',
   ask: 'bg-orange-50 text-orange-600 border-orange-100',
+  approval: 'bg-amber-50 text-amber-600 border-amber-100',
   approval: 'bg-teal-50 text-teal-600 border-teal-100',
   event: 'bg-blue-50 text-blue-600 border-blue-100',
   expense: 'bg-green-50 text-green-600 border-green-100'
@@ -83,6 +87,19 @@ function formatTime(timestamp) {
   if (days === 1) return 'Yesterday'
   if (days < 7) return `${days}d ago`
   return date.toLocaleDateString()
+}
+
+function handleNotificationClick(update) {
+  updatesStore.markAsRead(update.id)
+
+  // Navigate based on notification type
+  if (update.type?.startsWith('custody_override')) {
+    router.push('/management')
+  } else if (update.related_entity_type === 'expense') {
+    router.push('/finance')
+  } else if (update.related_entity_type === 'task' || update.category === 'ask') {
+    router.push('/management')
+  }
 }
 
 function getCategoryLabel(category) {
@@ -176,7 +193,7 @@ function getCategoryLabel(category) {
         :key="update.id"
         class="update-item"
         :class="{ 'update-unread': !update.read }"
-        @click="updatesStore.markAsRead(update.id)"
+        @click="handleNotificationClick(update)"
       >
         <div class="update-icon" :class="getColor(update.category)">
           <component :is="getIcon(update.type)" class="w-5 h-5" />

@@ -1,18 +1,50 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { useLanguageStore } from '@/stores/language'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
+import EventDetailModal from '@/components/family/EventDetailModal.vue'
+import DayActionMenu from '@/components/family/DayActionMenu.vue'
+import ChangeCustodyModal from '@/components/family/ChangeCustodyModal.vue'
 
 const { t } = useI18n()
+const langStore = useLanguageStore()
 const dashboardStore = useSupabaseDashboardStore()
 
-const viewMode = ref('week') // 'month', 'week', 'day'
+const emit = defineEmits(['addEvent'])
+
+const viewMode = ref('month') // 'month', 'week', 'day'
 const currentDate = ref(new Date())
+const selectedEvent = ref(null)
+const showDayMenu = ref(false)
+const dayMenuDate = ref(null)
+const dayMenuPosition = ref({ x: 0, y: 0 })
+const showChangeCustodyModal = ref(false)
+const changeCustodyInitialDate = ref(null)
 
 // Get custody schedule and events from store
 const custodySchedule = computed(() => dashboardStore.custodySchedule)
 const storeEvents = computed(() => dashboardStore.events)
+
+// Reactive locale — reads through Pinia reactive proxy so computed tracks changes
+const locale = computed(() => langStore.lang === 'he' ? 'he-IL' : 'en-US')
+const isRTL = computed(() => langStore.lang === 'he')
+
+// Day name keys in Sun(0)..Sat(6) order
+const dayKeys = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// Use local date components (NOT toISOString which converts to UTC)
+function formatDateKey(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function formatTime(date) {
+  return date.toLocaleTimeString(locale.value, { hour: '2-digit', minute: '2-digit', hour12: false })
+}
 
 function getEventsForDate(date) {
   const key = formatDateKey(date)
@@ -22,11 +54,14 @@ function getEventsForDate(date) {
       return formatDateKey(eventDate) === key
     })
     .map(event => {
-      const eventDate = new Date(event.start_time)
+      const startDate = new Date(event.start_time)
+      const endDate = event.end_time ? new Date(event.end_time) : null
       return {
-        time: eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        title: event.title || event.type,
-        location: event.location || 'Unknown'
+        ...event,
+        startFormatted: formatTime(startDate),
+        endFormatted: endDate ? formatTime(endDate) : null,
+        timeRange: endDate ? `${formatTime(startDate)} - ${formatTime(endDate)}` : formatTime(startDate),
+        displayTitle: event.title || event.type
       }
     })
 }
@@ -36,16 +71,21 @@ const currentDayEvents = computed(() => {
 })
 
 function getCustodyForDate(date) {
-  const key = date.toISOString().split('T')[0]
+  const key = formatDateKey(date)
   return custodySchedule.value[key] || 'mom'
-}
-
-function formatDateKey(date) {
-  return date.toISOString().split('T')[0]
 }
 
 function isSameDay(date1, date2) {
   return formatDateKey(date1) === formatDateKey(date2)
+}
+
+// In RTL: left arrow = next (forward), right arrow = prev (backward)
+function onLeftArrow() {
+  isRTL.value ? navigateNext() : navigatePrev()
+}
+
+function onRightArrow() {
+  isRTL.value ? navigatePrev() : navigateNext()
 }
 
 function navigatePrev() {
@@ -74,20 +114,20 @@ function navigateNext() {
 
 const currentTitle = computed(() => {
   const date = currentDate.value
-  const options = { month: 'long', year: 'numeric' }
+  const loc = locale.value
 
   if (viewMode.value === 'month') {
-    return date.toLocaleDateString('en-US', options)
+    return date.toLocaleDateString(loc, { month: 'long', year: 'numeric' })
   } else if (viewMode.value === 'week') {
     const weekStart = getWeekStart(date)
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekEnd.getDate() + 6)
 
-    const startStr = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    const endStr = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const startStr = weekStart.toLocaleDateString(loc, { month: 'short', day: 'numeric' })
+    const endStr = weekEnd.toLocaleDateString(loc, { month: 'short', day: 'numeric' })
     return `${startStr} - ${endStr}`
   } else {
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString(loc, { weekday: 'long', month: 'long', day: 'numeric' })
   }
 })
 
@@ -143,9 +183,61 @@ const monthDays = computed(() => {
   return days
 })
 
-function goToDay(date) {
-  currentDate.value = new Date(date)
+function getDayLabel(date) {
+  return t(dayKeys[date.getDay()])
+}
+
+function onDayClick(date, event) {
+  dayMenuDate.value = date
+  dayMenuPosition.value = { x: event.clientX, y: event.clientY }
+  showDayMenu.value = true
+}
+
+function handleViewDay() {
+  currentDate.value = new Date(dayMenuDate.value)
   viewMode.value = 'day'
+  showDayMenu.value = false
+}
+
+function handleAddEvent() {
+  showDayMenu.value = false
+  emit('addEvent', dayMenuDate.value)
+}
+
+function handleChangeCustody() {
+  changeCustodyInitialDate.value = formatDateKey(dayMenuDate.value)
+  showDayMenu.value = false
+  showChangeCustodyModal.value = true
+}
+
+function hasPendingOverride(date) {
+  const key = formatDateKey(date)
+  return !!dashboardStore.getPendingOverrideForDate(key)
+}
+
+// Get the pending override for the day menu's date
+const dayMenuPendingOverride = computed(() => {
+  if (!dayMenuDate.value) return null
+  const key = formatDateKey(dayMenuDate.value)
+  return dashboardStore.getPendingOverrideForDate(key)
+})
+
+async function handleApproveOverride() {
+  const override = dayMenuPendingOverride.value
+  if (!override) return
+  showDayMenu.value = false
+  await dashboardStore.respondToCustodyOverride(override.id, 'approve')
+}
+
+async function handleRejectOverride() {
+  const override = dayMenuPendingOverride.value
+  if (!override) return
+  showDayMenu.value = false
+  await dashboardStore.respondToCustodyOverride(override.id, 'reject')
+}
+
+function openEvent(event) {
+  selectedEvent.value = event
 }
 </script>
 
@@ -173,25 +265,25 @@ function goToDay(date) {
       </button>
     </div>
 
-    <!-- Navigation Header -->
+    <!-- Navigation Header — always LTR layout, arrows swap function in RTL -->
     <div class="calendar-header">
-      <button @click="navigatePrev" class="nav-btn">
+      <button @click="onLeftArrow" class="nav-btn">
         <ChevronLeft :size="24" />
       </button>
-      <h3 class="calendar-title">{{ currentTitle }}</h3>
-      <button @click="navigateNext" class="nav-btn">
+      <h3 class="calendar-title" :style="{ direction: isRTL ? 'rtl' : 'ltr' }">{{ currentTitle }}</h3>
+      <button @click="onRightArrow" class="nav-btn">
         <ChevronRight :size="24" />
       </button>
     </div>
 
     <!-- Month View -->
     <div v-if="viewMode === 'month'" class="month-view">
-      <div class="weekday-header">
-        <div v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="day" class="weekday-label">
+      <div class="weekday-header" :style="{ direction: isRTL ? 'rtl' : 'ltr' }">
+        <div v-for="day in dayKeys" :key="day" class="weekday-label">
           {{ t(day) }}
         </div>
       </div>
-      <div class="month-grid">
+      <div class="month-grid" :style="{ direction: isRTL ? 'rtl' : 'ltr' }">
         <div
           v-for="(item, index) in monthDays"
           :key="index"
@@ -199,9 +291,10 @@ function goToDay(date) {
             'month-day',
             getCustodyForDate(item.date),
             { 'other-month': !item.isCurrentMonth },
-            { 'today': isSameDay(item.date, new Date()) }
+            { 'today': isSameDay(item.date, new Date()) },
+            { 'pending-override': hasPendingOverride(item.date) }
           ]"
-          @click="goToDay(item.date)"
+          @click="onDayClick(item.date, $event)"
         >
           <div class="day-number">{{ item.date.getDate() }}</div>
           <div v-if="getEventsForDate(item.date).length > 0" class="month-events">
@@ -209,8 +302,9 @@ function goToDay(date) {
               v-for="(event, idx) in getEventsForDate(item.date).slice(0, 3)"
               :key="idx"
               class="month-event-item"
+              @click.stop="openEvent(event)"
             >
-              {{ t(event.title) }}
+              {{ t(event.displayTitle) }}
             </div>
             <div v-if="getEventsForDate(item.date).length > 3" class="more-events">
               +{{ getEventsForDate(item.date).length - 3 }}
@@ -222,14 +316,14 @@ function goToDay(date) {
 
     <!-- Week View -->
     <div v-if="viewMode === 'week'" class="week-view">
-      <div class="week-grid">
+      <div class="week-grid" :style="{ direction: isRTL ? 'rtl' : 'ltr' }">
         <div
           v-for="date in weekDays"
           :key="formatDateKey(date)"
           :class="['week-day', { 'today': isSameDay(date, new Date()) }]"
         >
-          <div :class="['week-day-header', getCustodyForDate(date)]">
-            <div class="week-day-name">{{ date.toLocaleDateString('en-US', { weekday: 'short' }) }}</div>
+          <div :class="['week-day-header', getCustodyForDate(date), { 'pending-override': hasPendingOverride(date) }]">
+            <div class="week-day-name">{{ getDayLabel(date) }}</div>
             <div class="week-day-number">{{ date.getDate() }}</div>
           </div>
           <div class="week-events">
@@ -237,12 +331,13 @@ function goToDay(date) {
               v-for="(event, idx) in getEventsForDate(date)"
               :key="idx"
               class="week-event-item"
+              @click="openEvent(event)"
             >
-              <span class="week-event-time">{{ event.time }}</span>
-              <span class="week-event-title">{{ t(event.title) }}</span>
+              <span class="week-event-time">{{ event.timeRange }}</span>
+              <span class="week-event-title">{{ t(event.displayTitle) }}</span>
             </div>
             <div v-if="getEventsForDate(date).length === 0" class="week-no-events">
-              No events
+              {{ t('noEvents') }}
             </div>
           </div>
         </div>
@@ -263,18 +358,50 @@ function goToDay(date) {
           v-for="(event, idx) in currentDayEvents"
           :key="idx"
           class="event-item"
+          @click="openEvent(event)"
         >
-          <div class="event-time">{{ event.time }}</div>
+          <div class="event-time-block">
+            <div class="event-time-start">{{ event.startFormatted }}</div>
+            <div v-if="event.endFormatted" class="event-time-end">{{ event.endFormatted }}</div>
+          </div>
           <div class="event-content">
-            <div class="event-title">{{ t(event.title) }}</div>
-            <div class="event-location">{{ t(event.location) }}</div>
+            <div class="event-title">{{ t(event.displayTitle) }}</div>
+            <div v-if="event.type" class="event-type-badge">{{ t(event.type) }}</div>
           </div>
         </div>
         <div v-if="currentDayEvents.length === 0" class="no-events">
-          <p class="text-slate-400 text-center">No events scheduled</p>
+          <p>{{ t('noEvents') }}</p>
         </div>
       </div>
     </div>
+
+    <!-- Day Action Menu -->
+    <DayActionMenu
+      v-if="showDayMenu"
+      :date="dayMenuDate"
+      :position="dayMenuPosition"
+      :pendingOverride="dayMenuPendingOverride"
+      @close="showDayMenu = false"
+      @viewDay="handleViewDay"
+      @addEvent="handleAddEvent"
+      @changeCustody="handleChangeCustody"
+      @approveOverride="handleApproveOverride"
+      @rejectOverride="handleRejectOverride"
+    />
+
+    <!-- Change Custody Modal -->
+    <ChangeCustodyModal
+      v-if="showChangeCustodyModal"
+      :initialDate="changeCustodyInitialDate"
+      @close="showChangeCustodyModal = false"
+    />
+
+    <!-- Event Detail Modal -->
+    <EventDetailModal
+      v-if="selectedEvent"
+      :event="selectedEvent"
+      @close="selectedEvent = null"
+    />
   </div>
 </template>
 
@@ -319,18 +446,19 @@ function goToDay(date) {
   border-color: #1A1C1E;
 }
 
+/* Navigation header — force LTR so arrows stay positioned, functions swap in RTL */
 .calendar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 2rem;
+  direction: ltr;
 }
 
 .calendar-title {
   font-size: 1.5rem;
   font-weight: 800;
   color: #1A1C1E;
-  text-transform: uppercase;
   letter-spacing: -0.5px;
 }
 
@@ -354,7 +482,7 @@ function goToDay(date) {
   transform: scale(1.05);
 }
 
-/* Month View */
+/* Grids: direction set via inline style binding */
 .weekday-header {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -440,6 +568,11 @@ function goToDay(date) {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.2;
+  cursor: pointer;
+}
+
+.month-event-item:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .more-events {
@@ -448,6 +581,27 @@ function goToDay(date) {
   color: #64748b;
   text-align: center;
   margin-top: 2px;
+}
+
+/* Pending override indicator — amber dashed border */
+.month-day.pending-override {
+  border-color: #fbbf24;
+  border-style: dashed;
+}
+
+.week-day-header.pending-override {
+  position: relative;
+}
+
+.week-day-header.pending-override::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fbbf24;
 }
 
 /* Week View */
@@ -462,7 +616,6 @@ function goToDay(date) {
   border: 2px solid #e2e8f0;
   overflow: hidden;
   transition: all 0.2s;
-  cursor: pointer;
   background: white;
 }
 
@@ -522,12 +675,21 @@ function goToDay(date) {
   background: #f8fafc;
   border-radius: 0.5rem;
   border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.week-event-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .week-event-time {
   font-size: 0.75rem;
   font-weight: 900;
   color: #1A1C1E;
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 .week-event-title {
@@ -595,33 +757,56 @@ function goToDay(date) {
 .event-item:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
-  transform: translateX(4px);
 }
 
-.event-time {
+.event-time-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 4rem;
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.event-time-start {
   font-size: 1.125rem;
   font-weight: 900;
   color: #1A1C1E;
-  min-width: 4rem;
+}
+
+.event-time-end {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #64748b;
 }
 
 .event-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .event-title {
   font-size: 1.125rem;
   font-weight: 700;
   color: #1A1C1E;
-  margin-bottom: 0.25rem;
 }
 
-.event-location {
-  font-size: 0.875rem;
-  font-weight: 600;
+.event-type-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.no-events {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #cbd5e1;
+  font-weight: 700;
+  font-style: italic;
 }
 
 @media (max-width: 640px) {
@@ -630,7 +815,6 @@ function goToDay(date) {
   }
 
   .week-grid {
-    grid-template-columns: repeat(7, 1fr);
     gap: 0.25rem;
   }
 
@@ -644,15 +828,6 @@ function goToDay(date) {
 
   .week-day-number {
     font-size: 1rem;
-  }
-
-  .week-custody-bar {
-    padding: 1rem 0.5rem;
-    min-height: 60px;
-  }
-
-  .custody-label {
-    font-size: 0.625rem;
   }
 
   .month-day {

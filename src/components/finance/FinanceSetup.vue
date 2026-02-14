@@ -152,7 +152,7 @@ async function saveRules() {
 
 <template>
   <BaseModal
-    headerColor="bg-slate-800"
+    headerStyle="#94A3B8"
     :title="t('expenseSetup')"
     maxWidth="700px"
     :showFooter="true"

@@ -289,12 +289,8 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
   // ========== COMPUTED ==========
 
   const groupedUnderstandings = computed(() => {
-    const groups = {}
-
-    // Ensure 'expenses' group exists if there are expense rules
-    if (expenseRules.value || pendingExpenseRules.value) {
-      groups['expenses'] = []
-    }
+    // Always show expenses section so the ExpenseRulesPanel is permanently visible
+    const groups = { expenses: [] }
 
     understandings.value.forEach(u => {
       if (u.status !== 'rejected') {

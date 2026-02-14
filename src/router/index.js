@@ -126,7 +126,7 @@ router.beforeEach(async (to, from, next) => {
       return
     }
 
-    if (requiresNoFamily && hasFamily) {
+    if (requiresNoFamily && hasFamily && !to.query.preview) {
       console.log('❌ Requires no family, but has one -> /family')
       next('/family')
       return

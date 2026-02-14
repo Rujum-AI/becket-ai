@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 import { GraduationCap, Trophy, User, MapPin, Phone, Pencil, Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({

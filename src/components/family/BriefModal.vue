@@ -69,7 +69,7 @@ function getEventIcon(type) {
 
 <template>
   <BaseModal
-    :headerStyle="'linear-gradient(135deg, #FEF3C7, #FDE68A)'"
+    headerStyle="#FCD34D"
     maxWidth="500px"
     @close="$emit('close')"
   >

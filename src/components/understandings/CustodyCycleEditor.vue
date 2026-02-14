@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 
 const props = defineProps({
   cycleDays: {

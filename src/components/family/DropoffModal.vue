@@ -43,7 +43,7 @@ function confirmDropoff() {
 
 <template>
   <BaseModal
-    :headerStyle="'linear-gradient(135deg, #FFEDD5, #FED7AA)'"
+    headerStyle="#FB923C"
     maxWidth="500px"
     @close="$emit('close')"
   >

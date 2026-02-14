@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 import { Check } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
 
@@ -78,7 +78,7 @@ function getChildImg(child) {
 <template>
   <BaseModal
     v-if="isOpen"
-    headerColor="bg-slate-800"
+    headerStyle="#F472B6"
     maxWidth="500px"
     @close="$emit('close')"
   >

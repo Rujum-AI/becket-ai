@@ -6,15 +6,22 @@ import TaskBoard from '@/components/management/TaskBoard.vue'
 import AskBoard from '@/components/management/AskBoard.vue'
 import CreateItemModal from '@/components/management/CreateItemModal.vue'
 import ItemDetailModal from '@/components/management/ItemDetailModal.vue'
+import CustodyOverrideCard from '@/components/family/CustodyOverrideCard.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useManagementStore } from '@/stores/supabaseManagement'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 
 const { t } = useI18n()
 const managementStore = useManagementStore()
+const dashboardStore = useSupabaseDashboardStore()
 
-// Load all tasks and asks on mount
+// Load all tasks, asks, and custody overrides on mount
 onMounted(() => {
   managementStore.fetchAll()
+  // Ensure overrides are loaded even if dashboard wasn't visited first
+  if (dashboardStore.pendingOverrides.length === 0 && !dashboardStore.family) {
+    dashboardStore.loadFamilyData()
+  }
 })
 
 const showCreateModal = ref(false)
@@ -64,6 +71,23 @@ function closeDetailModal() {
         @action="openCreateModal('task')"
       />
       <TaskBoard @openDetail="openDetailModal" />
+    </div>
+
+    <!-- Custody Overrides Section -->
+    <div v-if="dashboardStore.pendingOverrides.length > 0" class="mb-12">
+      <SectionHeader
+        :title="t('custodyOverrides')"
+        icon="management.png"
+      />
+      <div class="overrides-list">
+        <CustodyOverrideCard
+          v-for="override in dashboardStore.pendingOverrides"
+          :key="override.id"
+          :override="override"
+          @approve="dashboardStore.respondToCustodyOverride(override.id, 'approve')"
+          @reject="dashboardStore.respondToCustodyOverride(override.id, 'reject')"
+        />
+      </div>
     </div>
 
     <!-- Asks Section -->
@@ -121,5 +145,11 @@ function closeDetailModal() {
   font-weight: 700;
   display: flex;
   gap: 0.25rem;
+}
+
+.overrides-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>

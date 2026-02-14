@@ -5,6 +5,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { ChevronDown } from 'lucide-vue-next'
 import InviteCoParentModal from '@/components/shared/InviteCoParentModal.vue'
 
@@ -13,6 +14,7 @@ const { t, lang, toggleLang } = useI18n()
 const { user, signOut } = useAuth()
 const { family, userRole } = useFamily()
 const updatesStore = useUpdatesStore()
+const dashboardStore = useSupabaseDashboardStore()
 const isUserMenuOpen = ref(false)
 const showInviteModal = ref(false)
 
@@ -117,7 +119,7 @@ if (typeof document !== 'undefined') {
               </div>
             </div>
 
-            <div class="dropdown-item" @click="openInviteModal">
+            <div v-if="!dashboardStore.partnerId" class="dropdown-item" @click="openInviteModal">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               {{ t('inviteCoParent') }}
             </div>
@@ -128,18 +130,17 @@ if (typeof document !== 'undefined') {
             </div>
 
             <div class="dropdown-item justify-between cursor-default hover:bg-transparent">
-              <div class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
-                <span>{{ t('language') }}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
               </div>
-              <div class="flex gap-2 text-xs">
+              <div class="flex gap-1 text-xs shrink-0 whitespace-nowrap">
                 <span
-                  class="cursor-pointer transition-colors px-1"
+                  class="cursor-pointer transition-colors"
                   :class="lang === 'en' ? 'font-black text-slate-900' : 'text-slate-400 font-medium hover:text-slate-600'"
                   @click.stop="setLang('en')">English</span>
                 <span class="text-slate-300">|</span>
                 <span
-                  class="cursor-pointer transition-colors px-1"
+                  class="cursor-pointer transition-colors"
                   :class="lang === 'he' ? 'font-black text-slate-900' : 'text-slate-400 font-medium hover:text-slate-600'"
                   @click.stop="setLang('he')">עברית</span>
               </div>

@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useTrusteesStore } from '@/stores/supabaseTrustees'
-import { useDashboardStore } from '@/stores/dashboard'
+import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 import { Plus } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
 
@@ -58,10 +58,10 @@ const modalTitle = computed(() => {
   return isEditing.value ? t('editPerson') : t('addPerson')
 })
 
-const headerClass = computed(() => {
-  if (props.entityType === 'school') return 'bg-teal-600'
-  if (props.entityType === 'activity') return 'bg-rose-500'
-  return 'bg-orange-400'
+const headerBg = computed(() => {
+  if (props.entityType === 'school') return '#FCD34D'
+  if (props.entityType === 'activity') return '#F87171'
+  return '#60A5FA'
 })
 
 const iconSrc = computed(() => {
@@ -191,7 +191,7 @@ function getChildImg(child) {
 
 <template>
   <BaseModal
-    :headerColor="headerClass"
+    :headerStyle="headerBg"
     maxWidth="500px"
     @close="$emit('close')"
   >

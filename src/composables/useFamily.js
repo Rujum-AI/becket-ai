@@ -6,6 +6,14 @@ const family = ref(null)
 const children = ref([])
 const loading = ref(false)
 const userRole = ref(null) // 'admin' or 'member'
+const pendingInvite = ref(null) // { email, token } — cached so modal can access without DB query
+
+// Generate a random hex token (64 chars = 32 bytes)
+function generateToken() {
+  const bytes = new Uint8Array(32)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
 
 // Concurrency guard - prevents multiple simultaneous calls
 let checkInProgress = null
@@ -154,8 +162,10 @@ export function useFamily() {
       }
 
       const planMap = {
+        'free': 'essential',
+        'ai': 'ai-assistant',
         'essential': 'essential',
-        'recommended': 'essential', // Map recommended to essential for now
+        'recommended': 'essential',
         'aiAssistant': 'ai-assistant',
         'aiMediator': 'ai-mediator',
         'full': 'full'
@@ -183,7 +193,7 @@ export function useFamily() {
         .insert({
           family_id: familyData.id,
           profile_id: userId,
-          parent_label: 'dad', // Default, can be updated later
+          parent_label: onboardingData.parentRole || 'dad',
           role: 'admin'
         })
 
@@ -206,26 +216,58 @@ export function useFamily() {
         if (childrenError) throw childrenError
       }
 
-      // If co-parent mode, create invitation
+      // If co-parent mode, create invitation with client-generated token
+      let inviteToken = null
       if (onboardingData.mode === 'co-parent' && onboardingData.partnerEmail) {
+        inviteToken = generateToken()
+
         const { error: inviteError } = await supabase
           .from('invitations')
           .insert({
             family_id: familyData.id,
             email: onboardingData.partnerEmail,
-            status: 'pending'
+            status: 'pending',
+            token: inviteToken
           })
 
         if (inviteError) throw inviteError
+
+        // Cache for the invite modal to pick up
+        pendingInvite.value = { email: onboardingData.partnerEmail, token: inviteToken }
+
+        // Send invite email (fire and forget)
+        const { data: { session } } = await supabase.auth.getSession()
+        const inviterName = session?.user?.user_metadata?.display_name
+          || session?.user?.email?.split('@')[0]
+          || 'Your co-parent'
+        supabase.functions.invoke('send-invite-email', {
+          body: {
+            email: onboardingData.partnerEmail,
+            inviterName,
+            token: inviteToken
+          }
+        }).catch(() => {})
       }
 
       family.value = familyData
       await fetchChildren()
-      return familyData
+      return { ...familyData, _inviteToken: inviteToken }
     } catch (error) {
       console.error('Error creating family:', error)
       throw error
     }
+  }
+
+  async function updateFamilyPlan(planValue) {
+    if (!family.value?.id) return
+    const planMap = { 'free': 'essential', 'ai': 'ai-assistant' }
+    const mapped = planMap[planValue] || 'essential'
+    const { error } = await supabase
+      .from('families')
+      .update({ plan: mapped })
+      .eq('id', family.value.id)
+    if (error) throw error
+    family.value = { ...family.value, plan: mapped }
   }
 
   return {
@@ -233,8 +275,10 @@ export function useFamily() {
     children,
     loading,
     userRole,
+    pendingInvite,
     checkUserFamily,
     createFamily,
+    updateFamilyPlan,
     fetchChildren
   }
 }

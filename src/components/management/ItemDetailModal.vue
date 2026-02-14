@@ -23,8 +23,8 @@ const managementStore = useManagementStore()
 
 const newComment = ref('')
 
-const headerColor = computed(() => {
-  return props.itemType === 'ask' ? 'bg-teal-600' : 'bg-slate-800'
+const headerBg = computed(() => {
+  return props.itemType === 'ask' ? '#34D399' : '#60A5FA'
 })
 
 function addComment() {
@@ -45,7 +45,7 @@ function getProfileImage(person) {
 
 <template>
   <BaseModal
-    :headerColor="headerColor"
+    :headerStyle="headerBg"
     maxWidth="500px"
     :showFooter="false"
     @close="$emit('close')"

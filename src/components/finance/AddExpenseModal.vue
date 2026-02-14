@@ -51,7 +51,7 @@ async function saveExpense() {
 
 <template>
   <BaseModal
-    headerColor="bg-slate-800"
+    headerStyle="#F87171"
     :title="t('newExpense')"
     maxWidth="500px"
     @close="$emit('close')"

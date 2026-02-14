@@ -22,7 +22,7 @@ function confirmPickup() {
 
 <template>
   <BaseModal
-    :headerStyle="'linear-gradient(135deg, #CFFAFE, #A5F3FC)'"
+    headerStyle="#34D399"
     maxWidth="500px"
     @close="$emit('close')"
   >

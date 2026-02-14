@@ -60,6 +60,8 @@ CREATE OR REPLACE FUNCTION public.accept_pending_invitation(user_id uuid, user_e
 RETURNS jsonb AS $$
 DECLARE
   inv record;
+  v_existing_label text;
+  v_new_label text;
 BEGIN
   -- Lock and find pending invitation (case-insensitive email match)
   -- FOR UPDATE prevents concurrent calls from processing the same invitation
@@ -95,11 +97,19 @@ BEGIN
     RETURN jsonb_build_object('accepted', true, 'reason', 'already_member', 'family_id', inv.family_id);
   END IF;
 
+  -- Get the existing member's label to assign the opposite
+  SELECT parent_label INTO v_existing_label
+  FROM family_members
+  WHERE family_id = inv.family_id
+  LIMIT 1;
+
+  v_new_label := CASE WHEN v_existing_label = 'dad' THEN 'mom' ELSE 'dad' END;
+
   -- Add user to family
   -- role='parent' matches CHECK constraint: role IN ('admin', 'parent')
   -- ON CONFLICT handles race condition if another call inserted first
   INSERT INTO family_members (family_id, profile_id, parent_label, role)
-  VALUES (inv.family_id, user_id, 'mom', 'parent')
+  VALUES (inv.family_id, user_id, v_new_label, 'parent')
   ON CONFLICT (family_id, profile_id) DO NOTHING;
 
   -- Mark invitation accepted
