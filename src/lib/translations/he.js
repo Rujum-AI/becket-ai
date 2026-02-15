@@ -628,5 +628,24 @@ export default {
   rejected: 'נדחה',
   addNew: 'הוסף חדש',
   taskDesc: 'צור משימה לעצמך או להורה השני',
-  askDesc: 'שלח בקשה שדורשת אישור'
+  askDesc: 'שלח בקשה שדורשת אישור',
+
+  // Check-in
+  nudge: 'עדכון',
+  quickUpdate: 'עדכון מהיר',
+  howAreThey: 'מה המצב?',
+  moodHappy: 'שמח/ה',
+  moodExcited: 'מתרגש/ת',
+  moodPlaying: 'משחק/ת',
+  moodSad: 'עצוב/ה',
+  moodSleeping: 'ישנ/ה',
+  moodSick: 'חולה',
+  nudgeMessageLabel: 'הוסף הודעה',
+  nudgeMessagePlaceholder: 'הכל מעולה...',
+  sendUpdate: 'שלח עדכון',
+  sending: 'שולח...',
+  nudgeSentSuccess: 'אלוף/ה! העדכון נשלח.',
+  checkInDetail: 'עדכון מהיר',
+  pinNotification: 'הצמד',
+  unpinNotification: 'בטל הצמדה'
 }

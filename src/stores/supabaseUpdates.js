@@ -14,6 +14,22 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   const selectedCategory = ref('all')
   const selectedTimeFilter = ref('all')
 
+  // === Live Overlay System ===
+  const overlayQueue = ref([])
+  const realtimeChannel = ref(null)
+  const AUTO_FADE_MS = 8000
+  const MAX_OVERLAY_ITEMS = 4
+
+  // Types that are auto-pinned (urgent tier)
+  const AUTO_PIN_TYPES = new Set([
+    'nudge_request',
+    'nudge_response',
+    'expense_pending',
+    'understanding_proposed',
+    'custody_override_requested',
+    'ask_received'
+  ])
+
   // Computed: unread count
   const unreadCount = computed(() => {
     return updates.value.filter(u => !u.read).length
@@ -50,6 +66,16 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     }
 
     return filtered
+  })
+
+  // Computed: pending nudges (received, awaiting response)
+  const pendingNudges = computed(() => {
+    return updates.value.filter(u =>
+      u.category === 'nudge' &&
+      u.type === 'nudge_request' &&
+      u.requires_action &&
+      !u.action_taken
+    )
   })
 
   // Actions
@@ -159,6 +185,182 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   }
 
   /**
+   * Send a nudge to co-parent requesting a child update.
+   * Uses server-side SECURITY DEFINER function to bypass RLS.
+   */
+  async function sendNudge(childId, childName) {
+    if (!user.value?.id) return null
+
+    try {
+      const { data, error: rpcError } = await supabase
+        .rpc('send_nudge', {
+          p_child_id: childId,
+          p_child_name: childName
+        })
+
+      if (rpcError) throw rpcError
+      return data // returns the notification ID
+    } catch (err) {
+      console.error('Error sending nudge:', err)
+      return null
+    }
+  }
+
+  /**
+   * Respond to a nudge with mood emoji, message, and optional photo.
+   * Uses server-side SECURITY DEFINER function to bypass RLS.
+   */
+  async function respondToNudge(nudgeId, { mood = '', message = '', snapshotId = null }) {
+    if (!user.value?.id) return false
+
+    const nudge = updates.value.find(u => u.id === nudgeId)
+
+    try {
+      const { data, error: rpcError } = await supabase
+        .rpc('respond_to_nudge', {
+          p_nudge_id: nudgeId,
+          p_mood: mood || '',
+          p_message: message || '',
+          p_snapshot_id: snapshotId
+        })
+
+      if (rpcError) throw rpcError
+
+      // Optimistic local update
+      if (nudge) {
+        nudge.action_taken = true
+        nudge.action_taken_at = new Date().toISOString()
+      }
+
+      return true
+    } catch (err) {
+      console.error('Error responding to nudge:', err)
+      return false
+    }
+  }
+
+  /**
+   * Dismiss a nudge bubble without responding (marks as read).
+   */
+  async function dismissNudge(nudgeId) {
+    await markAsRead(nudgeId)
+  }
+
+  // === Overlay Queue Management ===
+
+  function shouldAutoPin(notification) {
+    return AUTO_PIN_TYPES.has(notification.type)
+      || notification.priority === 'high'
+      || notification.priority === 'urgent'
+  }
+
+  function addToOverlay(notification) {
+    if (overlayQueue.value.some(item => item.id === notification.id)) return
+
+    const isPinned = shouldAutoPin(notification)
+    const item = {
+      id: notification.id,
+      notification,
+      pinned: isPinned,
+      fadeTimerId: null,
+      addedAt: Date.now()
+    }
+
+    overlayQueue.value.unshift(item)
+    trimOverlayQueue()
+
+    if (!isPinned) {
+      startFadeTimer(item)
+    }
+  }
+
+  function dismissOverlay(itemId) {
+    const idx = overlayQueue.value.findIndex(i => i.id === itemId)
+    if (idx === -1) return
+    const item = overlayQueue.value[idx]
+    if (item.fadeTimerId) clearTimeout(item.fadeTimerId)
+    overlayQueue.value.splice(idx, 1)
+  }
+
+  function togglePin(itemId) {
+    const item = overlayQueue.value.find(i => i.id === itemId)
+    if (!item) return
+
+    item.pinned = !item.pinned
+    if (item.pinned) {
+      if (item.fadeTimerId) {
+        clearTimeout(item.fadeTimerId)
+        item.fadeTimerId = null
+      }
+    } else {
+      startFadeTimer(item)
+    }
+  }
+
+  function startFadeTimer(item) {
+    if (item.fadeTimerId) clearTimeout(item.fadeTimerId)
+    item.fadeTimerId = setTimeout(() => {
+      dismissOverlay(item.id)
+    }, AUTO_FADE_MS)
+  }
+
+  function trimOverlayQueue() {
+    while (overlayQueue.value.length > MAX_OVERLAY_ITEMS) {
+      const unpinnedIdx = [...overlayQueue.value]
+        .reverse()
+        .findIndex(i => !i.pinned)
+      if (unpinnedIdx === -1) break
+      const actualIdx = overlayQueue.value.length - 1 - unpinnedIdx
+      const removed = overlayQueue.value[actualIdx]
+      if (removed.fadeTimerId) clearTimeout(removed.fadeTimerId)
+      overlayQueue.value.splice(actualIdx, 1)
+    }
+  }
+
+  // === Supabase Realtime ===
+
+  function subscribeToRealtime() {
+    if (!user.value?.id) return
+    if (realtimeChannel.value) return
+
+    realtimeChannel.value = supabase
+      .channel('notifications-live')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `recipient_id=eq.${user.value.id}`
+        },
+        (payload) => {
+          const notification = {
+            ...payload.new,
+            timestamp: payload.new.created_at
+          }
+          // Add to main updates (dedupe)
+          if (!updates.value.some(u => u.id === notification.id)) {
+            updates.value.unshift(notification)
+          }
+          // Add to live overlay
+          addToOverlay(notification)
+        }
+      )
+      .subscribe()
+  }
+
+  function unsubscribeRealtime() {
+    if (realtimeChannel.value) {
+      supabase.removeChannel(realtimeChannel.value)
+      realtimeChannel.value = null
+    }
+    overlayQueue.value.forEach(item => {
+      if (item.fadeTimerId) clearTimeout(item.fadeTimerId)
+    })
+    overlayQueue.value = []
+  }
+
+  /**
    * Set category filter (local state only)
    */
   function setCategory(category) {
@@ -181,10 +383,21 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     unreadCount,
     filteredUpdates,
     categories,
+    pendingNudges,
     fetchUpdates,
     markAsRead,
     markAllAsRead,
+    sendNudge,
+    respondToNudge,
+    dismissNudge,
     setCategory,
-    setTimeFilter
+    setTimeFilter,
+    overlayQueue,
+    addToOverlay,
+    dismissOverlay,
+    togglePin,
+    shouldAutoPin,
+    subscribeToRealtime,
+    unsubscribeRealtime
   }
 })

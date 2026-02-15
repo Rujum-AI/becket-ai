@@ -628,5 +628,24 @@ export default {
   rejected: 'Rejected',
   addNew: 'Add New',
   taskDesc: 'Create a task for yourself or your co-parent',
-  askDesc: 'Send a request that needs approval'
+  askDesc: 'Send a request that needs approval',
+
+  // Check-in
+  nudge: 'Check-in',
+  quickUpdate: 'Quick Update',
+  howAreThey: 'How are they doing?',
+  moodHappy: 'Happy',
+  moodExcited: 'Excited',
+  moodPlaying: 'Playing',
+  moodSad: 'Sad',
+  moodSleeping: 'Sleeping',
+  moodSick: 'Sick',
+  nudgeMessageLabel: 'Add a message',
+  nudgeMessagePlaceholder: 'Everything is great...',
+  sendUpdate: 'Send Update',
+  sending: 'Sending...',
+  nudgeSentSuccess: "You're awesome! Update sent.",
+  checkInDetail: 'Check-in Update',
+  pinNotification: 'Pin',
+  unpinNotification: 'Unpin'
 }

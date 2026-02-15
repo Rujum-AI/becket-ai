@@ -1,14 +1,31 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import AppHeader from './AppHeader.vue'
 import AppFooter from './AppFooter.vue'
 import AiChat from './AiChat.vue'
 import PhotoCaptureModal from '@/components/shared/PhotoCaptureModal.vue'
-import { Camera } from 'lucide-vue-next'
+import NotificationOverlay from '@/components/shared/NotificationOverlay.vue'
+import NudgeResponseModal from '@/components/family/NudgeResponseModal.vue'
+import CheckInDetailModal from '@/components/family/CheckInDetailModal.vue'
+import SuccessToast from '@/components/shared/SuccessToast.vue'
 import { useCamera } from '@/composables/useCamera'
+import { useI18n } from '@/composables/useI18n'
+import { useUpdatesStore } from '@/stores/supabaseUpdates'
 
 const { capturePhoto } = useCamera()
+const { t } = useI18n()
+const updatesStore = useUpdatesStore()
 
+// Start realtime subscription
+onMounted(() => {
+  updatesStore.subscribeToRealtime()
+})
+
+onUnmounted(() => {
+  updatesStore.unsubscribeRealtime()
+})
+
+// Camera system
 const showPhotoModal = ref(false)
 const capturedBlob = ref(null)
 const capturedDataUrl = ref(null)
@@ -26,6 +43,36 @@ function closePhotoModal() {
   capturedBlob.value = null
   capturedDataUrl.value = null
 }
+
+// Check-in system (formerly "nudge")
+const nudgeToRespond = ref(null)
+const showNudgeToast = ref(false)
+const checkInNotification = ref(null)
+
+function openNudgeResponse(nudge) {
+  nudgeToRespond.value = nudge
+}
+
+function closeNudgeResponse() {
+  nudgeToRespond.value = null
+}
+
+function onNudgeSent() {
+  nudgeToRespond.value = null
+  showNudgeToast.value = true
+}
+
+function onToastDone() {
+  showNudgeToast.value = false
+}
+
+function openCheckInDetail(notification) {
+  checkInNotification.value = notification
+}
+
+function closeCheckInDetail() {
+  checkInNotification.value = null
+}
 </script>
 
 <template>
@@ -35,7 +82,7 @@ function closePhotoModal() {
 
     <!-- Floating camera button (opposite side of AI chat) -->
     <div class="floating-camera" @click="openCamera">
-      <Camera :size="28" color="white" />
+      <img src="/assets/camera.png" class="w-full h-full object-contain" />
     </div>
 
     <main class="content-wrap px-6 sm:px-8">
@@ -50,6 +97,33 @@ function closePhotoModal() {
       :photoDataUrl="capturedDataUrl"
       @close="closePhotoModal"
       @saved="closePhotoModal"
+    />
+
+    <!-- Live Notification Overlay (replaces NudgeBubble) -->
+    <NotificationOverlay
+      @openNudgeResponse="openNudgeResponse"
+      @openCheckInDetail="openCheckInDetail"
+    />
+
+    <!-- Check-in response modal -->
+    <NudgeResponseModal
+      v-if="nudgeToRespond"
+      :nudge="nudgeToRespond"
+      @close="closeNudgeResponse"
+      @sent="onNudgeSent"
+    />
+
+    <!-- Check-in detail modal (view response) -->
+    <CheckInDetailModal
+      v-if="checkInNotification"
+      :notification="checkInNotification"
+      @close="closeCheckInDetail"
+    />
+
+    <SuccessToast
+      :show="showNudgeToast"
+      :message="t('nudgeSentSuccess')"
+      @done="onToastDone"
     />
   </div>
 </template>

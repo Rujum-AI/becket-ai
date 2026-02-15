@@ -15,6 +15,8 @@ import {
   FileCheck,
   Gift,
   Bell,
+  Heart,
+  Camera,
   ArrowLeft
 } from 'lucide-vue-next'
 
@@ -42,15 +44,32 @@ function goBack() {
 const iconMap = {
   pickup: ArrowUpDown,
   dropoff: ArrowUpDown,
+  pickup_confirmed: ArrowUpDown,
+  dropoff_confirmed: ArrowUpDown,
   task: ClipboardList,
+  task_assigned: ClipboardList,
+  task_started: ClipboardList,
+  task_completed: ClipboardList,
+  task_failed: ClipboardList,
+  task_rejected: ClipboardList,
   ask: MessageSquare,
+  ask_received: MessageSquare,
+  ask_accepted: MessageSquare,
+  ask_rejected: MessageSquare,
   understanding: FileCheck,
+  understanding_proposed: FileCheck,
+  understanding_accepted: FileCheck,
+  understanding_rejected: FileCheck,
   event: Calendar,
   expense: DollarSign,
+  expense_pending: DollarSign,
+  expense_added: DollarSign,
   birthday: Gift,
   custody_override_requested: Calendar,
   custody_override_approved: Calendar,
-  custody_override_rejected: Calendar
+  custody_override_rejected: Calendar,
+  nudge_request: Heart,
+  nudge_response: Heart
 }
 
 const colorMap = {
@@ -58,9 +77,10 @@ const colorMap = {
   task: 'bg-purple-50 text-purple-600 border-purple-100',
   ask: 'bg-orange-50 text-orange-600 border-orange-100',
   approval: 'bg-amber-50 text-amber-600 border-amber-100',
-  approval: 'bg-teal-50 text-teal-600 border-teal-100',
   event: 'bg-blue-50 text-blue-600 border-blue-100',
-  expense: 'bg-green-50 text-green-600 border-green-100'
+  expense: 'bg-green-50 text-green-600 border-green-100',
+  nudge: 'bg-red-50 text-red-600 border-red-100',
+  photo: 'bg-blue-50 text-blue-600 border-blue-100'
 }
 
 function getIcon(type) {

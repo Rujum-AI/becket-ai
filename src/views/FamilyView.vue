@@ -11,10 +11,14 @@ import AddEventFlow from '@/components/family/AddEventFlow.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import { useUpdatesStore } from '@/stores/supabaseUpdates'
+import { useAuth } from '@/composables/useAuth'
 import { ChevronDown, AlertTriangle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const dashboardStore = useSupabaseDashboardStore()
+const updatesStore = useUpdatesStore()
+const { user } = useAuth()
 
 const children = computed(() => dashboardStore.children)
 const hasChildren = computed(() => children.value.length > 0)
@@ -33,6 +37,20 @@ const addEventInitialDate = ref('')
 const editingEvent = ref(null)
 const showUnexpectedParentModal = ref(false)
 const unexpectedPickupChildId = ref(null)
+
+// Check-in
+const nudgeSending = ref(null)
+
+function canNudge(child) {
+  return dashboardStore.partnerId && child.currentParentId && child.currentParentId !== user.value?.id
+}
+
+async function sendNudge(child) {
+  if (nudgeSending.value) return
+  nudgeSending.value = child.id
+  await updatesStore.sendNudge(child.id, child.name)
+  nudgeSending.value = null
+}
 
 // Expected custody parent label for today
 const expectedParentLabel = computed(() => {
@@ -176,6 +194,14 @@ async function handleDeleteEvent(event) {
             <div class="expand-toggle" @click="toggleExpand(child.id)">
               <ChevronDown :size="16" :class="['chevron-icon', { 'flipped': isExpanded(child.id) }]" />
             </div>
+            <img
+              v-if="canNudge(child)"
+              src="/assets/check.png"
+              class="btn-nudge"
+              :class="{ 'nudge-sending': nudgeSending === child.id }"
+              :alt="t('nudge')"
+              @click.stop="sendNudge(child)"
+            />
             <img
               :src="child.nextAction === 'pick' ? '/assets/pickme_button.png' : '/assets/dropfoff_button.png'"
               class="btn-action"
@@ -401,6 +427,29 @@ async function handleDeleteEvent(event) {
   align-items: center;
   justify-content: space-between;
   padding: 0.25rem 0.75rem 0.5rem;
+}
+
+.btn-nudge {
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+  transition: transform 0.2s, opacity 0.2s;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  object-fit: contain;
+}
+
+.btn-nudge:hover { transform: scale(1.15); }
+.btn-nudge:active { transform: scale(0.9); }
+
+.btn-nudge.nudge-sending {
+  opacity: 0.5;
+  pointer-events: none;
+  animation: nudgePulse 0.6s ease-in-out infinite;
+}
+
+@keyframes nudgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
 }
 
 .btn-action {
