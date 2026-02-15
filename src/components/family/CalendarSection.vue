@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import EventDetailModal from '@/components/family/EventDetailModal.vue'
 import DayActionMenu from '@/components/family/DayActionMenu.vue'
 import ChangeCustodyModal from '@/components/family/ChangeCustodyModal.vue'
+import CreateItemModal from '@/components/management/CreateItemModal.vue'
 
 const { t } = useI18n()
 const langStore = useLanguageStore()
@@ -22,6 +23,8 @@ const dayMenuDate = ref(null)
 const dayMenuPosition = ref({ x: 0, y: 0 })
 const showChangeCustodyModal = ref(false)
 const changeCustodyInitialDate = ref(null)
+const showSwitchDaysModal = ref(false)
+const switchDaysInitialDate = ref('')
 
 // Get custody schedule and events from store
 const custodySchedule = computed(() => dashboardStore.custodySchedule)
@@ -215,6 +218,12 @@ function handleChangeCustody() {
   showChangeCustodyModal.value = true
 }
 
+function handleSwitchDays() {
+  switchDaysInitialDate.value = formatDateKey(dayMenuDate.value)
+  showDayMenu.value = false
+  showSwitchDaysModal.value = true
+}
+
 function hasPendingOverride(date) {
   const key = formatDateKey(date)
   return !!dashboardStore.getPendingOverrideForDate(key)
@@ -400,6 +409,7 @@ function handleDeleteEvent(event) {
       @viewDay="handleViewDay"
       @addEvent="handleAddEvent"
       @changeCustody="handleChangeCustody"
+      @switchDays="handleSwitchDays"
       @approveOverride="handleApproveOverride"
       @rejectOverride="handleRejectOverride"
     />
@@ -409,6 +419,14 @@ function handleDeleteEvent(event) {
       v-if="showChangeCustodyModal"
       :initialDate="changeCustodyInitialDate"
       @close="showChangeCustodyModal = false"
+    />
+
+    <!-- Switch Days Modal (opens CreateItemModal in switch mode) -->
+    <CreateItemModal
+      v-if="showSwitchDaysModal"
+      initialType="switch"
+      :prefilledDate="switchDaysInitialDate"
+      @close="showSwitchDaysModal = false"
     />
 
     <!-- Event Detail Modal -->

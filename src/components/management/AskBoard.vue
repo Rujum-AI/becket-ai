@@ -1,6 +1,7 @@
 <script setup>
 import { useI18n } from '@/composables/useI18n'
 import { useManagementStore } from '@/stores/supabaseManagement'
+import { ArrowLeftRight } from 'lucide-vue-next'
 
 const emit = defineEmits(['openDetail'])
 
@@ -14,11 +15,14 @@ function getProfileImage(person) {
 function getUrgencyClass(urgency) {
   return `u-${urgency}`
 }
+
+function isSwitchDays(ask) {
+  return ask.event_data?.switchType === 'day_swap'
+}
 </script>
 
 <template>
   <div>
-    <!-- Pending Asks -->
     <h4 class="section-label">{{ t('pendingRequests') }}</h4>
     <div class="board-container">
       <div class="board-grid">
@@ -35,9 +39,10 @@ function getUrgencyClass(urgency) {
           v-for="ask in managementStore.sortedPendingAsks"
           :key="ask.id"
           @click="$emit('openDetail', ask, 'ask')"
-          class="board-row is-ask"
+          :class="['board-row', 'is-ask', { 'switch-row': isSwitchDays(ask) }]"
         >
           <div class="row-cell cell-name">
+            <ArrowLeftRight v-if="isSwitchDays(ask)" :size="14" class="switch-icon" />
             <span class="truncate">{{ ask.name }}</span>
           </div>
           <div class="row-cell cell-center">
@@ -57,20 +62,9 @@ function getUrgencyClass(urgency) {
             <img :src="getProfileImage(ask.creator)" alt="Creator" />
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Rejected Asks -->
-    <div v-if="managementStore.rejectedAsks.length > 0" class="mt-8">
-      <h4 class="section-label">{{ t('rejectedRequests') }}</h4>
-      <div class="rejected-list">
-        <div
-          v-for="ask in managementStore.rejectedAsks"
-          :key="ask.id"
-          class="rejected-item"
-        >
-          <span class="rejected-name">{{ ask.name }}</span>
-          <span class="rejected-badge">{{ t('rejected') }}</span>
+        <div v-if="managementStore.sortedPendingAsks.length === 0" class="empty-state">
+          {{ t('noItems') }}
         </div>
       </div>
     </div>
@@ -147,6 +141,20 @@ function getUrgencyClass(urgency) {
   align-items: center;
   font-size: 0.875rem;
   color: #1e293b;
+}
+
+.switch-row {
+  border-left: 4px solid #f59e0b;
+}
+
+.switch-row:hover {
+  background: #fffbeb;
+}
+
+.switch-icon {
+  color: #f59e0b;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 .row-cell.cell-name {
@@ -227,46 +235,14 @@ function getUrgencyClass(urgency) {
   background: white;
 }
 
-.rejected-list {
-  background: white;
-  border-radius: 2rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-}
-
-.rejected-item {
-  padding: 1.25rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  opacity: 0.6;
-  border-bottom: 1px solid #f1f5f9;
-  transition: all 0.2s;
-}
-
-.rejected-item:last-child {
-  border-bottom: none;
-}
-
-.rejected-item:hover {
-  background: #f8fafc;
-  opacity: 0.8;
-}
-
-.rejected-name {
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #cbd5e1;
   font-weight: 700;
-  color: #64748b;
-  text-decoration: line-through;
-}
-
-.rejected-badge {
-  font-size: 0.625rem;
-  text-transform: uppercase;
-  font-weight: 900;
-  background: #f1f5f9;
-  color: #94a3b8;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
+  font-style: italic;
+  background: white;
+  border-radius: 1rem;
+  border: 2px dashed #e2e8f0;
 }
 </style>

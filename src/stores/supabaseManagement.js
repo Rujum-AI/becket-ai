@@ -15,14 +15,18 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
   const sortKey = ref('urgency')
   const sortOrder = ref(-1)
 
+  const TERMINAL_STATUSES = ['completed', 'failed', 'rejected']
+
   // Computed filters
   const tasks = computed(() => items.value.filter(item => item.type === 'task'))
   const asks = computed(() => items.value.filter(item => item.type === 'ask'))
 
-  const unassignedTasks = computed(() => tasks.value.filter(t => !t.owner_id))
-  const assignedTasks = computed(() => tasks.value.filter(t => t.owner_id))
+  const activeTasks = computed(() => tasks.value.filter(t => !TERMINAL_STATUSES.includes(t.status)))
+  const unassignedTasks = computed(() => activeTasks.value.filter(t => !t.owner_id))
+  const assignedTasks = computed(() => activeTasks.value.filter(t => t.owner_id))
   const pendingAsks = computed(() => asks.value.filter(a => a.status === 'pending'))
-  const rejectedAsks = computed(() => asks.value.filter(a => a.status === 'rejected'))
+  const completedItems = computed(() => items.value.filter(i => i.status === 'completed'))
+  const rejectedItems = computed(() => items.value.filter(i => ['rejected', 'failed'].includes(i.status)))
 
   // Sorting logic
   function sortList(list) {
@@ -113,6 +117,7 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
             becomes_event: task.becomes_event || false,
             event_data: task.event_data || null,
             related_event_id: task.related_event_id,
+            updated_at: task.updated_at || task.created_at,
             comments: commentsData?.map(c => ({
               id: c.id,
               text: c.text,
@@ -196,6 +201,54 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
     }
   }
 
+  async function createSwitchDaysAsk({ switchFromDate, switchToDate, reason, urgency }) {
+    if (!family.value?.id || !user.value?.id) throw new Error('No family or user')
+
+    // Auto-generate name from dates
+    const fromLabel = new Date(switchFromDate + 'T00:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' })
+    const name = switchToDate
+      ? `Switch: ${fromLabel} ↔ ${new Date(switchToDate + 'T00:00:00').toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
+      : `Request: ${fromLabel}`
+
+    // Determine requester's role (dad/mom)
+    const { data: memberData } = await supabase
+      .from('family_members')
+      .select('role')
+      .eq('family_id', family.value.id)
+      .eq('profile_id', user.value.id)
+      .single()
+
+    const requestedParent = memberData?.role || 'dad'
+
+    try {
+      const { error: askError } = await supabase
+        .from('tasks')
+        .insert({
+          family_id: family.value.id,
+          type: 'ask',
+          name,
+          description: reason || null,
+          urgency: urgency || 'mid',
+          status: 'pending',
+          due_date: switchFromDate,
+          creator_id: user.value.id,
+          becomes_event: false,
+          event_data: {
+            switchType: 'day_swap',
+            switchFromDate,
+            switchToDate: switchToDate || null,
+            requestedParent
+          }
+        })
+
+      if (askError) throw askError
+      await fetchAll()
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
   // ========== COMMENT OPERATIONS ==========
 
   async function addComment(itemId, commentText) {
@@ -246,8 +299,55 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
           })
 
       } else if (action === 'accept') {
+        // Switch-days ask: create custody overrides
+        if (ask.event_data?.switchType === 'day_swap') {
+          const ed = ask.event_data
+          const oppositeParent = ed.requestedParent === 'dad' ? 'mom' : 'dad'
+
+          // Override 1: requester gets switchFromDate
+          const { error: override1Error } = await supabase
+            .from('custody_overrides')
+            .insert({
+              family_id: family.value.id,
+              from_date: ed.switchFromDate,
+              to_date: ed.switchFromDate,
+              override_parent: ed.requestedParent,
+              reason: `Switch days: ${ask.name}`,
+              status: 'approved',
+              requested_by: ask.creator_id,
+              responded_by: user.value.id,
+              responded_at: new Date().toISOString()
+            })
+
+          if (override1Error) throw override1Error
+
+          // Override 2 (swap): co-parent gets switchToDate
+          if (ed.switchToDate) {
+            const { error: override2Error } = await supabase
+              .from('custody_overrides')
+              .insert({
+                family_id: family.value.id,
+                from_date: ed.switchToDate,
+                to_date: ed.switchToDate,
+                override_parent: oppositeParent,
+                reason: `Switch days: ${ask.name}`,
+                status: 'approved',
+                requested_by: ask.creator_id,
+                responded_by: user.value.id,
+                responded_at: new Date().toISOString()
+              })
+
+            if (override2Error) throw override2Error
+          }
+
+          // Mark ask as completed
+          await supabase
+            .from('tasks')
+            .update({ status: 'completed' })
+            .eq('id', ask.id)
+
         // If ask should become an event, create the event
-        if (ask.becomes_event && ask.event_data) {
+        } else if (ask.becomes_event && ask.event_data) {
           const { data: eventData, error: eventError } = await supabase
             .from('events')
             .insert({
@@ -386,6 +486,25 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
     }
   }
 
+  // ========== ACTIVITY LOG ==========
+
+  async function fetchActivityLog(taskId) {
+    try {
+      const { data, error: logError } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('entity_type', 'task')
+        .eq('entity_id', taskId)
+        .order('created_at', { ascending: true })
+
+      if (logError) throw logError
+      return data || []
+    } catch (err) {
+      console.error('Error fetching activity log:', err)
+      return []
+    }
+  }
+
   return {
     items,
     tasks,
@@ -394,20 +513,24 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
     error,
     sortKey,
     sortOrder,
+    activeTasks,
     unassignedTasks,
     assignedTasks,
     pendingAsks,
-    rejectedAsks,
+    completedItems,
+    rejectedItems,
     sortedAssignedTasks,
     sortedPendingAsks,
     setSortKey,
     fetchAll,
     createTask,
     createAsk,
+    createSwitchDaysAsk,
     addComment,
     handleAskAction,
     updateTaskStatus,
     assignTask,
-    deleteTask
+    deleteTask,
+    fetchActivityLog
   }
 })

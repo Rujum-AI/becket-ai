@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 
@@ -522,7 +522,6 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
   // Confirm dropoff — child goes to a location
   async function confirmDropoff(childId, location, items, snapshotId = null) {
-    console.log('[Store] confirmDropoff snapshotId:', snapshotId)
     if (!user.value || !family.value) return
 
     try {
@@ -566,7 +565,6 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         notes: `Dropped off at ${location}`
       }
       if (snapshotId) handoffData.snapshot_id = snapshotId
-      console.log('[Store] handoffData being inserted:', JSON.stringify(handoffData))
 
       const { error: handoffError } = await supabase
         .from('handoffs')

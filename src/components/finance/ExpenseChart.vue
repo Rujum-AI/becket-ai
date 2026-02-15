@@ -7,6 +7,7 @@ const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
 
 const timeframes = ['month', 'year', 'custom']
+const timeframeLabel = { month: 'monthly', year: 'year', custom: 'custom' }
 
 // Split categories into left (odd index) and right (even index)
 const rightCategories = computed(() =>
@@ -32,7 +33,7 @@ function formatAmount(amount) {
           @click="financeStore.setTimeframe(tf)"
           :class="['toggle-btn', { active: financeStore.activeTimeframe === tf }]"
         >
-          {{ t(tf) }}
+          {{ t(timeframeLabel[tf]) }}
         </button>
       </div>
     </div>

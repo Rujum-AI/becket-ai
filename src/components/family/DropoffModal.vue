@@ -59,11 +59,11 @@ async function confirmDropoff() {
     // Upload photo if one was captured
     if (photoBlob.value) {
       const childIds = props.child.id ? [props.child.id] : []
-      const snapshot = await snapshotsStore.uploadSnapshot(photoBlob.value, { childIds })
+      const caption = `${props.child.name} ${t('goingTo')} ${t(dropLocation.value)}`
+      const snapshot = await snapshotsStore.uploadSnapshot(photoBlob.value, { childIds, caption })
       snapshotId = snapshot.id
     }
 
-    console.log('[DropoffModal] snapshotId before emit:', snapshotId)
     emit('confirm', {
       child: props.child,
       location: dropLocation.value,

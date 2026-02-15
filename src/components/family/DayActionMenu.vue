@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
-import { Eye, Plus, ArrowLeftRight, Check, X } from 'lucide-vue-next'
+import { Eye, Plus, ArrowLeftRight, CalendarClock, Check, X } from 'lucide-vue-next'
 
 const props = defineProps({
   date: { type: Date, required: true },
@@ -9,7 +9,7 @@ const props = defineProps({
   pendingOverride: { type: Object, default: null }
 })
 
-const emit = defineEmits(['close', 'viewDay', 'addEvent', 'changeCustody', 'approveOverride', 'rejectOverride'])
+const emit = defineEmits(['close', 'viewDay', 'addEvent', 'changeCustody', 'switchDays', 'approveOverride', 'rejectOverride'])
 
 const { t } = useI18n()
 
@@ -85,6 +85,13 @@ function getStyle() {
           <ArrowLeftRight :size="22" />
         </div>
         <span class="action-label">{{ t('switchParent') }}</span>
+      </button>
+
+      <button class="action-btn" @click="emit('switchDays')">
+        <div class="action-circle">
+          <CalendarClock :size="22" />
+        </div>
+        <span class="action-label">{{ t('switchDays') }}</span>
       </button>
 
       <!-- Pending override section -->

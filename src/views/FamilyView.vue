@@ -11,12 +11,10 @@ import AddEventFlow from '@/components/family/AddEventFlow.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
-import { useRouter } from 'vue-router'
 import { ChevronDown, AlertTriangle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const dashboardStore = useSupabaseDashboardStore()
-const router = useRouter()
 
 const children = computed(() => dashboardStore.children)
 const hasChildren = computed(() => children.value.length > 0)
@@ -96,7 +94,6 @@ function cancelUnexpectedPickup() {
 }
 
 function confirmDropoff(data) {
-  console.log('[FamilyView] confirmDropoff data.snapshotId:', data.snapshotId)
   dashboardStore.confirmDropoff(data.child.id, data.location, data.items, data.snapshotId)
 }
 

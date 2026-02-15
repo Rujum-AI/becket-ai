@@ -13,7 +13,7 @@ function getProfileImage(person) {
 }
 
 function getStatusClass(status) {
-  return `st-${status.replace(' ', '-')}`
+  return `st-${status.replace(/[ _]/g, '-')}`
 }
 
 function getUrgencyClass(urgency) {
