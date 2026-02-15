@@ -1,8 +1,7 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import {
-  ChevronDown,
   CircleArrowDown,
   CircleArrowUp,
   ArrowLeftRight,
@@ -22,11 +21,6 @@ const props = defineProps({
 defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge'])
 
 const { t } = useI18n()
-const expanded = ref(false)
-
-function toggleExpand() {
-  expanded.value = !expanded.value
-}
 
 // Color palette inspired by dashboard/pie chart categories
 const CARD_PALETTE = [
@@ -93,8 +87,8 @@ const nextInteractionText = computed(() => {
     <!-- Hatching texture overlay -->
     <div class="card-texture"></div>
 
-    <!-- HEADER: Avatar + Info + Chevron -->
-    <div class="card-header" @click="toggleExpand">
+    <!-- HEADER: Avatar + Info -->
+    <div class="card-header">
       <div class="avatar-ring">
         <img
           :src="child.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'"
@@ -108,9 +102,6 @@ const nextInteractionText = computed(() => {
           <div class="status-dot"></div>
           <span>{{ t(child.status) }}</span>
         </div>
-      </div>
-      <div class="expand-btn">
-        <ChevronDown :size="18" :class="['chevron-icon', { flipped: expanded }]" />
       </div>
     </div>
 
@@ -136,44 +127,28 @@ const nextInteractionText = computed(() => {
       </button>
     </div>
 
-    <!-- EXPANDABLE DRAWER -->
-    <div class="card-drawer" :class="{ 'drawer-open': expanded }">
-      <div class="drawer-content">
-
-        <!-- NEXT INTERACTION -->
-        <div v-if="nextInteractionText" class="schedule-section">
-          <div class="schedule-row">
-            <div class="schedule-icon icon-amber">
-              <ArrowLeftRight :size="13" />
-            </div>
-            <div class="schedule-text bidi-isolate">
-              {{ nextInteractionText }}
-            </div>
-          </div>
+    <!-- NEXT INTERACTION -->
+    <div v-if="nextInteractionText" class="schedule-section">
+      <div class="schedule-row">
+        <div class="schedule-icon icon-amber">
+          <ArrowLeftRight :size="13" />
         </div>
-
-        <!-- QUICK ACTIONS -->
-        <div class="quick-actions">
-          <button
-            v-if="canNudge"
-            class="quick-btn quick-nudge"
-            :class="{ sending: nudgeSending }"
-            @click.stop="$emit('send-nudge', child)"
-          >
-            <Heart :size="15" />
-            <span>{{ t('nudge') }}</span>
-          </button>
-          <button class="quick-btn quick-brief" @click.stop="$emit('open-brief', child)">
-            <FileText :size="15" />
-            <span>{{ t('brief') }}</span>
-          </button>
-          <button class="quick-btn quick-docs" @click.stop="$emit('open-documents', child)">
-            <FolderOpen :size="15" />
-            <span>{{ t('documents') }}</span>
-          </button>
+        <div class="schedule-text bidi-isolate">
+          {{ nextInteractionText }}
         </div>
-
       </div>
+    </div>
+
+    <!-- QUICK ACTIONS -->
+    <div class="quick-actions">
+      <button class="quick-btn quick-brief" @click.stop="$emit('open-brief', child)">
+        <FileText :size="15" />
+        <span>{{ t('brief') }}</span>
+      </button>
+      <button class="quick-btn quick-docs" @click.stop="$emit('open-documents', child)">
+        <FolderOpen :size="15" />
+        <span>{{ t('documents') }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -218,7 +193,6 @@ const nextInteractionText = computed(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1rem 0.5rem;
-  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -299,32 +273,6 @@ const nextInteractionText = computed(() => {
   font-weight: 700;
   color: #475569;
   white-space: nowrap;
-}
-
-.expand-btn {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1.5px solid rgba(0, 0, 0, 0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.2s;
-}
-
-.expand-btn:hover {
-  background: rgba(255, 255, 255, 0.85);
-}
-
-.chevron-icon {
-  color: #94a3b8;
-  transition: transform 0.3s ease;
-}
-
-.chevron-icon.flipped {
-  transform: rotate(180deg);
 }
 
 /* ===== Action Row ===== */
@@ -482,29 +430,14 @@ const nextInteractionText = computed(() => {
   animation: nudgePulse 0.6s ease-in-out infinite;
 }
 
-/* ===== Drawer ===== */
-.card-drawer {
-  position: relative;
-  z-index: 1;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.card-drawer.drawer-open {
-  max-height: 300px;
-}
-
-.drawer-content {
-  padding: 0.25rem 0.75rem 0.875rem;
-}
-
 /* ===== Schedule Section ===== */
 .schedule-section {
+  position: relative;
+  z-index: 1;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 1rem;
   padding: 0.125rem 0;
-  margin-bottom: 0.625rem;
+  margin: 0 0.75rem 0.5rem;
   border: 1.5px solid rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(4px);
 }
@@ -542,8 +475,11 @@ const nextInteractionText = computed(() => {
 
 /* ===== Quick Actions ===== */
 .quick-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
   gap: 0.375rem;
+  padding: 0 0.75rem 0.875rem;
 }
 
 .quick-btn {
@@ -570,7 +506,6 @@ const nextInteractionText = computed(() => {
   letter-spacing: 0.05em;
 }
 
-.quick-nudge { color: #ef4444; }
 .quick-brief { color: #8b5cf6; }
 .quick-docs { color: #3b82f6; }
 
