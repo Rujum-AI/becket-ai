@@ -73,7 +73,7 @@ input, textarea, select { text-align: start; }
 
 /* === LAYOUT === */
 .content-wrap {
-    padding-top: 130px;
+    padding-top: 140px;
     padding-bottom: 150px;
     max-width: 80rem;
     margin-left: auto;
@@ -87,36 +87,77 @@ input, textarea, select { text-align: start; }
     left: 0;
     right: 0;
     padding: 0 1.5rem;
-    height: 90px;
+    padding-inline-start: 0.75rem;
+    height: 70px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 2000;
-    box-shadow: 0 4px 20px rgba(189, 91, 57, 0.25);
-    background-color: var(--rust-orange);
-    background-image: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 2px,
-        rgba(255, 255, 255, 0.06) 2px,
-        rgba(255, 255, 255, 0.06) 4px
-    );
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+    background: var(--warm-linen);
     direction: ltr;
+    border-bottom: 2px solid var(--deep-slate);
+}
+
+.app-header > * {
+    position: relative;
+    z-index: 1;
+}
+
+.app-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 45px;
+    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.12) 2px, rgba(255,255,255,0.12) 4px), linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+    transform: translateY(100%);
+    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.2);
+    z-index: 0;
 }
 
 .logo-img {
-    height: 50px;
+    height: 62px;
     width: auto;
     object-fit: contain;
+    transform: translateY(18px);
+    z-index: 2;
+}
+
+.logo-group {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    overflow: visible;
+}
+
+.logo-text-group {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+    padding-bottom: 0;
+    margin-bottom: -4px;
+}
+
+.logo-tagline {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: 0.55rem;
+    color: #94a3b8;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
 }
 
 .logo-text {
     font-family: 'Fraunces', serif;
-    font-weight: 800;
-    font-size: 1.5rem;
-    color: white;
-    letter-spacing: -0.02em;
-    margin-inline-start: 10px;
+    font-weight: 700;
+    font-size: 1.8rem;
+    color: var(--deep-slate);
+    letter-spacing: 0.02em;
+    text-transform: none;
+    margin-inline-start: 0;
 }
 
 .header-icon {
@@ -124,11 +165,14 @@ input, textarea, select { text-align: start; }
     height: 44px;
     border-radius: 50%;
     overflow: visible;
-    border: 2px solid rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.3);
     background: white;
     cursor: pointer;
     flex-shrink: 0;
     position: relative;
+    transform: translateY(38px);
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .header-icon img {
@@ -160,9 +204,11 @@ input, textarea, select { text-align: start; }
 
 .header-spacer {
     width: 1px;
-    height: 32px;
+    height: 28px;
     background-color: rgba(255,255,255,0.3);
     margin: 0 0.5rem;
+    transform: translateY(38px);
+    z-index: 2;
 }
 
 .profile-ring {
@@ -171,9 +217,12 @@ input, textarea, select { text-align: start; }
     border-radius: 50%;
     background: #fff;
     padding: 2px;
-    border: 2px solid var(--deep-slate);
+    border: 2px solid white;
     cursor: pointer;
     transition: all 0.2s ease;
+    transform: translateY(38px);
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .profile-ring img {
@@ -185,7 +234,7 @@ input, textarea, select { text-align: start; }
 
 .user-dropdown {
     position: absolute;
-    top: 70px;
+    top: 95px;
     right: 0;
     width: 240px;
     background: white;
@@ -393,7 +442,7 @@ input, textarea, select { text-align: start; }
 
 /* === FOOTER & WHEEL === */
 .app-footer {
-    background: var(--deep-slate);
+    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px), var(--deep-slate);
     position: fixed;
     bottom: 0;
     left: 0;
@@ -678,7 +727,7 @@ input, textarea, select { text-align: start; }
     flex-shrink: 0;
     padding: 4rem 3rem 3rem;
     text-align: center;
-    color: white;
+    color: #0f172a;
     position: relative;
     overflow: hidden;
 }
@@ -710,14 +759,19 @@ input, textarea, select { text-align: start; }
     font-size: 2rem;
 }
 
-/* Center and enlarge thumbnails in header */
+/* Center thumbnails in header with avatar ring treatment */
 .base-modal-header img {
     display: block;
     margin-left: auto;
     margin-right: auto;
-    transform: scale(1.5);
-    transform-origin: center bottom;
+    width: 6.5rem;
+    height: 6.5rem;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15), 0 0 20px rgba(0, 0, 0, 0.06);
     margin-bottom: 1rem;
+    transform: none;
 }
 
 .base-modal-body {
@@ -910,19 +964,36 @@ input, textarea, select { text-align: start; }
     letter-spacing: 0.1em;
     cursor: pointer;
     transition: all 0.2s;
-    border: none;
+    border: 2px solid rgba(0, 0, 0, 0.15);
     color: white;
     background: var(--deep-slate);
-    box-shadow: 0 10px 20px -5px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    position: relative;
+    overflow: hidden;
 }
 
-.modal-primary-btn:hover {
+.modal-primary-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.12) 2px,
+        rgba(255, 255, 255, 0.12) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+.modal-primary-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 15px 30px -5px rgba(0,0,0,0.2);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
-.modal-primary-btn:active {
-    transform: scale(0.96);
+.modal-primary-btn:active:not(:disabled) {
+    transform: scale(0.97);
 }
 
 .modal-primary-btn:disabled {
@@ -938,15 +1009,22 @@ input, textarea, select { text-align: start; }
     font-weight: 800;
     font-size: 0.8rem;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
     cursor: pointer;
     transition: all 0.2s;
-    border: none;
-    background: #f1f5f9;
+    border: 2px solid rgba(0, 0, 0, 0.08);
+    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px), #f1f5f9;
     color: #64748b;
 }
 
 .modal-secondary-btn:hover {
-    background: #e2e8f0;
+    transform: translateY(-1px);
+    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 4px), #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.modal-secondary-btn:active {
+    transform: scale(0.97);
 }
 
 .modal-action-bar {
@@ -957,9 +1035,9 @@ input, textarea, select { text-align: start; }
 .modal-danger-btn {
     width: 100%;
     padding: 0.8rem;
-    border: 1px solid #fee2e2;
-    background: #fef2f2;
-    color: #ef4444;
+    border: 2px solid #dc2626;
+    background: linear-gradient(135deg, #ef4444, #f87171);
+    color: white;
     border-radius: 9999px;
     font-weight: 800;
     font-size: 0.8rem;
@@ -970,10 +1048,33 @@ input, textarea, select { text-align: start; }
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.modal-danger-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255, 255, 255, 0.1) 2px,
+        rgba(255, 255, 255, 0.1) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
 }
 
 .modal-danger-btn:hover {
-    background: #fee2e2;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.modal-danger-btn:active {
+    transform: scale(0.97);
 }
 
 .modal-error {

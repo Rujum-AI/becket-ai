@@ -83,7 +83,7 @@ function handleCardClick(item) {
 <style scoped>
 .notification-overlay-stack {
   position: fixed;
-  top: 100px;
+  top: 130px;
   right: 20px;
   display: flex;
   flex-direction: column;

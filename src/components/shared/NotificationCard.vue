@@ -269,13 +269,11 @@ function formatTime(timestamp) {
   -webkit-box-orient: vertical;
 }
 
-/* Pin button — inside card, bottom-right corner */
+/* Pin button — inline in card flex row */
 .notif-pin {
-  position: absolute;
-  bottom: 8px;
-  right: 10px;
-  width: 22px;
-  height: 22px;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.35);
@@ -286,6 +284,7 @@ function formatTime(timestamp) {
   cursor: pointer;
   padding: 0;
   transition: all 0.2s;
+  align-self: center;
 }
 
 .notif-pin:hover {
@@ -301,8 +300,7 @@ function formatTime(timestamp) {
 }
 
 [dir="rtl"] .notif-pin {
-  right: auto;
-  left: 10px;
+  /* No positional override needed — pin is in flex flow */
 }
 
 /* Fade progress bar */

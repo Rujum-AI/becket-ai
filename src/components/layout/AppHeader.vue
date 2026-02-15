@@ -89,9 +89,12 @@ if (typeof document !== 'undefined') {
 
 <template>
   <header class="app-header">
-    <div class="flex items-center cursor-pointer" @click="goToDashboard">
-      <img src="/assets/becket_logo.png" class="logo-img" alt="Becket AI Logo">
-      <span class="logo-text">Becket AI</span>
+    <div class="logo-group cursor-pointer" @click="goToDashboard">
+      <img src="/assets/becket_logo3.png" class="logo-img" alt="Becket AI Logo">
+      <div class="logo-text-group">
+        <span class="logo-tagline">Co-parenting, simplified</span>
+        <span class="logo-text">Becket AI</span>
+      </div>
     </div>
     <div class="flex items-center gap-3">
       <div class="flex gap-2">
