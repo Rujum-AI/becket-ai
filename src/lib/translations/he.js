@@ -503,7 +503,7 @@ export default {
   tapToClose: 'לחץ שוב לסגירה',
 
   // === BRIEF/RECAP ===
-  recap: 'סיכום',
+  recap: 'תדריך',
   close: 'סגור',
   dailyBrief: 'תדריך יומי',
   sinceLastSeen: 'מאז הפעם האחרונה',
@@ -647,5 +647,16 @@ export default {
   nudgeSentSuccess: 'אלוף/ה! העדכון נשלח.',
   checkInDetail: 'עדכון מהיר',
   pinNotification: 'הצמד',
-  unpinNotification: 'בטל הצמדה'
+  unpinNotification: 'בטל הצמדה',
+
+  // Child Card Schedule
+  now: 'עכשיו',
+  next: 'הבא',
+  handoff: 'מסירה',
+  noUpcoming: 'אין אירועים',
+  fromPlace: 'מ',
+  atTime: 'בשעה',
+  onDay: 'ביום',
+  tomorrow: 'מחר',
+  brief: 'תדריך'
 }

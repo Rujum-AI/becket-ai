@@ -191,6 +191,16 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   async function sendNudge(childId, childName) {
     if (!user.value?.id) return null
 
+    // Show immediate feedback in overlay (optimistic)
+    addToOverlay({
+      id: `nudge-sent-${Date.now()}`,
+      type: 'nudge_request',
+      category: 'nudge',
+      message: `Check-in sent for ${childName}`,
+      created_at: new Date().toISOString(),
+      priority: 'normal'
+    })
+
     try {
       const { data, error: rpcError } = await supabase
         .rpc('send_nudge', {

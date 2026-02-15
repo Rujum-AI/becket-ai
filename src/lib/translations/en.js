@@ -647,5 +647,16 @@ export default {
   nudgeSentSuccess: "You're awesome! Update sent.",
   checkInDetail: 'Check-in Update',
   pinNotification: 'Pin',
-  unpinNotification: 'Unpin'
+  unpinNotification: 'Unpin',
+
+  // Child Card Schedule
+  now: 'Now',
+  next: 'Next',
+  handoff: 'Handoff',
+  noUpcoming: 'Nothing scheduled',
+  fromPlace: 'from',
+  atTime: 'at',
+  onDay: 'on',
+  tomorrow: 'Tomorrow',
+  brief: 'Brief'
 }

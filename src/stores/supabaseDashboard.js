@@ -58,7 +58,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         .from('children')
         .select('*')
         .eq('family_id', familyMember.family_id)
-        .order('date_of_birth', { ascending: false })
+        .order('date_of_birth', { ascending: true })
 
       if (childrenError) throw childrenError
 
@@ -136,6 +136,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           nextAction: nextAction,
           nextHandoffTime: nextHandoff?.time || null,
           nextHandoffType: nextHandoff?.type || null,
+          nextHandoffLoc: nextHandoff?.location || null,
+          nextHandoffDate: nextHandoff?.date?.toISOString() || null,
           items: [], // TODO: fetch from items table
           todaysEvents: todaysEvents,
           dayProgress: dayProgress
@@ -699,6 +701,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       id: handoff.id,
       type: handoff.type,
       time: eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      location: handoff.location_name || null,
       date: eventDate
     }
   }
