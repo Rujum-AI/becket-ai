@@ -233,7 +233,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       }
     }
 
-    // Query events for this child since the timestamp
+    // Query events for this child in the time window (past only, no future)
+    const nowTimestamp = new Date().toISOString()
     const { data: eventsData, error: eventsError } = await supabase
       .from('events')
       .select(`
@@ -244,6 +245,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       .eq('family_id', family.value.id)
       .eq('event_children.child_id', childId)
       .gte('start_time', sinceTimestamp)
+      .lte('start_time', nowTimestamp)
       .neq('status', 'cancelled')
       .order('start_time', { ascending: true })
 
@@ -279,6 +281,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       .eq('family_id', family.value.id)
       .eq('snapshot_children.child_id', childId)
       .gte('timestamp', sinceTimestamp)
+      .lte('timestamp', nowTimestamp)
       .order('timestamp', { ascending: true })
 
     // Merge snapshots into timeline
