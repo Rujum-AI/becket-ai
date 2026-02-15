@@ -149,24 +149,195 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
+  // Build description with optional backpack items prefix
+  function buildDescription(notes, backpackItems) {
+    let desc = ''
+    if (backpackItems && backpackItems.length > 0) {
+      desc = `[BACKPACK:${backpackItems.join(',')}]\n`
+    }
+    if (notes) desc += notes
+    return desc || null
+  }
+
+  // Parse backpack items from description string
+  function parseBackpackItems(description) {
+    if (!description) return { items: [], notes: '' }
+    const match = description.match(/^\[BACKPACK:(.*?)\]\n?/)
+    if (!match) return { items: [], notes: description }
+    const items = match[1].split(',').filter(Boolean)
+    const notes = description.slice(match[0].length)
+    return { items, notes }
+  }
+
+  // Relative time formatting for brief timeline
+  function formatRelativeTime(date) {
+    const now = new Date()
+    const diff = now - date
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
+
+    if (diff < 0) {
+      const absMins = Math.floor(Math.abs(diff) / 60000)
+      const absHours = Math.floor(Math.abs(diff) / 3600000)
+      if (absMins < 60) return `in ${absMins}m`
+      if (absHours < 24) return `in ${absHours}h`
+      return date.toLocaleDateString()
+    }
+    if (minutes < 1) return 'Just now'
+    if (minutes < 60) return `${minutes}m ago`
+    if (hours < 24) return `${hours}h ago`
+    if (days === 1) return 'Yesterday'
+    if (days < 7) return `${days}d ago`
+    return date.toLocaleDateString()
+  }
+
+  // Generate brief/recap for a child
+  async function generateBrief(childId, mode = 'since-last-seen') {
+    if (!user.value || !family.value) return { sinceDate: null, hadHandoff: false, items: [] }
+
+    let sinceTimestamp
+    let hadHandoff = true
+
+    if (mode === 'today') {
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      sinceTimestamp = now.toISOString()
+    } else {
+      // Find last handoff where this parent dropped off the child
+      const { data: lastHandoff, error: handoffError } = await supabase
+        .from('handoffs')
+        .select('actual_at, items_sent, notes')
+        .eq('from_parent_id', user.value.id)
+        .eq('child_id', childId)
+        .order('actual_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (handoffError) {
+        console.error('Error fetching last handoff:', handoffError)
+        throw handoffError
+      }
+
+      const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+
+      if (lastHandoff?.actual_at) {
+        // Cap at 5 days max even if handoff was longer ago
+        sinceTimestamp = lastHandoff.actual_at < fiveDaysAgo ? fiveDaysAgo : lastHandoff.actual_at
+      } else {
+        // No handoff found — fallback to last 5 days
+        hadHandoff = false
+        sinceTimestamp = fiveDaysAgo
+      }
+    }
+
+    // Query events for this child since the timestamp
+    const { data: eventsData, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        id, title, type, start_time, end_time,
+        location_name, description, status,
+        event_children!inner (child_id)
+      `)
+      .eq('family_id', family.value.id)
+      .eq('event_children.child_id', childId)
+      .gte('start_time', sinceTimestamp)
+      .neq('status', 'cancelled')
+      .order('start_time', { ascending: true })
+
+    if (eventsError) {
+      console.error('Error fetching brief events:', eventsError)
+      throw eventsError
+    }
+
+    const items = (eventsData || []).map(event => {
+      const eventDate = new Date(event.start_time)
+      const parsed = parseBackpackItems(event.description)
+      return {
+        id: event.id,
+        time: formatRelativeTime(eventDate),
+        timestamp: eventDate.toLocaleTimeString('en-US', {
+          hour: '2-digit', minute: '2-digit', hour12: false
+        }),
+        type: event.type,
+        title: event.title || event.type,
+        description: parsed.notes || '',
+        location: event.location_name || '',
+        startTime: event.start_time
+      }
+    })
+
+    // Also fetch snapshots for this child in the same time range
+    const { data: snapshotsData } = await supabase
+      .from('snapshots')
+      .select(`
+        id, file_url, timestamp, caption, uploaded_by,
+        snapshot_children!inner (child_id)
+      `)
+      .eq('family_id', family.value.id)
+      .eq('snapshot_children.child_id', childId)
+      .gte('timestamp', sinceTimestamp)
+      .order('timestamp', { ascending: true })
+
+    // Merge snapshots into timeline
+    if (snapshotsData?.length) {
+      for (const snap of snapshotsData) {
+        const snapDate = new Date(snap.timestamp)
+        items.push({
+          id: snap.id,
+          time: formatRelativeTime(snapDate),
+          timestamp: snapDate.toLocaleTimeString('en-US', {
+            hour: '2-digit', minute: '2-digit', hour12: false
+          }),
+          type: 'snapshot',
+          title: snap.caption || 'Photo',
+          description: '',
+          photoUrl: snap.file_url,
+          startTime: snap.timestamp
+        })
+      }
+      // Re-sort by time
+      items.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+    }
+
+    return { sinceDate: sinceTimestamp, hadHandoff, items }
+  }
+
   // Create a new event and link it to children
-  async function createEvent({ title, date, time, endTime, location, notes, type, childIds }) {
+  async function createEvent({
+    title, date, time, endTime, location, notes, type, childIds,
+    schoolId = null, activityId = null, personId = null,
+    rrule = null, backpackItems = []
+  }) {
     if (!user.value || !family.value) return
 
     try {
       const startTime = time ? `${date}T${time}:00` : `${date}T00:00:00`
       const allDay = !time
 
+      // Auto-detect co-parent custody day for pending approval
+      let eventStatus = 'scheduled'
+      if (partnerId.value) {
+        const custodyParent = getExpectedParent(date)
+        if (custodyParent && custodyParent !== parentLabel.value) {
+          eventStatus = 'pending_approval'
+        }
+      }
+
       const insertData = {
         family_id: family.value.id,
         type: type || 'manual',
         title,
-        description: notes || null,
+        description: buildDescription(notes, backpackItems),
         start_time: startTime,
         end_time: endTime ? `${date}T${endTime}:00` : null,
         all_day: allDay,
         location_name: location || null,
-        status: 'scheduled',
+        school_id: schoolId,
+        activity_id: activityId,
+        person_id: personId,
+        recurrence_rule: rrule,
+        status: eventStatus,
         created_by: user.value.id
       }
 
@@ -195,6 +366,90 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       return eventData
     } catch (err) {
       console.error('Error creating event:', err)
+      error.value = err.message
+      throw err
+    }
+  }
+
+  // Update an existing event
+  async function updateEvent(eventId, {
+    title, date, time, endTime, location, notes, type, childIds,
+    schoolId = null, activityId = null, personId = null,
+    rrule = null, backpackItems = []
+  }) {
+    if (!user.value || !family.value) return
+
+    try {
+      const startTime = time ? `${date}T${time}:00` : `${date}T00:00:00`
+
+      // Check co-parent custody for pending approval
+      let eventStatus = 'scheduled'
+      if (partnerId.value) {
+        const custodyParent = getExpectedParent(date)
+        if (custodyParent && custodyParent !== parentLabel.value) {
+          eventStatus = 'pending_approval'
+        }
+      }
+
+      const updateData = {
+        title,
+        type: type || 'manual',
+        description: buildDescription(notes, backpackItems),
+        start_time: startTime,
+        end_time: endTime ? `${date}T${endTime}:00` : null,
+        all_day: !time,
+        location_name: location || null,
+        school_id: schoolId,
+        activity_id: activityId,
+        person_id: personId,
+        recurrence_rule: rrule,
+        status: eventStatus
+      }
+
+      const { error: updateError } = await supabase
+        .from('events')
+        .update(updateData)
+        .eq('id', eventId)
+
+      if (updateError) throw updateError
+
+      // Replace event_children
+      if (childIds) {
+        await supabase.from('event_children').delete().eq('event_id', eventId)
+        if (childIds.length > 0) {
+          const { error: childError } = await supabase
+            .from('event_children')
+            .insert(childIds.map(childId => ({
+              event_id: eventId,
+              child_id: childId
+            })))
+          if (childError) throw childError
+        }
+      }
+
+      await loadFamilyData()
+    } catch (err) {
+      console.error('Error updating event:', err)
+      error.value = err.message
+      throw err
+    }
+  }
+
+  // Soft-delete an event (set status to cancelled)
+  async function deleteEvent(eventId) {
+    if (!user.value) return
+
+    try {
+      const { error: delError } = await supabase
+        .from('events')
+        .update({ status: 'cancelled' })
+        .eq('id', eventId)
+
+      if (delError) throw delError
+
+      await loadFamilyData()
+    } catch (err) {
+      console.error('Error deleting event:', err)
       error.value = err.message
       throw err
     }
@@ -266,7 +521,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   }
 
   // Confirm dropoff — child goes to a location
-  async function confirmDropoff(childId, location, items) {
+  async function confirmDropoff(childId, location, items, snapshotId = null) {
+    console.log('[Store] confirmDropoff snapshotId:', snapshotId)
     if (!user.value || !family.value) return
 
     try {
@@ -299,18 +555,22 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       // 2. Create handoff record
       const toParent = partnerId.value || user.value.id // solo: self
+      const handoffData = {
+        family_id: family.value.id,
+        child_id: childId,
+        from_parent_id: user.value.id,
+        to_parent_id: toParent,
+        scheduled_at: new Date().toISOString(),
+        actual_at: new Date().toISOString(),
+        items_sent: (items || []).map(item => ({ name: item, flagged_missing: false })),
+        notes: `Dropped off at ${location}`
+      }
+      if (snapshotId) handoffData.snapshot_id = snapshotId
+      console.log('[Store] handoffData being inserted:', JSON.stringify(handoffData))
+
       const { error: handoffError } = await supabase
         .from('handoffs')
-        .insert({
-          family_id: family.value.id,
-          child_id: childId,
-          from_parent_id: user.value.id,
-          to_parent_id: toParent,
-          scheduled_at: new Date().toISOString(),
-          actual_at: new Date().toISOString(),
-          items_sent: (items || []).map(item => ({ name: item, flagged_missing: false })),
-          notes: `Dropped off at ${location}`
-        })
+        .insert(handoffData)
 
       if (handoffError) {
         console.error('Handoff insert error:', handoffError)
@@ -552,11 +812,15 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     error,
     loadFamilyData,
     createEvent,
+    updateEvent,
+    deleteEvent,
+    parseBackpackItems,
     confirmPickup,
     confirmDropoff,
     getExpectedParent,
     getPendingOverrideForDate,
     requestCustodyOverride,
-    respondToCustodyOverride
+    respondToCustodyOverride,
+    generateBrief
   }
 })

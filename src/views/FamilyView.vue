@@ -5,8 +5,9 @@ import SectionHeader from '@/components/layout/SectionHeader.vue'
 import PickupModal from '@/components/family/PickupModal.vue'
 import DropoffModal from '@/components/family/DropoffModal.vue'
 import BriefModal from '@/components/family/BriefModal.vue'
+import DocumentsModal from '@/components/family/DocumentsModal.vue'
 import CalendarSection from '@/components/family/CalendarSection.vue'
-import AddEventModal from '@/components/family/AddEventModal.vue'
+import AddEventFlow from '@/components/family/AddEventFlow.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
@@ -31,6 +32,7 @@ const selectedChild = ref(null)
 const expandedIds = ref(new Set())
 const showAddEventModal = ref(false)
 const addEventInitialDate = ref('')
+const editingEvent = ref(null)
 const showUnexpectedParentModal = ref(false)
 const unexpectedPickupChildId = ref(null)
 
@@ -94,10 +96,12 @@ function cancelUnexpectedPickup() {
 }
 
 function confirmDropoff(data) {
-  dashboardStore.confirmDropoff(data.child.id, data.location, data.items)
+  console.log('[FamilyView] confirmDropoff data.snapshotId:', data.snapshotId)
+  dashboardStore.confirmDropoff(data.child.id, data.location, data.items, data.snapshotId)
 }
 
 function openAddEventModal(date) {
+  editingEvent.value = null
   if (date instanceof Date) {
     const y = date.getFullYear()
     const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -111,6 +115,16 @@ function openAddEventModal(date) {
 
 function onEventSaved() {
   showAddEventModal.value = false
+  editingEvent.value = null
+}
+
+function handleEditEvent(event) {
+  editingEvent.value = event
+  showAddEventModal.value = true
+}
+
+async function handleDeleteEvent(event) {
+  await dashboardStore.deleteEvent(event.id)
 }
 </script>
 
@@ -195,7 +209,7 @@ function onEventSaved() {
                 </div>
               </div>
               <div class="drawer-buttons">
-                <img src="/assets/check.png" class="drawer-btn" alt="Check" />
+                <img src="/assets/tasks.png" class="drawer-btn" alt="Documents" @click.stop="openModal(child, 'documents')" />
                 <img
                   :src="child.gender === 'boy' ? '/assets/brief_boy.png' : '/assets/brief_girl.png'"
                   class="drawer-btn drawer-btn-wide"
@@ -211,7 +225,11 @@ function onEventSaved() {
 
     <div class="mb-12">
       <SectionHeader :title="t('calendar')" icon="calendar.png" :hasAction="true" @action="openAddEventModal" />
-      <CalendarSection @addEvent="openAddEventModal" />
+      <CalendarSection
+        @addEvent="openAddEventModal"
+        @editEvent="handleEditEvent"
+        @deleteEvent="handleDeleteEvent"
+      />
     </div>
 
     <!-- Modals -->
@@ -235,10 +253,17 @@ function onEventSaved() {
       @close="closeModal"
     />
 
-    <AddEventModal
+    <DocumentsModal
+      v-if="activeModal === 'documents' && selectedChild"
+      :child="selectedChild"
+      @close="closeModal"
+    />
+
+    <AddEventFlow
       v-if="showAddEventModal"
       :initialDate="addEventInitialDate"
-      @close="showAddEventModal = false"
+      :editEvent="editingEvent"
+      @close="showAddEventModal = false; editingEvent = null"
       @save="onEventSaved"
     />
 

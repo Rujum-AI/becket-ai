@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useTrusteesStore } from '@/stores/supabaseTrustees'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import EntityCard from '@/components/trustees/EntityCard.vue'
@@ -11,10 +12,12 @@ import { AlertTriangle } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const trusteesStore = useTrusteesStore()
+const dashboardStore = useSupabaseDashboardStore()
 
-// Load all trustees data on mount
+// Load all trustees data + children on mount
 onMounted(() => {
   trusteesStore.loadAll()
+  dashboardStore.loadFamilyData()
 })
 
 const showModal = ref(false)

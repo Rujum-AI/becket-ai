@@ -1,15 +1,19 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useLanguageStore } from '@/stores/language'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import BaseModal from '@/components/shared/BaseModal.vue'
-import { Clock, MapPin, Calendar, User, Tag } from 'lucide-vue-next'
+import { Clock, MapPin, Calendar, User, Tag, Pencil, Trash2, PackageOpen } from 'lucide-vue-next'
 
 const props = defineProps({
   event: { type: Object, required: true }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'edit', 'delete'])
+
+const dashboardStore = useSupabaseDashboardStore()
+const showDeleteConfirm = ref(false)
 
 const { t } = useI18n()
 const langStore = useLanguageStore()
@@ -80,6 +84,21 @@ const headerColor = computed(() => {
 const locationName = computed(() => {
   return props.event.location_name || ''
 })
+
+const parsedDescription = computed(() => {
+  return dashboardStore.parseBackpackItems(props.event.description)
+})
+
+const backpackItems = computed(() => parsedDescription.value.items)
+const eventNotes = computed(() => parsedDescription.value.notes)
+
+function confirmDelete() {
+  showDeleteConfirm.value = true
+}
+
+function handleDelete() {
+  emit('delete', props.event)
+}
 </script>
 
 <template>
@@ -138,11 +157,22 @@ const locationName = computed(() => {
         </div>
       </div>
 
-      <!-- Description -->
-      <div v-if="event.description" class="detail-row">
+      <!-- Backpack Items -->
+      <div v-if="backpackItems.length > 0" class="detail-row">
+        <PackageOpen :size="20" class="detail-icon" />
+        <div class="detail-content">
+          <div class="detail-label">{{ t('backpack') }}</div>
+          <div class="backpack-list">
+            <span v-for="item in backpackItems" :key="item" class="backpack-tag">{{ item }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description / Notes -->
+      <div v-if="eventNotes" class="detail-row">
         <div class="detail-content full">
           <div class="detail-label">{{ t('description') }}</div>
-          <div class="detail-value description">{{ event.description }}</div>
+          <div class="detail-value description">{{ eventNotes }}</div>
         </div>
       </div>
 
@@ -159,9 +189,32 @@ const locationName = computed(() => {
     </div>
 
     <template #footer>
-      <div class="modal-action-bar">
+      <!-- Delete Confirmation -->
+      <div v-if="showDeleteConfirm" class="delete-confirm">
+        <p class="delete-confirm-msg">{{ t('deleteEventConfirm') }}</p>
+        <div class="delete-confirm-actions">
+          <button class="modal-secondary-btn" @click="showDeleteConfirm = false">
+            {{ t('cancel') }}
+          </button>
+          <button class="modal-delete-btn" @click="handleDelete">
+            <Trash2 :size="16" />
+            {{ t('delete') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Normal Footer -->
+      <div v-else class="modal-action-bar">
         <button class="modal-secondary-btn" @click="emit('close')">
           {{ t('close') }}
+        </button>
+        <button class="modal-edit-btn" @click="emit('edit', event)">
+          <Pencil :size="16" />
+          {{ t('edit') }}
+        </button>
+        <button class="modal-delete-btn" @click="confirmDelete">
+          <Trash2 :size="16" />
+          {{ t('delete') }}
         </button>
       </div>
     </template>
@@ -250,5 +303,80 @@ const locationName = computed(() => {
 
 .modal-secondary-btn:hover {
   background: #e2e8f0;
+}
+
+.modal-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 1.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  background: #1A1C1E;
+  color: white;
+  border: 2px solid #1A1C1E;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-edit-btn:hover {
+  background: #334155;
+  border-color: #334155;
+}
+
+.modal-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 1.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  background: white;
+  color: #dc2626;
+  border: 2px solid #fca5a5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-delete-btn:hover {
+  background: #fef2f2;
+}
+
+.backpack-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.backpack-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.75rem;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 1.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #166534;
+}
+
+.delete-confirm {
+  text-align: center;
+}
+
+.delete-confirm-msg {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 0.75rem;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
 }
 </style>

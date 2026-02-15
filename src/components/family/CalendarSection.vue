@@ -12,7 +12,7 @@ const { t } = useI18n()
 const langStore = useLanguageStore()
 const dashboardStore = useSupabaseDashboardStore()
 
-const emit = defineEmits(['addEvent'])
+const emit = defineEmits(['addEvent', 'editEvent', 'deleteEvent'])
 
 const viewMode = ref('month') // 'month', 'week', 'day'
 const currentDate = ref(new Date())
@@ -189,7 +189,12 @@ function getDayLabel(date) {
 
 function onDayClick(date, event) {
   dayMenuDate.value = date
-  dayMenuPosition.value = { x: event.clientX, y: event.clientY }
+  const cell = event.currentTarget
+  const rect = cell.getBoundingClientRect()
+  dayMenuPosition.value = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  }
   showDayMenu.value = true
 }
 
@@ -238,6 +243,16 @@ async function handleRejectOverride() {
 
 function openEvent(event) {
   selectedEvent.value = event
+}
+
+function handleEditEvent(event) {
+  selectedEvent.value = null
+  emit('editEvent', event)
+}
+
+function handleDeleteEvent(event) {
+  selectedEvent.value = null
+  emit('deleteEvent', event)
 }
 </script>
 
@@ -401,6 +416,8 @@ function openEvent(event) {
       v-if="selectedEvent"
       :event="selectedEvent"
       @close="selectedEvent = null"
+      @edit="handleEditEvent"
+      @delete="handleDeleteEvent"
     />
   </div>
 </template>

@@ -6,7 +6,7 @@ import { Eye, Plus, ArrowLeftRight, Check, X } from 'lucide-vue-next'
 const props = defineProps({
   date: { type: Date, required: true },
   position: { type: Object, required: true }, // { x, y }
-  pendingOverride: { type: Object, default: null } // override object if day has pending override
+  pendingOverride: { type: Object, default: null }
 })
 
 const emit = defineEmits(['close', 'viewDay', 'addEvent', 'changeCustody', 'approveOverride', 'rejectOverride'])
@@ -14,7 +14,6 @@ const emit = defineEmits(['close', 'viewDay', 'addEvent', 'changeCustody', 'appr
 const { t } = useI18n()
 
 function handleClickOutside(e) {
-  // Small delay to avoid closing immediately from the same click
   if (!e.target.closest('.day-action-menu')) {
     emit('close')
   }
@@ -27,7 +26,7 @@ function handleEscape(e) {
 onMounted(() => {
   setTimeout(() => {
     document.addEventListener('mousedown', handleClickOutside)
-    document.addEventListener('touchstart', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside, { passive: true })
   }, 50)
   window.addEventListener('keydown', handleEscape)
 })
@@ -38,24 +37,24 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleEscape)
 })
 
-// Position: ensure menu stays within viewport
 function getStyle() {
   const x = props.position.x
   const y = props.position.y
   const style = { position: 'fixed', zIndex: 9999 }
 
-  // Horizontal: prefer right of click, but flip if near right edge
-  if (x + 200 > window.innerWidth) {
-    style.right = (window.innerWidth - x) + 'px'
-  } else {
-    style.left = x + 'px'
-  }
+  // Center horizontally on tap point, clamp to edges
+  const menuWidth = 220
+  let left = x - menuWidth / 2
+  if (left < 12) left = 12
+  if (left + menuWidth > window.innerWidth - 12) left = window.innerWidth - 12 - menuWidth
+  style.left = left + 'px'
 
-  // Vertical: prefer below click, but flip if near bottom
-  if (y + 160 > window.innerHeight) {
-    style.bottom = (window.innerHeight - y) + 'px'
+  // Prefer above tap point, flip below if near top
+  const menuHeight = 200
+  if (y - menuHeight - 12 < 0) {
+    style.top = (y + 12) + 'px'
   } else {
-    style.top = y + 'px'
+    style.bottom = (window.innerHeight - y + 12) + 'px'
   }
 
   return style
@@ -64,35 +63,42 @@ function getStyle() {
 
 <template>
   <Teleport to="body">
+    <div class="day-menu-backdrop" @click="emit('close')" />
+
     <div class="day-action-menu" :style="getStyle()">
-      <button class="action-item" @click="emit('viewDay')">
-        <Eye :size="18" />
-        <span>{{ t('viewDay') }}</span>
-      </button>
-      <button class="action-item" @click="emit('addEvent')">
-        <Plus :size="18" />
-        <span>{{ t('addEvent') }}</span>
-      </button>
-      <div class="action-divider"></div>
-      <button class="action-item custody-action" @click="emit('changeCustody')">
-        <ArrowLeftRight :size="18" />
-        <span>{{ t('changeCustody') }}</span>
+      <button class="action-btn" @click="emit('addEvent')">
+        <div class="action-circle">
+          <Plus :size="22" />
+        </div>
+        <span class="action-label">{{ t('addEvent') }}</span>
       </button>
 
-      <!-- Pending override approval section -->
-      <template v-if="pendingOverride">
-        <div class="action-divider"></div>
-        <div class="override-info">
-          {{ t('pendingCustodyChange') }}
+      <button class="action-btn" @click="emit('viewDay')">
+        <div class="action-circle">
+          <Eye :size="22" />
         </div>
-        <div class="override-actions">
-          <button class="action-btn reject-btn" @click="emit('rejectOverride')">
-            <X :size="16" />
-            {{ t('reject') }}
-          </button>
-          <button class="action-btn approve-btn" @click="emit('approveOverride')">
-            <Check :size="16" />
+        <span class="action-label">{{ t('viewDay') }}</span>
+      </button>
+
+      <button class="action-btn" @click="emit('changeCustody')">
+        <div class="action-circle">
+          <ArrowLeftRight :size="22" />
+        </div>
+        <span class="action-label">{{ t('switchParent') }}</span>
+      </button>
+
+      <!-- Pending override section -->
+      <template v-if="pendingOverride">
+        <div class="override-divider"></div>
+        <div class="override-label">{{ t('pendingCustodyChange') }}</div>
+        <div class="override-row">
+          <button class="override-btn approve" @click="emit('approveOverride')">
+            <Check :size="20" />
             {{ t('approve') }}
+          </button>
+          <button class="override-btn reject" @click="emit('rejectOverride')">
+            <X :size="20" />
+            {{ t('reject') }}
           </button>
         </div>
       </template>
@@ -101,73 +107,103 @@ function getStyle() {
 </template>
 
 <style scoped>
+.day-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.15);
+  z-index: 9998;
+  animation: backdropIn 0.2s ease-out;
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 .day-action-menu {
   background: white;
-  border-radius: 1rem;
-  border: 2px solid #e2e8f0;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 1.5rem;
+  border: 2px solid var(--deep-slate);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
   padding: 0.5rem;
-  min-width: 180px;
-  animation: menuFadeIn 0.15s ease-out;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  animation: menuPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes menuFadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+@keyframes menuPop {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
-.action-item {
+.action-btn {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: none;
   background: none;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #1A1C1E;
+  border: none;
   cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  border-radius: 1rem;
   transition: background 0.15s;
+  width: 100%;
 }
 
-.action-item:hover {
+.action-btn:active {
   background: #f1f5f9;
 }
 
-.action-divider {
+.action-circle {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 50%;
+  background: white;
+  border: 2.5px solid var(--deep-slate);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--deep-slate);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s;
+}
+
+.action-btn:active .action-circle {
+  transform: scale(0.92);
+}
+
+.action-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--deep-slate);
+  white-space: nowrap;
+}
+
+.override-divider {
   height: 1px;
   background: #e2e8f0;
-  margin: 0.25rem 0.5rem;
+  margin: 1rem 0 0.75rem;
 }
 
-.custody-action {
-  color: #d97706;
-}
-
-.custody-action:hover {
-  background: #fffbeb;
-}
-
-.override-info {
-  padding: 0.5rem 1rem;
-  font-size: 0.75rem;
+.override-label {
+  font-size: 0.7rem;
   font-weight: 700;
   color: #92400e;
   background: #fef3c7;
   border-radius: 0.5rem;
-  margin: 0.25rem 0;
+  padding: 0.4rem 0.75rem;
   text-align: center;
+  margin-bottom: 0.75rem;
 }
 
-.override-actions {
+.override-row {
   display: flex;
   gap: 0.5rem;
-  padding: 0.25rem 0;
 }
 
-.action-btn {
+.override-btn {
   flex: 1;
   display: flex;
   align-items: center;
@@ -178,27 +214,27 @@ function getStyle() {
   font-size: 0.8125rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   border: 2px solid;
 }
 
-.reject-btn {
-  background: white;
-  color: #dc2626;
-  border-color: #fca5a5;
-}
-
-.reject-btn:hover {
-  background: #fef2f2;
-}
-
-.approve-btn {
+.override-btn.approve {
   background: #16a34a;
   color: white;
   border-color: #16a34a;
 }
 
-.approve-btn:hover {
+.override-btn.approve:active {
   background: #15803d;
+}
+
+.override-btn.reject {
+  background: white;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.override-btn.reject:active {
+  background: #fef2f2;
 }
 </style>

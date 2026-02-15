@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { useCamera } from '@/composables/useCamera'
+import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import BaseModal from '@/components/shared/BaseModal.vue'
 
 const props = defineProps({
@@ -13,10 +15,15 @@ const props = defineProps({
 const emit = defineEmits(['close', 'confirm'])
 
 const { t } = useI18n()
+const { capturePhoto } = useCamera()
+const snapshotsStore = useSnapshotsStore()
 
 const dropLocation = ref('School')
 const newItem = ref('')
 const tempItems = ref([...(props.child.items || [])])
+const photoPreview = ref(null)
+const photoBlob = ref(null)
+const uploading = ref(false)
 
 const locations = ['School', 'Soccer Club', 'Tennis', 'Grandma', 'Music Lesson', 'Dance Class']
 
@@ -31,13 +38,43 @@ function removeItem(index) {
   tempItems.value.splice(index, 1)
 }
 
-function confirmDropoff() {
-  emit('confirm', {
-    child: props.child,
-    location: dropLocation.value,
-    items: tempItems.value
-  })
-  emit('close')
+async function takeSnapshot() {
+  const result = await capturePhoto()
+  if (result) {
+    photoPreview.value = result.dataUrl
+    photoBlob.value = result.blob
+  }
+}
+
+function removePhoto() {
+  photoPreview.value = null
+  photoBlob.value = null
+}
+
+async function confirmDropoff() {
+  uploading.value = true
+  try {
+    let snapshotId = null
+
+    // Upload photo if one was captured
+    if (photoBlob.value) {
+      const childIds = props.child.id ? [props.child.id] : []
+      const snapshot = await snapshotsStore.uploadSnapshot(photoBlob.value, { childIds })
+      snapshotId = snapshot.id
+    }
+
+    console.log('[DropoffModal] snapshotId before emit:', snapshotId)
+    emit('confirm', {
+      child: props.child,
+      location: dropLocation.value,
+      items: tempItems.value,
+      snapshotId
+    })
+    emit('close')
+  } catch (err) {
+    console.error('Dropoff error:', err)
+    uploading.value = false
+  }
 }
 </script>
 
@@ -84,9 +121,19 @@ function confirmDropoff() {
           </div>
         </div>
 
-        <div class="snapshot-zone">
+        <!-- Snapshot capture zone -->
+        <div v-if="!photoPreview" class="snapshot-zone" @click="takeSnapshot">
           <img src="@/assets/snapshot.png" alt="Snapshot" />
           <span class="snapshot-text">{{ t('takeSnapshot') }}</span>
+        </div>
+
+        <!-- Photo preview -->
+        <div v-else class="snapshot-preview">
+          <img :src="photoPreview" class="preview-img" alt="Snapshot preview" />
+          <div class="preview-actions">
+            <button class="preview-btn" @click="takeSnapshot">{{ t('photoRetake') }}</button>
+            <button class="preview-btn preview-btn-remove" @click="removePhoto">{{ t('photoRemove') }}</button>
+          </div>
         </div>
 
     <template #footer>
@@ -94,8 +141,8 @@ function confirmDropoff() {
         <button class="modal-secondary-btn" @click="$emit('close')">
           {{ t('cancel') }}
         </button>
-        <button class="modal-primary-btn" style="background: #f97316" @click="confirmDropoff">
-          {{ t('confirmDropoff') }}
+        <button class="modal-primary-btn" style="background: #f97316" @click="confirmDropoff" :disabled="uploading">
+          {{ uploading ? t('uploadingPhoto') : t('confirmDropoff') }}
         </button>
       </div>
       <p class="text-center text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mt-2">
@@ -183,5 +230,54 @@ function confirmDropoff() {
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.snapshot-preview {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.preview-img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 1.5rem;
+  border: 3px solid #e2e8f0;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.preview-btn {
+  padding: 0.625rem 1.25rem;
+  border-radius: 2rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preview-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.preview-btn-remove {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.preview-btn-remove:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 </style>

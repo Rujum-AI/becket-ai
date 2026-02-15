@@ -25,6 +25,7 @@ const dashboardStore = useDashboardStore()
 
 const isEditing = computed(() => !!props.entity)
 const newItemInput = ref('')
+const errors = ref({})
 
 const form = ref({
   id: null,
@@ -144,8 +145,26 @@ function removeItem(idx) {
   form.value.items.splice(idx, 1)
 }
 
+function validate() {
+  const e = {}
+
+  if (!form.value.name.trim()) e.name = t('requiredName')
+  if (!form.value.address.trim()) e.address = t('requiredAddress')
+  if (!form.value.contact.trim()) e.contact = t('requiredContact')
+
+  if (props.entityType !== 'person') {
+    if (form.value.children.length === 0) e.children = t('requiredChildren')
+
+    const hasValidDay = form.value.schedule.days.some(d => d.active && d.start && d.end)
+    if (!hasValidDay) e.schedule = t('requiredSchedule')
+  }
+
+  errors.value = e
+  return Object.keys(e).length === 0
+}
+
 function handleSave() {
-  if (!form.value.name.trim()) return
+  if (!validate()) return
 
   const data = {
     name: form.value.name,
@@ -201,17 +220,20 @@ function getChildImg(child) {
     </template>
 
         <!-- Child Toggles (for schools/activities only) -->
-        <div v-if="entityType !== 'person'" class="child-toggles">
-          <div
-            v-for="child in dashboardStore.children"
-            :key="child.id"
-            @click="toggleChild(child.id)"
-            class="c-tog"
-            :class="{selected: form.children.includes(child.id)}"
-          >
-            <img :src="getChildImg(child)" class="c-img" />
-            <span class="c-name">{{ child.name }}</span>
+        <div v-if="entityType !== 'person'">
+          <div class="child-toggles">
+            <div
+              v-for="child in dashboardStore.children"
+              :key="child.id"
+              @click="toggleChild(child.id)"
+              class="c-tog"
+              :class="{selected: form.children.includes(child.id)}"
+            >
+              <img :src="getChildImg(child)" class="c-img" />
+              <span class="c-name">{{ child.name }}</span>
+            </div>
           </div>
+          <div v-if="errors.children" class="field-error">{{ errors.children }}</div>
         </div>
 
         <!-- Name -->
@@ -220,13 +242,14 @@ function getChildImg(child) {
           <input
             v-model="form.name"
             type="text"
-            class="modal-form-input"
+            :class="['modal-form-input', { 'input-error': errors.name }]"
             :placeholder="entityType === 'school' ? 'e.g. Rainbow Kindergarten' : entityType === 'activity' ? 'e.g. Judo Class' : 'e.g. Grandma Ruth'"
           />
+          <div v-if="errors.name" class="field-error">{{ errors.name }}</div>
         </div>
 
         <!-- Schedule Builder (for schools/activities only) -->
-        <div v-if="entityType !== 'person'" class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+        <div v-if="entityType !== 'person'" :class="['bg-white border rounded-2xl p-4 shadow-sm', errors.schedule ? 'border-red-300' : 'border-slate-200']">
           <label class="modal-form-label mb-3 text-center">{{ t('scheduleLabel') }}</label>
 
           <div class="day-toggle-row">
@@ -278,6 +301,7 @@ function getChildImg(child) {
             </div>
           </div>
         </div>
+        <div v-if="errors.schedule" class="field-error">{{ errors.schedule }}</div>
 
         <!-- Relationship (for trustees only) -->
         <div v-if="entityType === 'person'">
@@ -293,17 +317,22 @@ function getChildImg(child) {
         <div class="grid grid-cols-1 gap-4" :class="entityType !== 'person' ? 'md:grid-cols-2' : ''">
           <div>
             <label class="modal-form-label">{{ t('addressLabel') }}</label>
-            <input v-model="form.address" type="text" class="modal-form-input" />
+            <input v-model="form.address" type="text" :class="['modal-form-input', { 'input-error': errors.address }]" />
+            <div v-if="errors.address" class="field-error">{{ errors.address }}</div>
           </div>
           <div>
             <label class="modal-form-label">{{ t('contactLabel') }}</label>
-            <input v-model="form.contact" type="tel" class="modal-form-input" />
+            <input v-model="form.contact" type="tel" :class="['modal-form-input', { 'input-error': errors.contact }]" />
+            <div v-if="errors.contact" class="field-error">{{ errors.contact }}</div>
           </div>
         </div>
 
-        <!-- Items (for schools/activities only) -->
+        <!-- Backpack (for schools/activities only) -->
         <div v-if="entityType !== 'person'">
-          <label class="modal-form-label">{{ t('itemsLabel') }}</label>
+          <div class="backpack-label">
+            <img src="/assets/backpack.png" class="backpack-icon" />
+            <label class="modal-form-label mb-0">{{ t('itemsLabel') }}</label>
+          </div>
           <div class="flex gap-2 mb-3">
             <input
               v-model="newItemInput"
@@ -482,5 +511,37 @@ function getChildImg(child) {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* Backpack label */
+.backpack-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.backpack-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  object-fit: contain;
+}
+
+.mb-0 {
+  margin-bottom: 0 !important;
+}
+
+/* Validation */
+.field-error {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #ef4444;
+  margin-top: 0.25rem;
+  padding-inline-start: 0.25rem;
+}
+
+.input-error {
+  border-color: #fca5a5 !important;
+  background: #fef2f2 !important;
 }
 </style>

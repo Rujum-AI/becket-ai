@@ -1,5 +1,7 @@
 <script setup>
+import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import { CheckCircle } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
 
@@ -13,6 +15,21 @@ const props = defineProps({
 const emit = defineEmits(['close', 'confirm'])
 
 const { t } = useI18n()
+const snapshotsStore = useSnapshotsStore()
+
+const lastSnapshot = ref(null)
+const snapshotLoading = ref(true)
+const viewFullSize = ref(false)
+
+onMounted(async () => {
+  try {
+    lastSnapshot.value = await snapshotsStore.getLastHandoffSnapshot(props.child.id)
+  } catch (err) {
+    console.error('Error loading last snapshot:', err)
+  } finally {
+    snapshotLoading.value = false
+  }
+})
 
 function confirmPickup() {
   emit('confirm', props.child)
@@ -44,10 +61,28 @@ function confirmPickup() {
           </p>
         </div>
 
-        <div class="snapshot-zone">
-          <img src="@/assets/snapshot.png" alt="Snapshot" />
+        <!-- Last handoff snapshot -->
+        <div v-if="snapshotLoading" class="snapshot-zone">
+          <div class="snapshot-loading"></div>
           <span class="snapshot-text">{{ t('lastSnapshot') }}</span>
         </div>
+
+        <div v-else-if="lastSnapshot?.signedUrl" class="snapshot-preview" @click="viewFullSize = true">
+          <img :src="lastSnapshot.signedUrl" class="preview-img" alt="Last handoff snapshot" />
+          <span class="snapshot-text">{{ t('lastSnapshot') }}</span>
+        </div>
+
+        <div v-else class="snapshot-zone">
+          <img src="@/assets/snapshot.png" alt="Snapshot" />
+          <span class="snapshot-text">{{ t('noSnapshotYet') }}</span>
+        </div>
+
+        <!-- Full-size overlay -->
+        <Teleport to="body">
+          <div v-if="viewFullSize && lastSnapshot?.signedUrl" class="fullsize-overlay" @click="viewFullSize = false">
+            <img :src="lastSnapshot.signedUrl" class="fullsize-img" alt="Full size snapshot" />
+          </div>
+        </Teleport>
 
     <template #footer>
       <div class="modal-action-bar">
@@ -130,5 +165,59 @@ function confirmPickup() {
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.snapshot-preview {
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+}
+
+.preview-img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: 1.5rem;
+  border: 3px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.preview-img:hover {
+  border-color: #94a3b8;
+}
+
+.snapshot-loading {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.fullsize-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.fullsize-img {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+  border-radius: 1rem;
 }
 </style>
