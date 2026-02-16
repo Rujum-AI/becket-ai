@@ -170,7 +170,7 @@ function closeDetailModal() {
   align-items: flex-end;
   margin-bottom: 2rem;
   position: sticky;
-  top: 90px;
+  top: calc(clamp(44px, 12vw, 56px) + 8px);
   z-index: 30;
   background: rgba(253, 251, 247, 0.95);
   backdrop-filter: blur(8px);

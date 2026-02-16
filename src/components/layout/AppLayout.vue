@@ -11,10 +11,12 @@ import SuccessToast from '@/components/shared/SuccessToast.vue'
 import { useCamera } from '@/composables/useCamera'
 import { useI18n } from '@/composables/useI18n'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
+import { useFooterMenu } from '@/composables/useFooterMenu'
 
 const { capturePhoto } = useCamera()
 const { t } = useI18n()
 const updatesStore = useUpdatesStore()
+const { isWheelOpen } = useFooterMenu()
 
 // Start realtime subscription
 onMounted(() => {
@@ -78,16 +80,17 @@ function closeCheckInDetail() {
 <template>
   <div>
     <AppHeader />
-    <AiChat />
-
-    <!-- Floating camera button (opposite side of AI chat) -->
-    <div class="floating-camera" @click="openCamera">
-      <img src="/assets/camera.png" class="w-full h-full object-contain" />
-    </div>
+    <AiChat :menuOpen="isWheelOpen" />
 
     <main class="content-wrap px-6 sm:px-8">
       <slot />
     </main>
+
+    <!-- Floating side buttons — flanking the wheel -->
+    <div class="floating-camera" :class="{'menu-dismiss': isWheelOpen}" @click="openCamera">
+      <img src="/assets/camera.png" class="w-full h-full object-contain" />
+    </div>
+
     <AppFooter />
 
     <!-- Photo review modal -->

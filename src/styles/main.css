@@ -24,6 +24,39 @@
     --dist-y: calc(var(--wheel-d) * 0.95);
 }
 
+/* Scale fan down slightly on narrow screens so buttons stay on-screen */
+@media (max-width: 479px) {
+    :root {
+        --sat-d: min(17vw, 72px);
+        --dist-x: calc(var(--wheel-d) * 0.78);
+        --dist-y: calc(var(--wheel-d) * 0.88);
+        --fan-scale: 0.8;
+    }
+    /* Bottom layer — outer/low items behind inner/high items */
+    .app-footer.menu-open .sat-1 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * -1.5) - 50%), calc((var(--dist-y) * -0.1) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.menu-open .sat-5 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * 1.5) - 50%), calc((var(--dist-y) * -0.1) - 50%)) scale(var(--fan-scale));
+    }
+    /* Middle layer */
+    .app-footer.menu-open .sat-2 {
+        z-index: 2603;
+        transform: translate(calc((var(--dist-x) * -0.85) - 50%), calc((var(--dist-y) * -0.9) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.menu-open .sat-4 {
+        z-index: 2603;
+        transform: translate(calc((var(--dist-x) * 0.85) - 50%), calc((var(--dist-y) * -0.9) - 50%)) scale(var(--fan-scale));
+    }
+    /* Top layer — family at the peak */
+    .app-footer.menu-open .sat-3 {
+        z-index: 2605;
+        transform: translate(-50%, calc((var(--dist-y) * -1.3) - 50%)) scale(var(--fan-scale));
+    }
+}
+
 /* === BASE STYLES === */
 html {
     scroll-behavior: smooth;
@@ -73,7 +106,7 @@ input, textarea, select { text-align: start; }
 
 /* === LAYOUT === */
 .content-wrap {
-    padding-top: 140px;
+    padding-top: calc(clamp(44px, 12vw, 56px) + 16px);
     padding-bottom: 150px;
     max-width: 80rem;
     margin-left: auto;
@@ -86,93 +119,61 @@ input, textarea, select { text-align: start; }
     top: 0;
     left: 0;
     right: 0;
-    padding: 0 1.5rem;
-    padding-inline-start: 0.75rem;
-    height: 70px;
+    height: clamp(44px, 12vw, 56px);
+    padding: 0 clamp(12px, 3vw, 24px);
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 2000;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-    background: var(--warm-linen);
+    background: #fff;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
     direction: ltr;
-    border-bottom: 2px solid var(--deep-slate);
 }
 
-.app-header > * {
-    position: relative;
-    z-index: 1;
+/* Left: title + tagline — grid so title sets column width */
+.header-left {
+    display: grid;
+    line-height: 1.1;
+    gap: 1px;
 }
 
-.app-header::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 45px;
-    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.12) 2px, rgba(255,255,255,0.12) 4px), linear-gradient(135deg, #f97316 0%, #fb923c 100%);
-    transform: translateY(100%);
-    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.2);
-    z-index: 0;
-}
-
-.logo-img {
-    height: 62px;
-    width: auto;
-    object-fit: contain;
-    transform: translateY(18px);
-    z-index: 2;
-}
-
-.logo-group {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    overflow: visible;
-}
-
-.logo-text-group {
-    display: flex;
-    flex-direction: column;
-    line-height: 1;
-    padding-bottom: 0;
-    margin-bottom: -4px;
-}
-
-.logo-tagline {
-    font-family: 'Inter', sans-serif;
-    font-weight: 400;
-    font-size: 0.55rem;
-    color: #94a3b8;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-bottom: 2px;
-}
-
-.logo-text {
+.header-title {
     font-family: 'Fraunces', serif;
     font-weight: 700;
-    font-size: 1.8rem;
+    font-size: clamp(1.25rem, 5vw, 1.7rem);
     color: var(--deep-slate);
     letter-spacing: 0.02em;
-    text-transform: none;
-    margin-inline-start: 0;
+    white-space: nowrap;
+}
+
+.header-tagline {
+    font-family: 'Inter', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.32rem, 1.1vw, 0.42rem);
+    color: #94a3b8;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Right: icons group */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 2vw, 12px);
+    flex-shrink: 0;
 }
 
 .header-icon {
-    width: 44px;
-    height: 44px;
+    width: clamp(28px, 8vw, 38px);
+    height: clamp(28px, 8vw, 38px);
     border-radius: 50%;
     overflow: visible;
-    border: 2px solid rgba(255,255,255,0.3);
-    background: white;
+    background: #f8fafc;
     cursor: pointer;
     flex-shrink: 0;
     position: relative;
-    transform: translateY(38px);
-    z-index: 2;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: 1.5px solid #e2e8f0;
 }
 
 .header-icon img {
@@ -184,45 +185,40 @@ input, textarea, select { text-align: start; }
 
 .update-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: -4px;
+    right: -4px;
     background: #ef4444;
     color: white;
-    font-size: 0.65rem;
+    font-size: clamp(0.5rem, 1.5vw, 0.65rem);
     font-weight: 900;
-    min-width: 20px;
-    height: 20px;
+    min-width: clamp(14px, 4vw, 18px);
+    height: clamp(14px, 4vw, 18px);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 6px;
-    border: 2px solid white;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+    padding: 0 4px;
+    border: 1.5px solid white;
+    box-shadow: 0 1px 4px rgba(239, 68, 68, 0.4);
     z-index: 10;
 }
 
 .header-spacer {
-    width: 1px;
-    height: 28px;
-    background-color: rgba(255,255,255,0.3);
-    margin: 0 0.5rem;
-    transform: translateY(38px);
-    z-index: 2;
+    width: 1.5px;
+    height: clamp(18px, 5vw, 26px);
+    background-color: #cbd5e1;
 }
 
 .profile-ring {
-    width: 50px;
-    height: 50px;
+    width: clamp(30px, 9vw, 42px);
+    height: clamp(30px, 9vw, 42px);
     border-radius: 50%;
     background: #fff;
-    padding: 2px;
-    border: 2px solid white;
+    padding: 1.5px;
+    border: 1.5px solid #e2e8f0;
     cursor: pointer;
     transition: all 0.2s ease;
-    transform: translateY(38px);
-    z-index: 2;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    flex-shrink: 0;
 }
 
 .profile-ring img {
@@ -234,7 +230,7 @@ input, textarea, select { text-align: start; }
 
 .user-dropdown {
     position: absolute;
-    top: 95px;
+    top: calc(clamp(44px, 12vw, 56px) + 8px);
     right: 0;
     width: 240px;
     background: white;
@@ -269,26 +265,36 @@ input, textarea, select { text-align: start; }
 }
 
 /* === FLOATING AI BUTTON === */
-.floating-ai {
+/* === FLOATING SIDE BUTTONS (flanking wheel) === */
+/* Wheel center is ~71px from bottom (footer 82px/2 + anchor translateY 30px) */
+/* right: positions camera's near edge, left: positions AI's near edge — equal btn-gap */
+.floating-ai,
+.floating-camera {
     position: fixed;
-    bottom: 100px;
-    right: 20px;
-    width: 95px;
-    height: 95px;
-    z-index: 3000;
+    --btn-size: clamp(58px, 16vw, 78px);
+    --btn-gap: 14px;
+    bottom: calc(71px - var(--btn-size) / 2);
+    width: var(--btn-size);
+    height: var(--btn-size);
+    z-index: 2550;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2));
-    animation: gentleFloat 6s ease-in-out infinite;
+    border-radius: 50%;
+    border: 3px solid var(--deep-slate);
+    overflow: hidden;
+    background: var(--warm-linen);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    /* Match satellite fan easing & duration exactly */
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-[dir="rtl"] .floating-ai {
-    right: auto;
-    left: 20px;
+/* Camera — left of wheel (right: positions the near edge) */
+.floating-camera {
+    right: calc(50% + var(--wheel-d) / 2 + var(--btn-gap));
 }
 
-.floating-ai:hover {
-    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.3)) brightness(1.05);
+/* AI chat — right of wheel (left: positions the near edge) */
+.floating-ai {
+    left: calc(50% + var(--wheel-d) / 2 + var(--btn-gap));
 }
 
 .floating-ai.hidden-ai {
@@ -297,33 +303,19 @@ input, textarea, select { text-align: start; }
     pointer-events: none;
 }
 
-@keyframes gentleFloat {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+/* Reverse fan — suck into wheel center, staggered like satellites */
+.floating-camera.menu-dismiss {
+    transform: translateX(calc(var(--btn-gap) + var(--wheel-d) / 2 + var(--btn-size) / 2)) scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0.05s;
 }
 
-/* === FLOATING CAMERA BUTTON === */
-.floating-camera {
-    position: fixed;
-    bottom: 100px;
-    left: 20px;
-    width: 95px;
-    height: 95px;
-    z-index: 3000;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.2));
-    animation: gentleFloat 6s ease-in-out infinite;
-    animation-delay: -3s;
-}
-
-[dir="rtl"] .floating-camera {
-    left: auto;
-    right: 20px;
-}
-
-.floating-camera:hover {
-    filter: drop-shadow(0 15px 25px rgba(0,0,0,0.3)) brightness(1.05);
+.floating-ai.menu-dismiss {
+    transform: translateX(calc(-1 * (var(--btn-gap) + var(--wheel-d) / 2 + var(--btn-size) / 2))) scale(0);
+    opacity: 0;
+    pointer-events: none;
+    transition-delay: 0.1s;
 }
 
 /* === AI CHAT INTERFACE === */
@@ -442,29 +434,34 @@ input, textarea, select { text-align: start; }
 
 /* === FOOTER & WHEEL === */
 .app-footer {
-    background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px), var(--deep-slate);
+    background: var(--deep-slate);
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 1.2rem 2rem;
+    width: 100vw;
+    padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 2500;
-    height: 80px;
+    height: 82px;
     transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
     will-change: transform;
+    /* stripe overlay on top of solid bg */
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px);
 }
 
-.app-footer::after {
+.app-footer::before {
     content: '';
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    height: 100vh;
-    background-color: var(--deep-slate);
+    top: 0;
+    left: -20px;
+    right: -20px;
+    bottom: -100vh;
+    background: var(--deep-slate);
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px);
+    z-index: -1;
 }
 
 .app-footer.menu-open {

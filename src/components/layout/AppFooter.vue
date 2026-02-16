@@ -1,9 +1,9 @@
 <script setup>
-import { ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { useFooterMenu } from '@/composables/useFooterMenu'
 
 const { t } = useI18n()
-const isWheelOpen = ref(false)
+const { isWheelOpen } = useFooterMenu()
 
 const menuLinks = [
   { key: 'expenses', icon: 'finance.png', url: '/finance' },

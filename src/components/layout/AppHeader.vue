@@ -89,21 +89,17 @@ if (typeof document !== 'undefined') {
 
 <template>
   <header class="app-header">
-    <div class="logo-group cursor-pointer" @click="goToDashboard">
-      <img src="/assets/becket_logo3.png" class="logo-img" alt="Becket AI Logo">
-      <div class="logo-text-group">
-        <span class="logo-tagline">Co-parenting, simplified</span>
-        <span class="logo-text">Becket AI</span>
-      </div>
+    <div class="header-left cursor-pointer" @click="goToDashboard">
+      <span class="header-tagline">Co-parenting, simplified</span>
+      <span class="header-title">Becket AI</span>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex gap-2">
-        <div class="header-icon hidden sm:block relative cursor-pointer" @click="goToUpdates">
-          <img src="/assets/updates_icon.png" class="w-full h-full object-cover">
-          <div v-if="unreadCount > 0" class="update-badge">{{ unreadCount }}</div>
-        </div>
+
+    <div class="header-right">
+      <div class="header-icon relative cursor-pointer" @click="goToUpdates">
+        <img src="/assets/updates_icon.png" class="w-full h-full object-cover">
+        <div v-if="unreadCount > 0" class="update-badge">{{ unreadCount }}</div>
       </div>
-      <div class="header-spacer hidden sm:block"></div>
+      <div class="header-spacer"></div>
 
       <div class="profile-container relative" @click.stop>
         <div class="profile-ring" @click="toggleUserMenu">

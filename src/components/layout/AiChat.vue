@@ -2,6 +2,10 @@
 import { ref } from 'vue'
 import { X, Mic, Send } from 'lucide-vue-next'
 
+const props = defineProps({
+  menuOpen: { type: Boolean, default: false }
+})
+
 const isOpen = ref(false)
 const input = ref('')
 
@@ -28,7 +32,7 @@ function sendMessage() {
 
 <template>
   <div>
-    <div class="floating-ai" :class="{'hidden-ai': isOpen}" @click="openChat">
+    <div class="floating-ai" :class="{'hidden-ai': isOpen, 'menu-dismiss': menuOpen}" @click="openChat">
       <img src="/assets/AI_CHAT.png" class="w-full h-full object-contain">
     </div>
 
