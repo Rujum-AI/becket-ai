@@ -530,34 +530,102 @@ const nextInteractionText = computed(() => {
   50% { transform: scale(1.05); }
 }
 
-/* ===== Responsive ===== */
-@media (max-width: 480px) {
+/* ===== Mobile: Single-column full-width card ===== */
+@media (max-width: 640px) {
+
+  /* Card becomes a 2-column grid: [header | actions] over [schedule] over [quick-actions] */
+  .child-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto auto;
+    border-radius: 1.5rem;
+  }
+
+  /* Header occupies left side of row 1 */
   .card-header {
-    padding: 0.875rem 0.875rem 0.375rem;
-    gap: 0.625rem;
+    grid-column: 1;
+    grid-row: 1;
+    padding: 1rem 0 0.5rem;
+    padding-inline-start: 1rem;
+    gap: 0.75rem;
+    align-self: center;
   }
 
   .avatar-ring {
-    width: 3.25rem;
-    height: 3.25rem;
+    width: 3.5rem;
+    height: 3.5rem;
   }
 
   .child-name {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
   }
 
+  .status-pill span {
+    font-size: 0.6875rem;
+  }
+
+  /* Action buttons occupy right side of row 1, stacked vertically */
   .action-row {
-    padding: 0.125rem 0.625rem 0.625rem;
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0.75rem 0 0.5rem;
+    padding-inline-end: 1rem;
+    padding-inline-start: 0.25rem;
+    gap: 0.375rem;
   }
 
   .action-btn {
+    flex: none;
+    padding: 0.55rem 1rem;
     font-size: 0.6875rem;
-    padding: 0.55rem 0.75rem;
+    min-height: 2.5rem;
+    gap: 0.4rem;
   }
 
   .checkin-btn {
+    padding: 0.4rem 0.75rem;
     font-size: 0.5625rem;
-    padding: 0.5rem 0.625rem;
+    min-height: 2.5rem;
+  }
+
+  /* Schedule spans full width in row 2 */
+  .schedule-section {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin: 0 0.875rem 0.5rem;
+    border-radius: 0.875rem;
+  }
+
+  .schedule-row {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .schedule-text {
+    font-size: 0.8125rem;
+  }
+
+  /* Quick actions span full width in row 3, horizontal pill layout */
+  .quick-actions {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    padding: 0 0.875rem 0.875rem;
+    gap: 0.5rem;
+  }
+
+  .quick-btn {
+    flex-direction: row;
+    padding: 0.5rem 0.875rem;
+    border-radius: 9999px;
+    min-height: 2.5rem;
+    gap: 0.375rem;
+  }
+
+  .quick-btn span {
+    font-size: 0.625rem;
   }
 }
 </style>

@@ -233,11 +233,10 @@ async function handleDeleteEvent(event) {
   gap: 0.75rem;
 }
 
-@media (max-width: 480px) {
-  .children-grid { gap: 0.5rem; }
-}
-
-@media (max-width: 340px) {
-  .children-grid { grid-template-columns: 1fr; }
+@media (max-width: 640px) {
+  .children-grid {
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+  }
 }
 </style>
