@@ -91,14 +91,13 @@ export function useFamily() {
       const userEmail = currentSession?.user?.email
 
       console.log('👤 No family found for user:', userId)
-      console.log('📧 User email from auth:', userEmail)
 
       if (userEmail) {
         // Call RPC function (SECURITY DEFINER bypasses RLS)
+        // Email is now read from auth.email() inside the function — not passed as parameter
         const { data: result, error: rpcError } = await supabase
           .rpc('accept_pending_invitation', {
-            user_id: userId,
-            user_email: userEmail.toLowerCase()
+            p_user_id: userId
           })
 
         if (rpcError) {

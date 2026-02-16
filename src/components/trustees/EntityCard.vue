@@ -48,11 +48,11 @@ function formatScheduleSummary(schedule) {
 
   schedule.days.forEach((day, idx) => {
     if (day.active && day.start) {
-      parts.push(`<strong>${weekDaysShort[idx]}</strong> ${day.start}-${day.end}`)
+      parts.push(`${weekDaysShort[idx]} ${day.start}-${day.end}`)
     }
   })
 
-  if (parts.length === 0) return '<span style="color: #cbd5e1;">No schedule</span>'
+  if (parts.length === 0) return 'No schedule'
   if (parts.length > 2) return `${parts.length} days active`
   return parts.join(', ')
 }
@@ -77,7 +77,7 @@ function formatScheduleSummary(schedule) {
         <template v-else>
           <div v-for="childId in entity.children" :key="childId" class="child-row">
             <img :src="getChildImg(childId)" class="child-tiny-avatar" />
-            <span class="schedule-summary" v-html="formatScheduleSummary(entity.schedule)"></span>
+            <span class="schedule-summary">{{ formatScheduleSummary(entity.schedule) }}</span>
           </div>
 
           <div v-if="entity.items && entity.items.length" class="items-flex">
@@ -194,11 +194,6 @@ function formatScheduleSummary(schedule) {
   font-size: 0.8rem;
   font-weight: 600;
   color: #64748b;
-}
-
-.schedule-summary :deep(strong) {
-  color: #334155;
-  font-weight: 800;
 }
 
 .items-flex {

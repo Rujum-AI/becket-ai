@@ -71,8 +71,7 @@ async function acceptInvitation() {
   try {
     const { data: result, error: rpcError } = await supabase
       .rpc('accept_pending_invitation', {
-        user_id: user.value.id,
-        user_email: user.value.email.toLowerCase()
+        p_user_id: user.value.id
       })
 
     if (rpcError) throw rpcError
