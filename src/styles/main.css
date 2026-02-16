@@ -55,6 +55,7 @@
         z-index: 2605;
         transform: translate(-50%, calc((var(--dist-y) * -1.3) - 50%)) scale(var(--fan-scale));
     }
+
 }
 
 /* === BASE STYLES === */
@@ -656,6 +657,35 @@ input, textarea, select { text-align: start; }
     width: 80px;
     height: 80px;
     object-fit: contain;
+}
+
+@media (max-width: 479px) {
+    .section-box {
+        padding: 0.15rem 0.75rem;
+        gap: 0.5rem;
+        border-radius: 1.75rem;
+        margin-bottom: 0.75rem;
+    }
+    .section-box > div:first-child {
+        max-width: 50%;
+        gap: 0.5rem !important;
+    }
+    .section-box > div:first-child h3 {
+        font-size: 0.95rem !important;
+        line-height: 1.2;
+    }
+    .section-img {
+        width: 64px;
+        height: 64px;
+    }
+    .section-box > div:last-child .w-12 {
+        width: 2.25rem;
+        height: 2.25rem;
+    }
+    .section-box > div:last-child .w-6 {
+        width: 1.15rem;
+        height: 1.15rem;
+    }
 }
 
 /* --- BASE MODAL SYSTEM --- */
