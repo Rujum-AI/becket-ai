@@ -219,8 +219,8 @@ function formatAmount(amount) {
     45deg,
     transparent,
     transparent 2px,
-    rgba(255, 255, 255, 0.03) 2px,
-    rgba(255, 255, 255, 0.03) 4px
+    rgba(255, 255, 255, 0.06) 2px,
+    rgba(255, 255, 255, 0.06) 4px
   );
 }
 

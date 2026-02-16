@@ -495,7 +495,7 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
         .select('*')
         .eq('entity_type', 'task')
         .eq('entity_id', taskId)
-        .order('created_at', { ascending: true })
+        .order('timestamp', { ascending: true })
 
       if (logError) throw logError
       return data || []

@@ -2,12 +2,11 @@
 import { ref, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
-import TaskBoard from '@/components/management/TaskBoard.vue'
-import AskBoard from '@/components/management/AskBoard.vue'
+import UnifiedBoard from '@/components/management/UnifiedBoard.vue'
 import CreateItemModal from '@/components/management/CreateItemModal.vue'
 import ItemDetailModal from '@/components/management/ItemDetailModal.vue'
 import CustodyOverrideCard from '@/components/family/CustodyOverrideCard.vue'
-import { ChevronDown } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { useI18n } from '@/composables/useI18n'
 import { useManagementStore } from '@/stores/supabaseManagement'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
@@ -66,85 +65,97 @@ function closeDetailModal() {
       </div>
     </div>
 
-    <!-- Section 1: Ongoing Tasks -->
-    <div class="mb-12">
-      <SectionHeader
-        :title="t('ongoingTasks')"
-        icon="management.png"
-        :hasAction="true"
-        @action="openCreateModal('task')"
+    <!-- Section Header: Tasks -->
+    <SectionHeader
+      :title="t('ongoingTasks')"
+      icon="management.png"
+      :hasAction="true"
+      @action="openCreateModal('task')"
+    />
+
+    <!-- Pending Custody Overrides -->
+    <div v-if="dashboardStore.pendingOverrides.length > 0" class="overrides-list">
+      <CustodyOverrideCard
+        v-for="override in dashboardStore.pendingOverrides"
+        :key="override.id"
+        :override="override"
+        @approve="dashboardStore.respondToCustodyOverride(override.id, 'approve')"
+        @reject="dashboardStore.respondToCustodyOverride(override.id, 'reject')"
       />
-      <TaskBoard @openDetail="openDetailModal" />
     </div>
 
-    <!-- Section 2: Asks & Day Swaps (includes custody overrides) -->
-    <div class="mb-12">
-      <SectionHeader
-        :title="t('asksAndDaySwaps')"
-        icon="understandings.png"
-        :hasAction="true"
-        @action="openCreateModal('ask')"
+    <!-- Group 1: Unassigned Tasks (warning) -->
+    <UnifiedBoard
+      v-if="managementStore.unassignedTasks.length > 0"
+      :items="managementStore.unassignedTasks"
+      groupTitle="waitingForOwner"
+      groupColor="#fb923c"
+      @openDetail="openDetailModal"
+    />
+
+    <!-- Group 2: Assigned Tasks (sortable) -->
+    <UnifiedBoard
+      :items="managementStore.sortedAssignedTasks"
+      groupTitle="assignedTasks"
+      groupColor="#3b82f6"
+      :sortable="true"
+      :showAddRow="true"
+      :emptyText="t('noTasks')"
+      @openDetail="openDetailModal"
+      @addNew="openCreateModal('task')"
+    />
+
+    <!-- Section Header: Asks -->
+    <SectionHeader
+      :title="t('asksAndDaySwaps')"
+      icon="understandings.png"
+      :hasAction="true"
+      @action="openCreateModal('ask')"
+      class="mt-8"
+    />
+
+    <!-- Group 3: Asks & Day Swaps (sortable) -->
+    <UnifiedBoard
+      :items="managementStore.sortedPendingAsks"
+      groupTitle="pendingRequests"
+      groupColor="#0d9488"
+      :sortable="true"
+      :showAddRow="true"
+      :emptyText="t('noItems')"
+      @openDetail="openDetailModal"
+      @addNew="openCreateModal('ask')"
+    />
+
+    <!-- Group 4: Completed (collapsible) -->
+    <UnifiedBoard
+      v-if="managementStore.completedItems.length > 0"
+      :items="managementStore.completedItems"
+      groupTitle="completed"
+      groupColor="#10b981"
+      :collapsible="true"
+      :collapsed="!showCompleted"
+      @openDetail="openDetailModal"
+      @toggleCollapse="showCompleted = !showCompleted"
+    />
+
+    <!-- Group 5: Rejected (collapsible) -->
+    <div class="mb-24">
+      <UnifiedBoard
+        v-if="managementStore.rejectedItems.length > 0"
+        :items="managementStore.rejectedItems"
+        groupTitle="rejected"
+        groupColor="#ef4444"
+        :collapsible="true"
+        :collapsed="!showRejected"
+        @openDetail="openDetailModal"
+        @toggleCollapse="showRejected = !showRejected"
       />
-
-      <!-- Pending Custody Overrides folded in -->
-      <div v-if="dashboardStore.pendingOverrides.length > 0" class="overrides-list">
-        <CustodyOverrideCard
-          v-for="override in dashboardStore.pendingOverrides"
-          :key="override.id"
-          :override="override"
-          @approve="dashboardStore.respondToCustodyOverride(override.id, 'approve')"
-          @reject="dashboardStore.respondToCustodyOverride(override.id, 'reject')"
-        />
-      </div>
-
-      <AskBoard @openDetail="openDetailModal" />
     </div>
 
-    <!-- Section 3: Completed (collapsible) -->
-    <div v-if="managementStore.completedItems.length > 0" class="mb-12">
-      <button class="collapse-header" @click="showCompleted = !showCompleted">
-        <span class="collapse-title">{{ t('completed') }}</span>
-        <span class="collapse-count">{{ managementStore.completedItems.length }}</span>
-        <ChevronDown :size="18" :class="['collapse-chevron', { open: showCompleted }]" />
-      </button>
-      <div v-if="showCompleted" class="archive-list">
-        <div
-          v-for="item in managementStore.completedItems"
-          :key="item.id"
-          class="archive-card"
-          @click="openDetailModal(item, item.type)"
-        >
-          <div class="archive-card-row">
-            <span class="archive-type-badge completed">{{ t(item.type) }}</span>
-            <span class="archive-name">{{ item.name }}</span>
-          </div>
-          <span class="archive-date">{{ item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '' }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 4: Rejected (collapsible) -->
-    <div v-if="managementStore.rejectedItems.length > 0" class="mb-24">
-      <button class="collapse-header" @click="showRejected = !showRejected">
-        <span class="collapse-title">{{ t('rejected') }}</span>
-        <span class="collapse-count">{{ managementStore.rejectedItems.length }}</span>
-        <ChevronDown :size="18" :class="['collapse-chevron', { open: showRejected }]" />
-      </button>
-      <div v-if="showRejected" class="archive-list">
-        <div
-          v-for="item in managementStore.rejectedItems"
-          :key="item.id"
-          class="archive-card"
-          @click="openDetailModal(item, item.type)"
-        >
-          <div class="archive-card-row">
-            <span class="archive-type-badge rejected">{{ t(item.type) }}</span>
-            <span class="archive-name">{{ item.name }}</span>
-          </div>
-          <span class="archive-date">{{ item.updated_at ? new Date(item.updated_at).toLocaleDateString() : '' }}</span>
-        </div>
-      </div>
-    </div>
+    <!-- Mobile FAB -->
+    <button class="fab-create" @click="openCreateModal('task')">
+      <Plus :size="24" />
+    </button>
 
     <!-- Modals -->
     <CreateItemModal
@@ -204,109 +215,37 @@ function closeDetailModal() {
   margin-bottom: 1rem;
 }
 
-/* Collapsible archive sections */
-.collapse-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  cursor: pointer;
-  transition: all 0.2s;
+/* FAB: visible only on mobile */
+.fab-create {
+  display: none;
 }
 
-.collapse-header:hover {
-  background: #e2e8f0;
-}
+@media (max-width: 640px) {
+  .page-title {
+    font-size: 1.75rem;
+  }
 
-.collapse-title {
-  font-size: 0.875rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #64748b;
-}
+  .fab-create {
+    display: flex;
+    position: fixed;
+    bottom: 100px;
+    inset-inline-end: 1rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: #1e293b;
+    color: white;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    cursor: pointer;
+    border: 3px solid #0f172a;
+    transition: transform 0.15s;
+  }
 
-.collapse-count {
-  font-size: 0.75rem;
-  font-weight: 800;
-  background: #cbd5e1;
-  color: #475569;
-  padding: 0.125rem 0.5rem;
-  border-radius: 1rem;
-}
-
-.collapse-chevron {
-  margin-left: auto;
-  color: #94a3b8;
-  transition: transform 0.2s;
-}
-
-.collapse-chevron.open {
-  transform: rotate(180deg);
-}
-
-.archive-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.archive-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.archive-card:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.archive-card-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.archive-type-badge {
-  font-size: 0.625rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.375rem;
-}
-
-.archive-type-badge.completed {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.archive-type-badge.rejected {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.archive-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.archive-date {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  font-weight: 600;
+  .fab-create:active {
+    transform: scale(0.9);
+  }
 }
 </style>

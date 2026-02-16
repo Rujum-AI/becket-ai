@@ -206,17 +206,14 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     const stats = categoryStats.value
     if (stats.length === 0) return 'conic-gradient(#e2e8f0 0% 100%)'
 
-    let css = 'conic-gradient('
     let currentPos = 0
-
-    stats.forEach((cat, index) => {
-      css += `${cat.color} ${currentPos}% ${currentPos + cat.percent}%`
-      if (index < stats.length - 1) css += ', '
+    const segments = stats.map(cat => {
+      const seg = `${cat.color} ${currentPos}% ${currentPos + cat.percent}%`
       currentPos += cat.percent
+      return seg
     })
-    css += ')'
 
-    return css
+    return `conic-gradient(${segments.join(', ')})`
   })
 
   // Load children for filter
