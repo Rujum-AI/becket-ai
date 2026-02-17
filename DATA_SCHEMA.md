@@ -762,6 +762,60 @@ Uploaded files (agreements, medical records, receipts).
 
 ---
 
+### 26. `subscriptions`
+Lemon Squeezy subscription tracking. One row per family.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| family_id | uuid FK → families | UNIQUE — one per family |
+| billing_user_id | uuid FK → profiles | Who initiated payment |
+| ls_customer_id | text | Lemon Squeezy customer ID |
+| ls_subscription_id | text UNIQUE | Lemon Squeezy subscription ID |
+| ls_order_id | text | Initial order ID |
+| ls_product_id | text | Product ID |
+| ls_variant_id | text | Variant ID (maps to plan tier) |
+| plan | text | Same enum as families.plan |
+| status | text | 'active', 'cancelled', 'paused', 'past_due', 'expired', 'trialing', 'unpaid' |
+| current_period_start | timestamptz | |
+| current_period_end | timestamptz | |
+| trial_ends_at | timestamptz | Nullable |
+| cancel_at | timestamptz | Nullable |
+| renews_at | timestamptz | Nullable |
+| card_brand | text | Nullable |
+| card_last_four | text | Nullable |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+**Indexes:** (family_id), (ls_customer_id), (status)
+**RLS:** Family members can SELECT. Only service_role (webhooks) can write.
+**Trigger:** On INSERT/UPDATE syncs `families.plan`. On cancel/expire reverts to 'essential'.
+
+---
+
+### 27. `payment_events`
+Lemon Squeezy webhook event log. Full billing history and audit trail.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| family_id | uuid FK → families | |
+| subscription_id | uuid FK → subscriptions | Nullable |
+| ls_event_id | text UNIQUE | Idempotency key |
+| event_type | text | See event types below |
+| amount_cents | integer | Payment amount in cents |
+| currency | text | 'USD' etc. |
+| status | text | 'success', 'failed', 'refunded', 'pending' |
+| payload | jsonb | Full webhook body for audit |
+| created_at | timestamptz | |
+
+**Event types:** subscription_created, subscription_updated, subscription_cancelled, subscription_resumed, subscription_expired, subscription_paused, subscription_unpaused, subscription_payment_success, subscription_payment_failed, subscription_payment_recovered, order_created, order_refunded
+
+**Indexes:** (family_id), (subscription_id), (event_type), (created_at DESC)
+**RLS:** Family members can SELECT. Only service_role (webhooks) can write.
+
+---
+
 ## Supabase Storage Buckets
 
 | Bucket | Access | Contents | Retention |
@@ -891,7 +945,7 @@ Format: PDF, generated server-side (Supabase Edge Function or external service).
 
 ---
 
-## Table Count: 25
+## Table Count: 27
 
 | # | Table | Rows/Year (2 kids) |
 |---|-------|--------------------|
@@ -920,6 +974,8 @@ Format: PDF, generated server-side (Supabase Edge Function or external service).
 | 23 | notifications | Cleaned quarterly |
 | 24 | activity_log | Cleaned yearly |
 | 25 | documents | ~10-50 |
+| 26 | subscriptions | 1 per family |
+| 27 | payment_events | ~12-50 per year |
 
-**Total persistent rows per family per year: ~2,500-4,500**
-Highly scalable. Even 10,000 families = ~45M rows/year max, well within PostgreSQL capabilities.
+**Total persistent rows per family per year: ~2,500-4,600**
+Highly scalable. Even 10,000 families = ~46M rows/year max, well within PostgreSQL capabilities.

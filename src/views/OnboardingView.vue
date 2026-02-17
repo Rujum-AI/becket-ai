@@ -529,6 +529,7 @@ async function shareNative() {
           <div class="plans-duo">
             <!-- Free Plan -->
             <div class="plan-card" :class="{ active: selectedPlan === 'free' }" @click="selectedPlan = 'free'">
+              <img src="/assets/plan_free.png" alt="Free Plan" class="plan-img" />
               <div class="plan-card-header free-header">
                 <h3>{{ t('freePlanName') }}</h3>
                 <span class="plan-price">{{ t('freePlanPrice') }}</span>
@@ -542,9 +543,10 @@ async function shareNative() {
               </ul>
             </div>
 
-            <!-- AI Pro Plan -->
-            <div class="plan-card ai-card" :class="{ active: selectedPlan === 'ai' }" @click="selectedPlan = 'ai'">
+            <!-- AI Pro Plan (Coming Soon — not selectable) -->
+            <div class="plan-card ai-card">
               <div class="plan-badge-coming">{{ t('comingSoonBadge') }}</div>
+              <img src="/assets/plan_AI.png" alt="AI Pro Plan" class="plan-img" />
               <div class="plan-card-header ai-header">
                 <h3>{{ t('aiPlanName') }}</h3>
                 <span class="plan-price">{{ t('aiPlanPrice') }}</span>
@@ -1163,6 +1165,15 @@ async function shareNative() {
   border-color: #BD5B39;
   background: #fffbf5;
   box-shadow: 0 4px 16px rgba(189, 91, 57, 0.1);
+}
+
+.plan-img {
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+  display: block;
+  margin: 0 auto 1rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
 .plan-card-header {

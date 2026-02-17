@@ -58,6 +58,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/subscription',
+      name: 'subscription',
+      component: () => import('@/views/SubscriptionView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/reset-password',
       name: 'reset-password',
       component: () => import('@/views/ResetPasswordView.vue'),
