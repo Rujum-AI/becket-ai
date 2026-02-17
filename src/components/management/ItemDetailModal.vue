@@ -6,6 +6,7 @@ import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabas
 import { useAuth } from '@/composables/useAuth'
 import { Send, ArrowLeftRight, Clock } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { ITEM_TYPE_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   item: {
@@ -34,8 +35,8 @@ const activityLog = ref([])
 const activityLoading = ref(false)
 
 const headerBg = computed(() => {
-  if (isSwitchDays.value) return '#F59E0B'
-  return props.itemType === 'ask' ? '#34D399' : '#60A5FA'
+  if (isSwitchDays.value) return ITEM_TYPE_COLORS.switch
+  return props.itemType === 'ask' ? ITEM_TYPE_COLORS.ask : ITEM_TYPE_COLORS.task
 })
 
 const isSwitchDays = computed(() => props.item.event_data?.switchType === 'day_swap')

@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import { supabase } from '@/lib/supabase'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   notification: { type: Object, required: true }
@@ -57,7 +58,7 @@ onMounted(async () => {
 
 <template>
   <BaseModal
-    headerStyle="linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)"
+    :headerStyle="SECTION_COLORS.family"
     maxWidth="420px"
     @close="$emit('close')"
   >

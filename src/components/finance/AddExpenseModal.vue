@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const emit = defineEmits(['close'])
 
@@ -51,7 +52,7 @@ async function saveExpense() {
 
 <template>
   <BaseModal
-    headerStyle="#F87171"
+    :headerStyle="SECTION_COLORS.finance"
     :title="t('newExpense')"
     maxWidth="500px"
     @close="$emit('close')"

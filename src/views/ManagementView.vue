@@ -6,7 +6,6 @@ import UnifiedBoard from '@/components/management/UnifiedBoard.vue'
 import CreateItemModal from '@/components/management/CreateItemModal.vue'
 import ItemDetailModal from '@/components/management/ItemDetailModal.vue'
 import CustodyOverrideCard from '@/components/family/CustodyOverrideCard.vue'
-import { Plus } from 'lucide-vue-next'
 import { useI18n } from '@/composables/useI18n'
 import { useManagementStore } from '@/stores/supabaseManagement'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
@@ -152,11 +151,6 @@ function closeDetailModal() {
       />
     </div>
 
-    <!-- Mobile FAB -->
-    <button class="fab-create" @click="openCreateModal('task')">
-      <Plus :size="24" />
-    </button>
-
     <!-- Modals -->
     <CreateItemModal
       v-if="showCreateModal"
@@ -216,36 +210,9 @@ function closeDetailModal() {
 }
 
 /* FAB: visible only on mobile */
-.fab-create {
-  display: none;
-}
-
 @media (max-width: 640px) {
   .page-title {
     font-size: 1.75rem;
-  }
-
-  .fab-create {
-    display: flex;
-    position: fixed;
-    bottom: 100px;
-    inset-inline-end: 1rem;
-    width: 3.5rem;
-    height: 3.5rem;
-    border-radius: 50%;
-    background: #1e293b;
-    color: white;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    z-index: 100;
-    cursor: pointer;
-    border: 3px solid #0f172a;
-    transition: transform 0.15s;
-  }
-
-  .fab-create:active {
-    transform: scale(0.9);
   }
 }
 </style>

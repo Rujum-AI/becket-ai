@@ -5,6 +5,7 @@ import { useCamera } from '@/composables/useCamera'
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import { FileText, Camera, Upload, Trash2, X } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   child: {
@@ -137,11 +138,12 @@ function formatDate(isoString) {
 
 <template>
   <BaseModal
-    headerStyle="#6366F1"
+    :headerStyle="SECTION_COLORS.family"
     maxWidth="500px"
     @close="$emit('close')"
   >
     <template #header>
+      <img :src="child.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'" :alt="child.name" />
       <h2 class="modal-title">{{ child.name }} — {{ t('documents') }}</h2>
     </template>
 

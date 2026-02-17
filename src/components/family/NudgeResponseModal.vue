@@ -7,6 +7,7 @@ import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabas
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import { Camera } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   nudge: { type: Object, required: true }
@@ -100,11 +101,12 @@ async function sendUpdate() {
 
 <template>
   <BaseModal
-    headerStyle="linear-gradient(135deg, #BD5B39 0%, #9A3412 100%)"
+    :headerStyle="SECTION_COLORS.family"
     maxWidth="420px"
     @close="$emit('close')"
   >
     <template #header>
+      <img v-if="nudgeChild" :src="nudgeChild.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'" :alt="nudgeChild.name" />
       <h2 class="modal-title">{{ t('quickUpdate') }}</h2>
     </template>
 

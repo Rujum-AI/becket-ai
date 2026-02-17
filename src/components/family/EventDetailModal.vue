@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useLanguageStore } from '@/stores/language'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { EVENT_TYPE_COLORS } from '@/lib/modalColors'
 import { Clock, MapPin, Calendar, User, Tag, Pencil, Trash2, PackageOpen } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -69,16 +70,7 @@ const statusColor = computed(() => {
 })
 
 const headerColor = computed(() => {
-  const colors = {
-    pickup: 'linear-gradient(135deg, #CCFBF1 0%, #5EEAD4 100%)',
-    dropoff: 'linear-gradient(135deg, #FFEDD5 0%, #FDBA74 100%)',
-    school: 'linear-gradient(135deg, #DBEAFE 0%, #93C5FD 100%)',
-    activity: 'linear-gradient(135deg, #F3E8FF 0%, #C084FC 100%)',
-    appointment: 'linear-gradient(135deg, #FEE2E2 0%, #FCA5A5 100%)',
-    friend_visit: 'linear-gradient(135deg, #FEF9C3 0%, #FDE047 100%)',
-    manual: 'linear-gradient(135deg, #F1F5F9 0%, #CBD5E1 100%)'
-  }
-  return colors[props.event.type] || colors.manual
+  return EVENT_TYPE_COLORS[props.event.type] || EVENT_TYPE_COLORS.manual
 })
 
 const locationName = computed(() => {

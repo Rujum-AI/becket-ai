@@ -128,5 +128,8 @@ function closeCheckInDetail() {
       :message="t('nudgeSentSuccess')"
       @done="onToastDone"
     />
+
+    <!-- Copyright bar — always visible -->
+    <div class="copyright-bar">All rights reserved to Rujum 2026 &copy;</div>
   </div>
 </template>

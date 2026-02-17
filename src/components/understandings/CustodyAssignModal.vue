@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 import { Check } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   dayIndex: {
@@ -78,7 +79,7 @@ function getChildImg(child) {
 <template>
   <BaseModal
     v-if="isOpen"
-    headerStyle="#F472B6"
+    :headerStyle="SECTION_COLORS.understandings"
     maxWidth="500px"
     @close="$emit('close')"
   >

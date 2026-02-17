@@ -5,6 +5,7 @@ import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { useTrusteesStore } from '@/stores/supabaseTrustees'
 import { Plus } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   initialDate: { type: String, default: '' },
@@ -315,7 +316,7 @@ async function handleSave() {
 
 <template>
   <BaseModal
-    headerStyle="#60A5FA"
+    :headerStyle="SECTION_COLORS.family"
     :title="isEditing ? t('editEvent') : t('addEvent')"
     maxWidth="500px"
     @close="$emit('close')"

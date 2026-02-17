@@ -85,6 +85,7 @@ async function confirmDropoff() {
     @close="$emit('close')"
   >
     <template #header>
+      <img :src="child.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'" :alt="child.name" />
       <h2 class="modal-title">{{ t('dropoffTitle') }}</h2>
       <div class="mt-8 px-10">
         <select v-model="dropLocation" class="big-select">

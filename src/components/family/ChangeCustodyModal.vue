@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useLanguageStore } from '@/stores/language'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   initialDate: { type: String, required: true } // YYYY-MM-DD
@@ -81,7 +82,7 @@ async function submit() {
 
 <template>
   <BaseModal
-    headerStyle="#A78BFA"
+    :headerStyle="SECTION_COLORS.family"
     :title="t('changeCustody')"
     maxWidth="480px"
     @close="emit('close')"

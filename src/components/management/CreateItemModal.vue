@@ -6,6 +6,7 @@ import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabas
 import { useAuth } from '@/composables/useAuth'
 import { AlertTriangle } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { ITEM_TYPE_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   initialType: {
@@ -48,9 +49,7 @@ const switchForm = ref({
 
 // Header color per type
 const headerColor = computed(() => {
-  if (createType.value === 'task') return '#60A5FA'
-  if (createType.value === 'ask') return '#34D399'
-  return '#F59E0B'
+  return ITEM_TYPE_COLORS[createType.value] || ITEM_TYPE_COLORS.task
 })
 
 // Type descriptions

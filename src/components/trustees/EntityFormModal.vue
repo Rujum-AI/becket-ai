@@ -5,6 +5,7 @@ import { useTrusteesStore } from '@/stores/supabaseTrustees'
 import { useSupabaseDashboardStore as useDashboardStore } from '@/stores/supabaseDashboard'
 import { Plus } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   entity: {
@@ -59,11 +60,7 @@ const modalTitle = computed(() => {
   return isEditing.value ? t('editPerson') : t('addPerson')
 })
 
-const headerBg = computed(() => {
-  if (props.entityType === 'school') return '#FCD34D'
-  if (props.entityType === 'activity') return '#F87171'
-  return '#60A5FA'
-})
+const headerBg = SECTION_COLORS.trustees
 
 const iconSrc = computed(() => {
   if (props.entityType === 'school') return '/assets/school.png'

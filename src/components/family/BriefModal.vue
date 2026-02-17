@@ -4,6 +4,7 @@ import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
   child: {
@@ -86,7 +87,7 @@ function formatSinceDate(isoString) {
 
 <template>
   <BaseModal
-    headerStyle="#FCD34D"
+    :headerStyle="SECTION_COLORS.family"
     maxWidth="500px"
     @close="$emit('close')"
   >

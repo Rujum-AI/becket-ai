@@ -44,6 +44,7 @@ function confirmPickup() {
     @close="$emit('close')"
   >
     <template #header>
+      <img :src="child.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'" :alt="child.name" />
       <h2 class="modal-title">{{ t('pickupTitle') }}</h2>
     </template>
         <div class="modal-section">
