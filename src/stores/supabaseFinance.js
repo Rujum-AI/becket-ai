@@ -223,7 +223,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('children')
-        .select('id, name')
+        .select('id, name, gender')
         .eq('family_id', family.value.id)
         .order('date_of_birth', { ascending: false })
 
@@ -344,7 +344,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     if (childFilter.value === null) {
       return expenses.value // All children
     }
-    return expenses.value.filter(e => e.child_id === childFilter.value || e.child_id === null)
+    return expenses.value.filter(e => e.child_id === childFilter.value)
   })
 
   // Computed: Balance data (who paid what vs. who should have paid)

@@ -6,8 +6,8 @@ import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
 
-const timeframes = ['month', 'year', 'custom']
-const timeframeLabel = { month: 'monthly', year: 'year', custom: 'custom' }
+const timeframes = ['month', 'year']
+const timeframeLabel = { month: 'monthly', year: 'year' }
 
 // Split categories into left (odd index) and right (even index)
 const rightCategories = computed(() =>
@@ -126,11 +126,11 @@ function formatAmount(amount) {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Chart with side categories layout */
+/* Chart with side categories layout — grid keeps pie centered */
 .chart-with-categories {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
   gap: 1.75rem;
   margin-top: 0.5rem;
 }
@@ -143,10 +143,12 @@ function formatAmount(amount) {
 
 .left-categories {
   align-items: center;
+  justify-self: end;
 }
 
 .right-categories {
   align-items: center;
+  justify-self: start;
 }
 
 .side-category-item {

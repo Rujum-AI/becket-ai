@@ -26,7 +26,7 @@ function formatDate(dateString) {
 <template>
   <div class="expense-list">
     <div
-      v-for="expense in financeStore.expenses"
+      v-for="expense in financeStore.filteredExpenses"
       :key="expense.id"
       class="expense-row"
     >

@@ -54,6 +54,10 @@ function toggleSetup() {
 function closeSetup() {
   showSetupPanel.value = false
 }
+
+function getChildImg(child) {
+  return child.gender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'
+}
 </script>
 
 <template>
@@ -68,22 +72,26 @@ function closeSetup() {
         @action="toggleSetup"
       />
 
-      <!-- Child Filter Pills (if >1 child) -->
+      <!-- Child Filter Thumbnails (if >1 child) -->
       <div v-if="financeStore.children.length > 1" class="child-filter">
-        <button
+        <div
           @click="financeStore.setChildFilter(null)"
-          :class="['filter-pill', { active: financeStore.childFilter === null }]"
+          class="child-toggle"
+          :class="{ active: financeStore.childFilter === null }"
         >
-          {{ t('all') }}
-        </button>
-        <button
+          <img src="/assets/family.png" class="child-toggle-img" alt="All" />
+          <span class="child-toggle-name">{{ t('all') }}</span>
+        </div>
+        <div
           v-for="child in financeStore.children"
           :key="child.id"
           @click="financeStore.setChildFilter(child.id)"
-          :class="['filter-pill', { active: financeStore.childFilter === child.id }]"
+          class="child-toggle"
+          :class="{ active: financeStore.childFilter === child.id }"
         >
-          {{ child.name }}
-        </button>
+          <img :src="getChildImg(child)" class="child-toggle-img" :alt="child.name" />
+          <span class="child-toggle-name">{{ child.name }}</span>
+        </div>
       </div>
 
       <!-- Setup Panel (Collapsible) -->
@@ -119,32 +127,49 @@ function closeSetup() {
 <style scoped>
 .child-filter {
   display: flex;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 1.25rem;
   margin-bottom: 1.5rem;
-  flex-wrap: wrap;
 }
 
-.filter-pill {
-  padding: 0.625rem 1.25rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #64748b;
-  background: white;
+.child-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   cursor: pointer;
+  opacity: 0.4;
+  filter: grayscale(100%);
   transition: all 0.2s;
+  transform: scale(0.9);
 }
 
-.filter-pill:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
+.child-toggle.active {
+  opacity: 1;
+  filter: grayscale(0);
+  transform: scale(1);
 }
 
-.filter-pill.active {
+.child-toggle-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 0.3rem;
+}
+
+.child-toggle.active .child-toggle-img {
   border-color: #1e293b;
-  background: #1e293b;
-  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.child-toggle-name {
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 </style>

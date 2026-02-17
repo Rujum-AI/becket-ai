@@ -40,14 +40,18 @@ function formatAmount(amount) {
       <div
         v-for="(transfer, idx) in fixedTransfers"
         :key="idx"
-        class="transfer-indicator"
+        class="transfer-row"
       >
-        <span class="transfer-icon">📌</span>
-        <span class="transfer-label">{{ transfer.label }}:</span>
-        <span class="transfer-amount bidi-isolate">{{ formatAmount(transfer.amount) }} ₪/{{ t(transfer.period) }}</span>
-        <span class="transfer-direction" dir="ltr">
-          ({{ t(transfer.from) }} → {{ t(transfer.to) }})
-        </span>
+        <div class="transfer-left">
+          <div class="transfer-icon">📌</div>
+          <div class="transfer-details">
+            <span class="transfer-title">{{ transfer.label }}</span>
+            <span class="transfer-meta">
+              {{ t(transfer.from) }} → {{ t(transfer.to) }} · {{ t(transfer.period) }}
+            </span>
+          </div>
+        </div>
+        <div class="transfer-amount bidi-isolate">{{ formatAmount(transfer.amount) }} ₪</div>
       </div>
     </div>
 
@@ -130,43 +134,77 @@ function formatAmount(amount) {
   gap: 1.5rem;
 }
 
-/* Fixed Transfers */
+/* Fixed Transfers — matches expense row layout */
 .fixed-transfers {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  background: white;
+  border-radius: 2rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
 }
 
-.transfer-indicator {
+.transfer-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.875rem 1.25rem;
-  background: #f8fafc;
-  border-radius: 1.5rem;
-  border: 2px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.transfer-row:last-child {
+  border-bottom: none;
+}
+
+.transfer-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .transfer-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: #f8fafc;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.25rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
-.transfer-label {
-  font-size: 0.875rem;
+.transfer-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: start;
+  min-width: 0;
+}
+
+.transfer-title {
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #1e293b;
+  line-height: 1;
+}
+
+.transfer-meta {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .transfer-amount {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 900;
   color: #1e293b;
-}
-
-.transfer-direction {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  flex-shrink: 0;
 }
 
 /* Balance Section */
