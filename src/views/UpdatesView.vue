@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
@@ -11,13 +11,11 @@ import {
   ClipboardList,
   MessageSquare,
   DollarSign,
-  UserPlus,
   FileCheck,
-  Gift,
-  Bell,
   Heart,
-  Camera,
-  ArrowLeft
+  Bell,
+  ArrowLeft,
+  ChevronDown
 } from 'lucide-vue-next'
 
 const router = useRouter()
@@ -25,12 +23,10 @@ const route = useRoute()
 const { t } = useI18n()
 const updatesStore = useUpdatesStore()
 
-// Fetch updates on mount
 onMounted(() => {
   updatesStore.fetchUpdates()
 })
 
-// Refresh when navigating back to this view
 watch(() => route.path, (newPath) => {
   if (newPath === '/updates') {
     updatesStore.fetchUpdates()
@@ -41,6 +37,7 @@ function goBack() {
   router.push('/family')
 }
 
+// === Icons ===
 const iconMap = {
   pickup: ArrowUpDown,
   dropoff: ArrowUpDown,
@@ -64,7 +61,6 @@ const iconMap = {
   expense: DollarSign,
   expense_pending: DollarSign,
   expense_added: DollarSign,
-  birthday: Gift,
   custody_override_requested: Calendar,
   custody_override_approved: Calendar,
   custody_override_rejected: Calendar,
@@ -72,27 +68,31 @@ const iconMap = {
   nudge_response: Heart
 }
 
-const colorMap = {
-  handoff: 'bg-cyan-50 text-cyan-600 border-cyan-100',
-  task: 'bg-purple-50 text-purple-600 border-purple-100',
-  ask: 'bg-orange-50 text-orange-600 border-orange-100',
-  approval: 'bg-amber-50 text-amber-600 border-amber-100',
-  event: 'bg-blue-50 text-blue-600 border-blue-100',
-  expense: 'bg-green-50 text-green-600 border-green-100',
-  nudge: 'bg-red-50 text-red-600 border-red-100',
-  photo: 'bg-blue-50 text-blue-600 border-blue-100'
-}
-
 function getIcon(type) {
   return iconMap[type] || Bell
 }
 
-function getColor(category) {
-  return colorMap[category] || 'bg-slate-50 text-slate-600 border-slate-100'
+// === Category stripe + icon colors ===
+const stripeColorMap = {
+  handoff: '#06b6d4',
+  task: '#8b5cf6',
+  ask: '#f97316',
+  approval: '#f59e0b',
+  event: '#3b82f6',
+  expense: '#10b981',
+  nudge: '#ef4444'
 }
 
+function getStripeColor(category) {
+  return stripeColorMap[category] || '#94a3b8'
+}
+
+function getIconColor(category) {
+  return stripeColorMap[category] || '#94a3b8'
+}
+
+// === Time formatting ===
 function formatTime(timestamp) {
-  // Handle both created_at (DB field) and timestamp (UI alias)
   const dateString = timestamp || new Date().toISOString()
   const date = new Date(dateString)
   const now = new Date()
@@ -102,153 +102,358 @@ function formatTime(timestamp) {
   const days = Math.floor(diff / 86400000)
 
   if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m ago`
-  if (hours < 24) return `${hours}h ago`
+  if (minutes < 60) return `${minutes}m`
+  if (hours < 24) return `${hours}h`
   if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days}d ago`
+  if (days < 7) return `${days}d`
   return date.toLocaleDateString()
 }
 
-function handleNotificationClick(update) {
-  updatesStore.markAsRead(update.id)
+// === Filter system (merged single bar) ===
+const activeFilter = ref('all')
 
-  // Navigate based on notification type
-  if (update.type?.startsWith('custody_override')) {
+const filterChips = computed(() => [
+  { key: 'all', label: t('allUpdates') },
+  { key: 'handoff', label: t('handoffs') },
+  { key: 'task', label: t('tasks') },
+  { key: 'ask', label: t('asks') },
+  { key: 'approval', label: t('approvals') },
+  { key: 'event', label: t('events') },
+  { key: 'expense', label: t('expenses') },
+  { key: 'unread', label: t('unread') },
+])
+
+function setFilter(key) {
+  if (key === 'unread') {
+    updatesStore.setCategory('all')
+    updatesStore.setTimeFilter('unread')
+  } else {
+    updatesStore.setCategory(key)
+    updatesStore.setTimeFilter('all')
+  }
+  activeFilter.value = key
+}
+
+// === Time sections ===
+const timeSections = computed(() => {
+  const g = updatesStore.groupedNotifications
+  return [
+    { key: 'today', label: t('today') || 'Today', items: g.today || [] },
+    { key: 'yesterday', label: t('yesterday') || 'Yesterday', items: g.yesterday || [] },
+    { key: 'thisWeek', label: t('thisWeek') || 'This Week', items: g.thisWeek || [] },
+    { key: 'older', label: t('older') || 'Older', items: g.older || [] },
+  ]
+})
+
+const isEmpty = computed(() => {
+  return timeSections.value.every(s => s.items.length === 0)
+})
+
+// === Grouped notification expand/collapse ===
+const expandedGroups = ref(new Set())
+
+function toggleGroup(entityId) {
+  if (expandedGroups.value.has(entityId)) {
+    expandedGroups.value.delete(entityId)
+  } else {
+    expandedGroups.value.add(entityId)
+  }
+  // Force reactivity
+  expandedGroups.value = new Set(expandedGroups.value)
+}
+
+// === Navigation on click ===
+function handleNotificationClick(notification) {
+  updatesStore.markAsRead(notification.id)
+
+  if (notification.type?.startsWith('custody_override')) {
     router.push('/management')
-  } else if (update.related_entity_type === 'expense') {
+  } else if (notification.related_entity_type === 'expense') {
     router.push('/finance')
-  } else if (update.related_entity_type === 'task' || update.category === 'ask') {
+  } else if (notification.related_entity_type === 'task' || notification.category === 'ask') {
     router.push('/management')
+  } else if (notification.category === 'nudge') {
+    // Nudge clicks navigate to family
+    router.push('/family')
+  } else if (notification.related_entity_type === 'understanding') {
+    router.push('/understandings')
   }
 }
 
-function getCategoryLabel(category) {
-  const labels = {
-    all: t('allUpdates'),
-    handoff: t('handoffs'),
-    task: t('tasks'),
-    ask: t('asks'),
-    approval: t('approvals'),
-    event: t('events'),
-    expense: t('expenses')
+// === Inline actions ===
+async function handleInlineAction(notification, action) {
+  const result = await updatesStore.handleInlineAction(notification, action)
+  if (result === 'open-modal') {
+    // Nudge: navigate to family view (modal opens from there)
+    router.push('/family')
   }
-  return labels[category] || category
+}
+
+// === Action button helpers ===
+function getPositiveActions() {
+  return ['accept', 'approve', 'respond']
+}
+
+function isPositiveAction(action) {
+  return getPositiveActions().includes(action)
 }
 </script>
 
 <template>
   <AppLayout>
-    <div class="mb-8">
-      <div class="flex justify-between items-center mb-4">
-        <div class="flex items-center gap-3">
-          <button
-            @click="goBack"
-            class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors text-slate-600"
-          >
-            <ArrowLeft class="w-5 h-5" />
-          </button>
-          <h1 class="text-4xl font-serif text-slate-900">{{ t('updates') }}</h1>
-        </div>
+    <!-- Header -->
+    <div class="activity-header">
+      <div class="flex items-center gap-3">
+        <button @click="goBack" class="back-btn">
+          <ArrowLeft class="w-5 h-5" />
+        </button>
+        <h1 class="activity-title">{{ t('updates') }}</h1>
+      </div>
+      <button
+        v-if="updatesStore.unreadCount > 0"
+        @click="updatesStore.markAllAsRead()"
+        class="mark-all-btn"
+      >
+        <CheckCheck class="w-3.5 h-3.5" />
+        {{ t('markAllRead') }}
+      </button>
+    </div>
+
+    <!-- Single Filter Bar -->
+    <div class="filter-bar-wrap">
+      <div class="filter-bar">
         <button
-          v-if="updatesStore.unreadCount > 0"
-          @click="updatesStore.markAllAsRead()"
-          class="text-xs font-bold text-teal-600 uppercase tracking-wider hover:text-teal-700 transition-colors flex items-center gap-2"
+          v-for="chip in filterChips"
+          :key="chip.key"
+          @click="setFilter(chip.key)"
+          class="filter-chip"
+          :class="{ active: activeFilter === chip.key }"
         >
-          <CheckCheck class="w-4 h-4" />
-          {{ t('markAllRead') }}
+          {{ chip.label }}
         </button>
       </div>
-      <p class="text-slate-400 font-bold text-sm">{{ t('stayUpdated') }}</p>
     </div>
 
-    <!-- Category Filters -->
-    <div class="flex gap-2 mb-3 overflow-x-auto pb-2">
-      <button
-        v-for="category in updatesStore.categories"
-        :key="category"
-        @click="updatesStore.setCategory(category)"
-        class="filter-chip"
-        :class="updatesStore.selectedCategory === category ? 'filter-chip-active' : ''"
-      >
-        {{ getCategoryLabel(category) }}
-      </button>
-    </div>
-
-    <!-- Time Filters -->
-    <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
-      <button
-        @click="updatesStore.setTimeFilter('all')"
-        class="filter-chip filter-chip-secondary"
-        :class="updatesStore.selectedTimeFilter === 'all' ? 'filter-chip-secondary-active' : ''"
-      >
-        {{ t('allTime') }}
-      </button>
-      <button
-        @click="updatesStore.setTimeFilter('day')"
-        class="filter-chip filter-chip-secondary"
-        :class="updatesStore.selectedTimeFilter === 'day' ? 'filter-chip-secondary-active' : ''"
-      >
-        {{ t('lastDay') }}
-      </button>
-      <button
-        @click="updatesStore.setTimeFilter('week')"
-        class="filter-chip filter-chip-secondary"
-        :class="updatesStore.selectedTimeFilter === 'week' ? 'filter-chip-secondary-active' : ''"
-      >
-        {{ t('lastWeek') }}
-      </button>
-      <button
-        @click="updatesStore.setTimeFilter('unread')"
-        class="filter-chip filter-chip-secondary"
-        :class="updatesStore.selectedTimeFilter === 'unread' ? 'filter-chip-secondary-active' : ''"
-      >
-        {{ t('unread') }}
-      </button>
-    </div>
-
-    <!-- Updates List -->
-    <div class="updates-list">
-      <div
-        v-for="update in updatesStore.filteredUpdates"
-        :key="update.id"
-        class="update-item"
-        :class="{ 'update-unread': !update.read }"
-        @click="handleNotificationClick(update)"
-      >
-        <div class="update-icon" :class="getColor(update.category)">
-          <component :is="getIcon(update.type)" class="w-5 h-5" />
-        </div>
-        <div class="update-content">
-          <div class="flex justify-between items-start mb-1">
-            <h3 class="update-title">{{ update.title }}</h3>
-            <span class="update-time">{{ formatTime(update.timestamp) }}</span>
+    <!-- Activity Feed -->
+    <div class="activity-feed">
+      <template v-for="section in timeSections" :key="section.key">
+        <div v-if="section.items.length > 0" class="time-section">
+          <!-- Sticky date header -->
+          <div class="time-section-header">
+            <span class="time-section-label">{{ section.label }}</span>
           </div>
-          <p class="update-message">{{ update.message }}</p>
-        </div>
-        <div v-if="!update.read" class="update-unread-dot"></div>
-      </div>
 
-      <div v-if="updatesStore.filteredUpdates.length === 0" class="empty-state">
-        <Bell class="w-16 h-16 text-slate-300 mb-4" />
-        <p class="text-slate-400 font-bold">{{ t('noUpdatesCategory') }}</p>
+          <!-- Items -->
+          <div class="section-items">
+            <template v-for="item in section.items" :key="item.type === 'group' ? item.entityId : item.id">
+
+              <!-- GROUPED NOTIFICATIONS -->
+              <div v-if="item.type === 'group'" class="activity-group">
+                <!-- Lead item -->
+                <div
+                  class="activity-card"
+                  :class="{ unread: !item.lead.read }"
+                  @click="handleNotificationClick(item.lead)"
+                >
+                  <div class="card-stripe" :style="{ background: getStripeColor(item.lead.category) }"></div>
+                  <div class="card-body">
+                    <div class="card-top-row">
+                      <component :is="getIcon(item.lead.type)" :size="16" class="card-icon" :style="{ color: getIconColor(item.lead.category) }" />
+                      <span class="card-title">{{ item.lead.title }}</span>
+                      <span class="card-time">{{ formatTime(item.lead.created_at) }}</span>
+                      <span v-if="!item.lead.read" class="unread-dot"></span>
+                    </div>
+                    <p class="card-message">{{ item.lead.message }}</p>
+
+                    <!-- Inline actions for lead -->
+                    <div v-if="updatesStore.isActionable(item.lead)" class="card-actions">
+                      <button
+                        v-for="action in updatesStore.getActions(item.lead)"
+                        :key="action"
+                        class="action-btn"
+                        :class="isPositiveAction(action) ? 'action-btn-positive' : 'action-btn-negative'"
+                        @click.stop="handleInlineAction(item.lead, action)"
+                      >
+                        {{ t(action) }}
+                      </button>
+                    </div>
+
+                    <!-- Group expand toggle -->
+                    <button class="group-toggle" @click.stop="toggleGroup(item.entityId)">
+                      <ChevronDown :size="14" :class="{ rotated: expandedGroups.has(item.entityId) }" class="toggle-icon" />
+                      <span>{{ item.children.length + 1 }} {{ t('updates').toLowerCase() }}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Expanded children -->
+                <TransitionGroup v-if="expandedGroups.has(item.entityId)" name="expand" tag="div" class="group-children">
+                  <div
+                    v-for="child in item.children"
+                    :key="child.id"
+                    class="activity-card child-card"
+                    :class="{ unread: !child.read }"
+                    @click="handleNotificationClick(child)"
+                  >
+                    <div class="card-stripe" :style="{ background: getStripeColor(child.category) }"></div>
+                    <div class="card-body">
+                      <div class="card-top-row">
+                        <component :is="getIcon(child.type)" :size="14" class="card-icon" :style="{ color: getIconColor(child.category) }" />
+                        <span class="card-title">{{ child.title }}</span>
+                        <span class="card-time">{{ formatTime(child.created_at) }}</span>
+                        <span v-if="!child.read" class="unread-dot"></span>
+                      </div>
+                      <p class="card-message">{{ child.message }}</p>
+                    </div>
+                  </div>
+                </TransitionGroup>
+              </div>
+
+              <!-- SINGLE NOTIFICATION -->
+              <div
+                v-else
+                class="activity-card"
+                :class="{ unread: !item.read }"
+                @click="handleNotificationClick(item)"
+              >
+                <div class="card-stripe" :style="{ background: getStripeColor(item.category) }"></div>
+                <div class="card-body">
+                  <div class="card-top-row">
+                    <component :is="getIcon(item.type)" :size="16" class="card-icon" :style="{ color: getIconColor(item.category) }" />
+                    <span class="card-title">{{ item.title }}</span>
+                    <span class="card-time">{{ formatTime(item.created_at) }}</span>
+                    <span v-if="!item.read" class="unread-dot"></span>
+                  </div>
+                  <p class="card-message">{{ item.message }}</p>
+
+                  <!-- Inline actions -->
+                  <div v-if="updatesStore.isActionable(item)" class="card-actions">
+                    <button
+                      v-for="action in updatesStore.getActions(item)"
+                      :key="action"
+                      class="action-btn"
+                      :class="isPositiveAction(action) ? 'action-btn-positive' : 'action-btn-negative'"
+                      @click.stop="handleInlineAction(item, action)"
+                    >
+                      {{ t(action) }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Empty state -->
+      <div v-if="isEmpty" class="empty-state">
+        <Bell class="w-12 h-12 text-slate-300 mb-4" />
+        <p class="text-slate-400 font-bold text-sm">{{ t('noUpdatesCategory') }}</p>
       </div>
     </div>
   </AppLayout>
 </template>
 
 <style scoped>
+/* === Activity Header === */
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.back-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-btn:hover {
+  background: #e2e8f0;
+}
+
+.activity-title {
+  font-size: 1.75rem;
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.mark-all-btn {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0D9488;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.mark-all-btn:hover {
+  color: #0b8479;
+}
+
+/* === Filter Bar === */
+.filter-bar-wrap {
+  position: relative;
+  margin-bottom: 1.25rem;
+  /* Trailing fade mask to hint at scrollable overflow */
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
+[dir="rtl"] .filter-bar-wrap {
+  -webkit-mask-image: linear-gradient(to left, black 85%, transparent 100%);
+  mask-image: linear-gradient(to left, black 85%, transparent 100%);
+}
+
+.filter-bar {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  padding-right: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+[dir="rtl"] .filter-bar {
+  padding-right: 0;
+  padding-left: 1.5rem;
+}
+
+.filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
 .filter-chip {
-  padding: 0.5rem 1rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.02em;
   background: white;
   color: #64748b;
   border: 1px solid #e2e8f0;
   cursor: pointer;
-  transition: all 0.2s;
   white-space: nowrap;
+  transition: all 0.2s;
 }
 
 .filter-chip:hover {
@@ -256,103 +461,230 @@ function getCategoryLabel(category) {
   background: #f8fafc;
 }
 
-.filter-chip-active {
+.filter-chip.active {
   background: #0f172a;
   color: white;
   border-color: #0f172a;
 }
 
-.filter-chip-secondary {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+/* === Time Sections === */
+.time-section {
+  margin-bottom: 1.5rem;
 }
 
-.filter-chip-secondary:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+.time-section-header {
+  position: sticky;
+  top: calc(clamp(44px, 12vw, 56px));
+  z-index: 10;
+  background: var(--warm-linen, #FDFBF7);
+  padding: 0.5rem 0;
 }
 
-.filter-chip-secondary-active {
-  background: #0d9488;
-  color: white;
-  border-color: #0d9488;
+.time-section-label {
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
 }
 
-.updates-list {
+.section-items {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.update-item {
+/* === Activity Card === */
+.activity-card {
+  display: flex;
   background: white;
   border: 1px solid #f1f5f9;
-  border-radius: 1.5rem;
-  padding: 1.25rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
+  border-radius: 1rem;
+  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
+  transition: all 0.15s ease;
 }
 
-.update-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
+.activity-card:hover {
   border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.update-unread {
+.activity-card.unread {
   background: #fef9f5;
-  border-color: #fed7aa;
 }
 
-.update-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+/* Left stripe */
+.card-stripe {
+  width: 3px;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.activity-card.unread .card-stripe {
+  opacity: 1;
+  width: 4px;
+}
+
+/* Card body */
+.card-body {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.card-top-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  border: 1px solid;
-}
-
-.update-content {
-  flex: 1;
-}
-
-.update-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #1e293b;
+  gap: 0.5rem;
   margin-bottom: 0.25rem;
 }
 
-.update-message {
-  font-size: 0.875rem;
-  color: #64748b;
-  font-weight: 500;
-  line-height: 1.4;
+.card-icon {
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
-.update-time {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  font-weight: 600;
+.card-title {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.update-unread-dot {
-  width: 10px;
-  height: 10px;
+.card-time {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.unread-dot {
+  width: 8px;
+  height: 8px;
   background: #ef4444;
   border-radius: 50%;
   flex-shrink: 0;
-  margin-top: 4px;
 }
 
+.card-message {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* === Inline Actions === */
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed #f1f5f9;
+}
+
+.action-btn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.action-btn-positive {
+  background: #0D9488;
+  color: white;
+}
+
+.action-btn-positive:hover {
+  background: #0b8479;
+}
+
+.action-btn-negative {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.action-btn-negative:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* === Group Toggle === */
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #0D9488;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-top: 0.35rem;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.group-toggle:hover {
+  color: #0b8479;
+}
+
+.toggle-icon {
+  transition: transform 0.2s;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.group-children {
+  padding-inline-start: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.child-card {
+  opacity: 0.85;
+}
+
+.child-card .card-body {
+  padding: 0.6rem 0.85rem;
+}
+
+/* === Expand Transition === */
+.expand-enter-active {
+  transition: all 0.3s ease;
+}
+
+.expand-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.expand-leave-active {
+  transition: all 0.2s ease;
+}
+
+.expand-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* === Empty State === */
 .empty-state {
   text-align: center;
   padding: 4rem 1rem;

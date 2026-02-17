@@ -15,8 +15,25 @@ function handleDismiss(itemId) {
   updatesStore.dismissOverlay(itemId)
 }
 
-function handleTogglePin(itemId) {
-  updatesStore.togglePin(itemId)
+function handleSwipeDismiss(itemId) {
+  handleDismiss(itemId)
+}
+
+// Inline action from toast card
+async function handleToastAction(item, action) {
+  const n = item.notification
+
+  // Nudge: open modal instead of inline action
+  if (n.type === 'nudge_request') {
+    emit('openNudgeResponse', n)
+    updatesStore.dismissOverlay(item.id)
+    return
+  }
+
+  const result = await updatesStore.handleInlineAction(n, action)
+  if (result) {
+    updatesStore.dismissOverlay(item.id)
+  }
 }
 
 // Route map for standard navigation
@@ -74,7 +91,8 @@ function handleCardClick(item) {
         :item="item"
         @dismiss="handleDismiss"
         @click="handleCardClick"
-        @togglePin="handleTogglePin"
+        @swipe-dismiss="handleSwipeDismiss"
+        @toast-action="handleToastAction"
       />
     </TransitionGroup>
   </Teleport>

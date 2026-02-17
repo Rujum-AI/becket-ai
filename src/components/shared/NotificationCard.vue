@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import {
   ArrowUpDown,
@@ -10,7 +10,6 @@ import {
   Calendar,
   Heart,
   Bell,
-  Pin,
   X
 } from 'lucide-vue-next'
 
@@ -18,9 +17,9 @@ const props = defineProps({
   item: { type: Object, required: true }
 })
 
-defineEmits(['dismiss', 'click', 'togglePin'])
+const emit = defineEmits(['dismiss', 'click', 'swipeDismiss', 'toastAction'])
 
-const { t } = useI18n()
+const { t, isRTL } = useI18n()
 
 const iconMap = {
   pickup_confirmed: ArrowUpDown,
@@ -45,7 +44,6 @@ const iconMap = {
   nudge_response: Heart
 }
 
-// Category labels for the tiny uppercase tag
 const categoryLabelMap = {
   handoff: 'handoffs',
   task: 'tasks',
@@ -57,26 +55,42 @@ const categoryLabelMap = {
   photo: 'photos'
 }
 
-// Accent color per category — used for icon bg tint + urgent glow
 const accentMap = {
-  nudge: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', glow: 'rgba(239, 68, 68, 0.25)' },
-  approval: { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', glow: 'rgba(245, 158, 11, 0.25)' },
-  ask: { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', glow: 'rgba(249, 115, 22, 0.25)' },
-  handoff: { bg: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4', glow: 'rgba(6, 182, 212, 0.2)' },
-  task: { bg: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.2)' },
-  expense: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', glow: 'rgba(16, 185, 129, 0.2)' },
-  event: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', glow: 'rgba(59, 130, 246, 0.2)' }
+  nudge: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' },
+  approval: { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' },
+  ask: { bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316' },
+  handoff: { bg: 'rgba(6, 182, 212, 0.15)', color: '#06b6d4' },
+  task: { bg: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' },
+  expense: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981' },
+  event: { bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }
 }
 
-const fallbackAccent = { bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', glow: 'rgba(148, 163, 184, 0.15)' }
+const fallbackAccent = { bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8' }
+
+// Toast action labels per notification type
+const TOAST_ACTION_MAP = {
+  'ask_received': { label: 'accept', action: 'accept' },
+  'expense_pending': { label: 'approve', action: 'approve' },
+  'understanding_proposed': { label: 'accept', action: 'accept' },
+  'custody_override_requested': { label: 'approve', action: 'approve' },
+  'nudge_request': { label: 'respond', action: 'respond' },
+}
 
 const icon = computed(() => iconMap[props.item.notification.type] || Bell)
 const accent = computed(() => accentMap[props.item.notification.category] || fallbackAccent)
-const isPinned = computed(() => props.item.pinned)
+const isUrgent = computed(() => props.item.urgent)
 const isNudge = computed(() => props.item.notification.category === 'nudge')
+const fadeDuration = computed(() => isUrgent.value ? 15000 : 8000)
 const categoryLabel = computed(() => {
   const key = categoryLabelMap[props.item.notification.category]
   return key ? t(key) : props.item.notification.category
+})
+
+const primaryAction = computed(() => TOAST_ACTION_MAP[props.item.notification.type]?.action)
+const actionLabel = computed(() => {
+  const key = TOAST_ACTION_MAP[props.item.notification.type]?.label
+  return key && props.item.notification.requires_action && !props.item.notification.action_taken
+    ? t(key) : null
 })
 
 function formatTime(timestamp) {
@@ -90,21 +104,59 @@ function formatTime(timestamp) {
   if (hours < 24) return `${hours}h`
   return `${Math.floor(diff / 86400000)}d`
 }
+
+// Swipe-to-dismiss
+const touchStartX = ref(0)
+const swipeOffsetX = ref(0)
+const isSwiping = ref(false)
+
+function onTouchStart(e) {
+  touchStartX.value = e.touches[0].clientX
+  isSwiping.value = true
+}
+
+function onTouchMove(e) {
+  if (!isSwiping.value) return
+  const diff = e.touches[0].clientX - touchStartX.value
+  // LTR: swipe right to dismiss. RTL: swipe left to dismiss
+  swipeOffsetX.value = isRTL.value ? Math.min(0, diff) : Math.max(0, diff)
+}
+
+function onTouchEnd() {
+  const threshold = 100
+  if (Math.abs(swipeOffsetX.value) > threshold) {
+    emit('swipeDismiss', props.item.id)
+  }
+  swipeOffsetX.value = 0
+  isSwiping.value = false
+}
+
+const swipeStyle = computed(() => {
+  if (swipeOffsetX.value === 0) return {}
+  return {
+    transform: `translateX(${swipeOffsetX.value}px)`,
+    opacity: 1 - (Math.abs(swipeOffsetX.value) / 200),
+    transition: isSwiping.value ? 'none' : 'all 0.3s ease'
+  }
+})
 </script>
 
 <template>
-  <div class="notif-wrap" @click="$emit('click', item)">
-    <!-- Dismiss X — sits outside overflow:hidden card -->
+  <div
+    class="notif-wrap"
+    @click="$emit('click', item)"
+    @touchstart.passive="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
+    :style="swipeStyle"
+  >
+    <!-- Dismiss X -->
     <button class="notif-dismiss" @click.stop="$emit('dismiss', item.id)">
       <X :size="12" />
     </button>
 
-    <div
-      class="notif-card"
-      :class="{ 'notif-urgent': isPinned }"
-      :style="isPinned ? { boxShadow: `0 8px 30px rgba(0,0,0,0.3), 0 0 24px ${accent.glow}` } : {}"
-    >
-      <!-- Icon: check.png for nudge, lucide icon for others -->
+    <div class="notif-card" :class="{ 'notif-urgent': isUrgent }">
+      <!-- Icon -->
       <div class="notif-icon-wrap">
         <img v-if="isNudge" src="/assets/check.png" class="notif-icon-img" alt="" />
         <div v-else class="notif-icon-circle" :style="{ background: accent.bg, color: accent.color }">
@@ -121,26 +173,24 @@ function formatTime(timestamp) {
         <p class="notif-message">{{ item.notification.message }}</p>
       </div>
 
-      <!-- Pin toggle (inside card) -->
+      <!-- Inline action button -->
       <button
-        class="notif-pin"
-        :class="{ 'pin-active': isPinned }"
-        :title="isPinned ? t('unpinNotification') : t('pinNotification')"
-        @click.stop="$emit('togglePin', item.id)"
+        v-if="actionLabel"
+        class="notif-action-btn"
+        @click.stop="$emit('toastAction', item, primaryAction)"
       >
-        <Pin :size="12" />
+        {{ actionLabel }}
       </button>
 
-      <!-- Auto-fade progress bar (standard tier only) -->
-      <div v-if="!isPinned" class="notif-fade-bar">
-        <div class="notif-fade-progress"></div>
+      <!-- Auto-fade progress bar -->
+      <div class="notif-fade-bar">
+        <div class="notif-fade-progress" :style="{ animationDuration: fadeDuration + 'ms' }"></div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Outer wrapper — no overflow clip, holds the X button */
 .notif-wrap {
   position: relative;
   max-width: 320px;
@@ -152,7 +202,6 @@ function formatTime(timestamp) {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
-/* Inner card — overflow hidden clips the fade bar to rounded corners */
 .notif-card {
   position: relative;
   display: flex;
@@ -165,19 +214,21 @@ function formatTime(timestamp) {
   transition: transform 0.2s, box-shadow 0.2s;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  border: 1.5px solid transparent;
 }
 
-/* Urgent tier: subtle pulsing ring */
+/* Urgent tier: teal border pulse */
 .notif-urgent {
-  animation: urgentPulse 3s ease-in-out infinite;
+  border-color: rgba(13, 148, 136, 0.5);
+  animation: urgentBorderPulse 2s ease-in-out infinite;
 }
 
-@keyframes urgentPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.92; }
+@keyframes urgentBorderPulse {
+  0%, 100% { border-color: rgba(13, 148, 136, 0.3); }
+  50% { border-color: rgba(13, 148, 136, 0.8); }
 }
 
-/* Dismiss X — red circle with white border, on wrapper (not clipped) */
+/* Dismiss X */
 .notif-dismiss {
   position: absolute;
   top: -6px;
@@ -265,42 +316,29 @@ function formatTime(timestamp) {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
 }
 
-/* Pin button — inline in card flex row */
-.notif-pin {
+/* Inline action button */
+.notif-action-btn {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.35);
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  background: #0D9488;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  padding: 0;
   transition: all 0.2s;
   align-self: center;
 }
 
-.notif-pin:hover {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-  transform: scale(1.15);
-}
-
-.notif-pin.pin-active {
-  background: rgba(251, 191, 36, 0.25);
-  color: #fbbf24;
-  transform: rotate(45deg);
-}
-
-[dir="rtl"] .notif-pin {
-  /* No positional override needed — pin is in flex flow */
+.notif-action-btn:hover {
+  transform: scale(1.05);
+  background: #0b8479;
 }
 
 /* Fade progress bar */
@@ -319,7 +357,7 @@ function formatTime(timestamp) {
   height: 100%;
   width: 100%;
   background: rgba(255, 255, 255, 0.5);
-  animation: fadeProgress 8s linear forwards;
+  animation: fadeProgress linear forwards;
 }
 
 @keyframes fadeProgress {
@@ -327,7 +365,6 @@ function formatTime(timestamp) {
   to { width: 0%; }
 }
 
-/* RTL */
 [dir="rtl"] .notif-fade-bar {
   direction: ltr;
 }

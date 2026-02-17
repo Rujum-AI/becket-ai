@@ -1823,3 +1823,12 @@ input, textarea, select { text-align: start; }
     color: #94a3b8;
     text-transform: uppercase;
 }
+
+/* === NOTIFICATION SYSTEM — Category stripe colors === */
+.stripe-handoff  { background: #06b6d4; }
+.stripe-task     { background: #8b5cf6; }
+.stripe-ask      { background: #f97316; }
+.stripe-approval { background: #f59e0b; }
+.stripe-event    { background: #3b82f6; }
+.stripe-expense  { background: #10b981; }
+.stripe-nudge    { background: #ef4444; }

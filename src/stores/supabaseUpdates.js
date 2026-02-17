@@ -18,10 +18,11 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   const overlayQueue = ref([])
   const realtimeChannel = ref(null)
   const AUTO_FADE_MS = 8000
+  const URGENT_FADE_MS = 15000
   const MAX_OVERLAY_ITEMS = 4
 
-  // Types that are auto-pinned (urgent tier)
-  const AUTO_PIN_TYPES = new Set([
+  // Types that get urgent treatment (extended timeout + pulse border)
+  const URGENT_TYPES = new Set([
     'nudge_request',
     'nudge_response',
     'expense_pending',
@@ -29,6 +30,15 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     'custody_override_requested',
     'ask_received'
   ])
+
+  // Types that support inline actions
+  const ACTIONABLE_TYPES = {
+    'ask_received':                { actions: ['accept', 'reject'], domain: 'management' },
+    'expense_pending':             { actions: ['approve'],          domain: 'finance' },
+    'understanding_proposed':      { actions: ['accept', 'reject'], domain: 'understandings' },
+    'custody_override_requested':  { actions: ['approve', 'reject'], domain: 'family' },
+    'nudge_request':               { actions: ['respond'],          domain: 'nudge' },
+  }
 
   // Computed: unread count
   const unreadCount = computed(() => {
@@ -68,6 +78,80 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     return filtered
   })
 
+  // Computed: time-grouped updates (Today, Yesterday, This Week, Older)
+  const timeGroupedUpdates = computed(() => {
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterdayStart = new Date(todayStart - 86400000)
+    const weekStart = new Date(todayStart - 6 * 86400000)
+
+    const groups = { today: [], yesterday: [], thisWeek: [], older: [] }
+
+    for (const u of filteredUpdates.value) {
+      const created = new Date(u.created_at)
+      if (created >= todayStart) groups.today.push(u)
+      else if (created >= yesterdayStart) groups.yesterday.push(u)
+      else if (created >= weekStart) groups.thisWeek.push(u)
+      else groups.older.push(u)
+    }
+
+    return groups
+  })
+
+  // Helper: group items by related_entity_id
+  function groupByEntity(items) {
+    const entityMap = new Map()
+    const ungrouped = []
+
+    for (const item of items) {
+      const key = item.related_entity_id
+      if (key) {
+        if (!entityMap.has(key)) entityMap.set(key, [])
+        entityMap.get(key).push(item)
+      } else {
+        ungrouped.push(item)
+      }
+    }
+
+    const result = []
+    for (const [entityId, group] of entityMap) {
+      if (group.length >= 2) {
+        result.push({
+          type: 'group',
+          entityId,
+          lead: group[0],
+          children: group.slice(1),
+          category: group[0].category,
+          unreadCount: group.filter(g => !g.read).length
+        })
+      } else {
+        result.push({ type: 'single', ...group[0] })
+      }
+    }
+
+    for (const item of ungrouped) {
+      result.push({ type: 'single', ...item })
+    }
+
+    // Sort by most recent created_at descending
+    result.sort((a, b) => {
+      const aTime = new Date(a.type === 'group' ? a.lead.created_at : a.created_at)
+      const bTime = new Date(b.type === 'group' ? b.lead.created_at : b.created_at)
+      return bTime - aTime
+    })
+
+    return result
+  }
+
+  // Computed: grouped notifications within each time section
+  const groupedNotifications = computed(() => {
+    const result = {}
+    for (const [section, items] of Object.entries(timeGroupedUpdates.value)) {
+      result[section] = groupByEntity(items)
+    }
+    return result
+  })
+
   // Computed: pending nudges (received, awaiting response)
   const pendingNudges = computed(() => {
     return updates.value.filter(u =>
@@ -77,6 +161,23 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
       !u.action_taken
     )
   })
+
+  // Helpers: actionable notification checks
+  function isActionable(notification) {
+    return !!ACTIONABLE_TYPES[notification.type]
+      && notification.requires_action
+      && !notification.action_taken
+  }
+
+  function getActions(notification) {
+    return ACTIONABLE_TYPES[notification.type]?.actions || []
+  }
+
+  function isUrgent(notification) {
+    return URGENT_TYPES.has(notification.type)
+      || notification.priority === 'high'
+      || notification.priority === 'urgent'
+  }
 
   // Actions
 
@@ -104,13 +205,12 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
 
       if (fetchError) throw fetchError
 
-      // Map DB fields to UI format (timestamp → created_at)
       updates.value = (data || []).map(notification => ({
         ...notification,
-        timestamp: notification.created_at // Add timestamp alias for UI compatibility
+        timestamp: notification.created_at
       }))
 
-      console.log(`📬 Fetched ${updates.value.length} notifications`)
+      console.log(`Fetched ${updates.value.length} notifications`)
     } catch (err) {
       console.error('Error fetching updates:', err)
       error.value = err.message
@@ -124,7 +224,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
    * Mark a single notification as read
    */
   async function markAsRead(id) {
-    // Optimistic update
     const update = updates.value.find(u => u.id === id)
     if (update && !update.read) {
       update.read = true
@@ -142,7 +241,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         if (updateError) throw updateError
       } catch (err) {
         console.error('Error marking notification as read:', err)
-        // Revert optimistic update on error
         update.read = false
         update.read_at = null
       }
@@ -155,7 +253,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   async function markAllAsRead() {
     if (!user.value?.id) return
 
-    // Optimistic update
     const now = new Date().toISOString()
     updates.value.forEach(u => {
       if (!u.read) {
@@ -175,23 +272,18 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         .eq('read', false)
 
       if (updateError) throw updateError
-
-      console.log('✓ Marked all notifications as read')
     } catch (err) {
       console.error('Error marking all as read:', err)
-      // Revert on error — re-fetch to get true state
       await fetchUpdates()
     }
   }
 
   /**
    * Send a nudge to co-parent requesting a child update.
-   * Uses server-side SECURITY DEFINER function to bypass RLS.
    */
   async function sendNudge(childId, childName) {
     if (!user.value?.id) return null
 
-    // Show immediate feedback in overlay (optimistic)
     addToOverlay({
       id: `nudge-sent-${Date.now()}`,
       type: 'nudge_request',
@@ -209,7 +301,7 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         })
 
       if (rpcError) throw rpcError
-      return data // returns the notification ID
+      return data
     } catch (err) {
       console.error('Error sending nudge:', err)
       return null
@@ -218,7 +310,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
 
   /**
    * Respond to a nudge with mood emoji, message, and optional photo.
-   * Uses server-side SECURITY DEFINER function to bypass RLS.
    */
   async function respondToNudge(nudgeId, { mood = '', message = '', snapshotId = null }) {
     if (!user.value?.id) return false
@@ -236,7 +327,6 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
 
       if (rpcError) throw rpcError
 
-      // Optimistic local update
       if (nudge) {
         nudge.action_taken = true
         nudge.action_taken_at = new Date().toISOString()
@@ -256,32 +346,72 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     await markAsRead(nudgeId)
   }
 
-  // === Overlay Queue Management ===
+  /**
+   * Handle inline action from notification feed or toast.
+   * Dispatches to the correct domain store via dynamic import.
+   * Returns true on success, 'open-modal' for nudge, false on error.
+   */
+  async function handleInlineAction(notification, action) {
+    const config = ACTIONABLE_TYPES[notification.type]
+    if (!config) return false
 
-  function shouldAutoPin(notification) {
-    return AUTO_PIN_TYPES.has(notification.type)
-      || notification.priority === 'high'
-      || notification.priority === 'urgent'
+    try {
+      if (config.domain === 'nudge') {
+        return 'open-modal'
+      }
+
+      if (config.domain === 'management') {
+        const { useManagementStore } = await import('./supabaseManagement')
+        const mgmt = useManagementStore()
+        await mgmt.handleAskAction({ id: notification.related_entity_id }, action)
+      } else if (config.domain === 'family') {
+        const { useSupabaseDashboardStore } = await import('./supabaseDashboard')
+        const dash = useSupabaseDashboardStore()
+        await dash.respondToCustodyOverride(notification.related_entity_id, action)
+      } else if (config.domain === 'understandings') {
+        const { useUnderstandingsStore } = await import('./supabaseUnderstandings')
+        const us = useUnderstandingsStore()
+        if (action === 'accept') await us.approveUnderstanding(notification.related_entity_id)
+        else await us.rejectUnderstanding(notification.related_entity_id)
+      } else if (config.domain === 'finance') {
+        const { useFinanceStore } = await import('./supabaseFinance')
+        const fin = useFinanceStore()
+        await fin.approveExpense(notification.related_entity_id)
+      }
+
+      // Mark notification as actioned
+      notification.action_taken = true
+      notification.action_taken_at = new Date().toISOString()
+      await supabase
+        .from('notifications')
+        .update({ action_taken: true, action_taken_at: new Date().toISOString() })
+        .eq('id', notification.id)
+
+      await markAsRead(notification.id)
+      return true
+    } catch (err) {
+      console.error('Inline action failed:', err)
+      return false
+    }
   }
+
+  // === Overlay Queue Management ===
 
   function addToOverlay(notification) {
     if (overlayQueue.value.some(item => item.id === notification.id)) return
 
-    const isPinned = shouldAutoPin(notification)
+    const urgent = isUrgent(notification)
     const item = {
       id: notification.id,
       notification,
-      pinned: isPinned,
+      urgent,
       fadeTimerId: null,
       addedAt: Date.now()
     }
 
     overlayQueue.value.unshift(item)
     trimOverlayQueue()
-
-    if (!isPinned) {
-      startFadeTimer(item)
-    }
+    startFadeTimer(item)
   }
 
   function dismissOverlay(itemId) {
@@ -292,38 +422,18 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     overlayQueue.value.splice(idx, 1)
   }
 
-  function togglePin(itemId) {
-    const item = overlayQueue.value.find(i => i.id === itemId)
-    if (!item) return
-
-    item.pinned = !item.pinned
-    if (item.pinned) {
-      if (item.fadeTimerId) {
-        clearTimeout(item.fadeTimerId)
-        item.fadeTimerId = null
-      }
-    } else {
-      startFadeTimer(item)
-    }
-  }
-
   function startFadeTimer(item) {
     if (item.fadeTimerId) clearTimeout(item.fadeTimerId)
+    const timeout = item.urgent ? URGENT_FADE_MS : AUTO_FADE_MS
     item.fadeTimerId = setTimeout(() => {
       dismissOverlay(item.id)
-    }, AUTO_FADE_MS)
+    }, timeout)
   }
 
   function trimOverlayQueue() {
     while (overlayQueue.value.length > MAX_OVERLAY_ITEMS) {
-      const unpinnedIdx = [...overlayQueue.value]
-        .reverse()
-        .findIndex(i => !i.pinned)
-      if (unpinnedIdx === -1) break
-      const actualIdx = overlayQueue.value.length - 1 - unpinnedIdx
-      const removed = overlayQueue.value[actualIdx]
+      const removed = overlayQueue.value.pop()
       if (removed.fadeTimerId) clearTimeout(removed.fadeTimerId)
-      overlayQueue.value.splice(actualIdx, 1)
     }
   }
 
@@ -348,11 +458,9 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
             ...payload.new,
             timestamp: payload.new.created_at
           }
-          // Add to main updates (dedupe)
           if (!updates.value.some(u => u.id === notification.id)) {
             updates.value.unshift(notification)
           }
-          // Add to live overlay
           addToOverlay(notification)
         }
       )
@@ -370,16 +478,10 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     overlayQueue.value = []
   }
 
-  /**
-   * Set category filter (local state only)
-   */
   function setCategory(category) {
     selectedCategory.value = category
   }
 
-  /**
-   * Set time filter (local state only)
-   */
   function setTimeFilter(filter) {
     selectedTimeFilter.value = filter
   }
@@ -392,6 +494,8 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     selectedTimeFilter,
     unreadCount,
     filteredUpdates,
+    timeGroupedUpdates,
+    groupedNotifications,
     categories,
     pendingNudges,
     fetchUpdates,
@@ -400,13 +504,15 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     sendNudge,
     respondToNudge,
     dismissNudge,
+    handleInlineAction,
+    isActionable,
+    getActions,
+    isUrgent,
     setCategory,
     setTimeFilter,
     overlayQueue,
     addToOverlay,
     dismissOverlay,
-    togglePin,
-    shouldAutoPin,
     subscribeToRealtime,
     unsubscribeRealtime
   }
