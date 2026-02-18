@@ -44,6 +44,9 @@ supabase/config.toml
 # Design source files
 public/assets/*.psd
 
+# Generated content editor
+CONTENT.md
+
 # OS files
 Thumbs.db
 

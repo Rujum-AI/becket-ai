@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v4.08**
+**Current Version: v4.09**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v4 — Security & Invitation Hardening
+
+### v4.09 — Dev bypass auth, content editor scripts, local dev tooling
+— 2026-02-18
+- Dev auth bypass (mock user/session when `VITE_DEV_BYPASS_AUTH=true`)
+- Router guard skip in dev mode
+- Onboarding dev bypass (skip Supabase calls)
+- Content pull/push scripts + npm commands
+- .gitignore: exclude CONTENT.md
 
 ### v4.08 — Add version tracking: footer indicator + VERSION.md changelog
 — 2026-02-18

@@ -5,6 +5,26 @@ const user = ref(null)
 const session = ref(null)
 const loading = ref(true)
 
+// Dev-only auth bypass — only active when BOTH conditions are true
+export const DEV_BYPASS = import.meta.env.DEV && import.meta.env.VITE_DEV_BYPASS_AUTH === 'true'
+
+const DEV_USER = {
+  id: '00000000-0000-0000-0000-000000000001',
+  email: 'dev@becket.local',
+  user_metadata: { display_name: 'Dev User' },
+  app_metadata: {},
+  aud: 'authenticated',
+  role: 'authenticated'
+}
+
+const DEV_SESSION = {
+  access_token: 'dev-bypass-token',
+  refresh_token: 'dev-bypass-refresh',
+  expires_in: 999999,
+  token_type: 'bearer',
+  user: DEV_USER
+}
+
 export function useAuth() {
   const isAuthenticated = computed(() => !!session.value)
 
@@ -12,6 +32,13 @@ export function useAuth() {
   async function initAuth() {
     loading.value = true
     try {
+      if (DEV_BYPASS) {
+        console.warn('⚠️ DEV AUTH BYPASS ACTIVE — using mock user')
+        session.value = DEV_SESSION
+        user.value = DEV_USER
+        loading.value = false
+        return
+      }
       const { data: { session: currentSession } } = await supabase.auth.getSession()
       session.value = currentSession
       user.value = currentSession?.user ?? null
@@ -22,13 +49,15 @@ export function useAuth() {
     }
   }
 
-  // Listen for auth changes
-  supabase.auth.onAuthStateChange((event, newSession) => {
-    console.log('🔐 Auth state change:', event, newSession)
-    session.value = newSession
-    user.value = newSession?.user ?? null
-    loading.value = false
-  })
+  // Listen for auth changes (skip in dev bypass — mock user must not be overwritten)
+  if (!DEV_BYPASS) {
+    supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log('🔐 Auth state change:', event, newSession)
+      session.value = newSession
+      user.value = newSession?.user ?? null
+      loading.value = false
+    })
+  }
 
   // Sign up
   async function signUp(email, password, displayName) {
@@ -59,6 +88,11 @@ export function useAuth() {
 
   // Sign in with Google
   async function signInWithGoogle() {
+    if (DEV_BYPASS) {
+      session.value = DEV_SESSION
+      user.value = DEV_USER
+      return DEV_SESSION
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

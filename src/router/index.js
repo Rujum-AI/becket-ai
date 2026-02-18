@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/composables/useFamily'
+import { DEV_BYPASS } from '@/composables/useAuth'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -88,6 +89,16 @@ const router = createRouter({
 // Auth guard
 router.beforeEach(async (to, from, next) => {
   console.log('🛣️ Router guard:', { to: to.path, from: from.path, hash: to.hash, query: to.query })
+
+  // Dev bypass — skip all auth/family checks, allow all routes
+  if (DEV_BYPASS) {
+    if (to.path === '/') {
+      next('/onboarding')
+      return
+    }
+    next()
+    return
+  }
 
   // Check if this is an OAuth or password reset callback (has auth tokens in URL)
   const hasAuthParams = to.hash.includes('access_token') || to.query.code
