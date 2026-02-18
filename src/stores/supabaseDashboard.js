@@ -54,21 +54,16 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       partnerId.value = partnerData?.profile_id || null
       partnerLabel.value = partnerData?.parent_label || null
 
-      // If no co-parent yet, check for pending invite
+      // If no co-parent yet, check for pending invite via RPC (bypasses RLS)
       if (!partnerId.value) {
-        const { data: inviteRows, error: inviteError } = await supabase
-          .from('invitations')
-          .select('email, token')
-          .eq('family_id', familyMember.family_id)
-          .eq('status', 'pending')
-          .order('created_at', { ascending: false })
-          .limit(1)
+        const { data: inviteData, error: inviteError } = await supabase
+          .rpc('get_pending_invite', { p_family_id: familyMember.family_id })
 
         if (inviteError) {
-          console.error('Pending invite query failed:', inviteError)
+          console.error('Pending invite RPC failed:', inviteError)
         }
 
-        pendingInvite.value = inviteRows?.[0] || null
+        pendingInvite.value = inviteData || null
       } else {
         pendingInvite.value = null
       }

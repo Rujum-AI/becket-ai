@@ -58,15 +58,10 @@ watch(() => props.show, async (isOpen) => {
 
       familyFull.value = count >= 2
 
-      // Always query DB for pending invite — cache can be stale after reload
+      // Always query DB for pending invite via RPC (bypasses RLS)
       if (!familyFull.value) {
         const { data } = await supabase
-          .from('invitations')
-          .select('*')
-          .eq('family_id', familyId)
-          .eq('status', 'pending')
-          .limit(1)
-          .maybeSingle()
+          .rpc('get_pending_invite', { p_family_id: familyId })
 
         existingInvite.value = data
         if (data) {
@@ -128,14 +123,9 @@ async function createInvitation() {
         return
       }
       if (result.reason === 'invite_already_pending') {
-        // Refresh from DB — an invite exists that we didn't detect
+        // Refresh from DB via RPC — an invite exists that we didn't detect
         const { data } = await supabase
-          .from('invitations')
-          .select('*')
-          .eq('family_id', familyId)
-          .eq('status', 'pending')
-          .limit(1)
-          .maybeSingle()
+          .rpc('get_pending_invite', { p_family_id: familyId })
         if (data) {
           existingInvite.value = data
           dashboardStore.pendingInvite = data
