@@ -56,16 +56,19 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       // If no co-parent yet, check for pending invite
       if (!partnerId.value) {
-        const { data: inviteData } = await supabase
+        const { data: inviteRows, error: inviteError } = await supabase
           .from('invitations')
           .select('email, token')
           .eq('family_id', familyMember.family_id)
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle()
 
-        pendingInvite.value = inviteData || null
+        if (inviteError) {
+          console.error('Pending invite query failed:', inviteError)
+        }
+
+        pendingInvite.value = inviteRows?.[0] || null
       } else {
         pendingInvite.value = null
       }
