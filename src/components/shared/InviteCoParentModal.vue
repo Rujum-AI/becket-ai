@@ -58,23 +58,19 @@ watch(() => props.show, async (isOpen) => {
 
       familyFull.value = count >= 2
 
-      // Check pending invite — use store first, then in-memory cache, then DB
+      // Always query DB for pending invite — cache can be stale after reload
       if (!familyFull.value) {
-        if (dashboardStore.pendingInvite) {
-          existingInvite.value = dashboardStore.pendingInvite
-        } else if (pendingInvite.value) {
-          existingInvite.value = pendingInvite.value
-        } else {
-          const { data } = await supabase
-            .from('invitations')
-            .select('*')
-            .eq('family_id', familyId)
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
+        const { data } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('status', 'pending')
+          .limit(1)
+          .maybeSingle()
 
-          existingInvite.value = data
+        existingInvite.value = data
+        if (data) {
+          dashboardStore.pendingInvite = data
         }
       }
     } catch (err) {
@@ -129,6 +125,21 @@ async function createInvitation() {
     if (!result.success) {
       if (result.reason === 'family_full') {
         familyFull.value = true
+        return
+      }
+      if (result.reason === 'invite_already_pending') {
+        // Refresh from DB — an invite exists that we didn't detect
+        const { data } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('family_id', familyId)
+          .eq('status', 'pending')
+          .limit(1)
+          .maybeSingle()
+        if (data) {
+          existingInvite.value = data
+          dashboardStore.pendingInvite = data
+        }
         return
       }
       throw new Error(result.reason)

@@ -1,12 +1,18 @@
 # Becket AI — Version History
 
-**Current Version: v4.09**
+**Current Version: v4.10**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v4 — Security & Invitation Hardening
+
+### v4.10 — Lock invite creation: refuse if pending invite exists
+— 2026-02-18
+- RPC rejects new invite if one already pending (must cancel first)
+- Modal always queries DB on open (no stale cache)
+- Handles `invite_already_pending` response gracefully
 
 ### v4.09 — Dev bypass auth, content editor scripts, local dev tooling
 — 2026-02-18

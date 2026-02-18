@@ -129,12 +129,15 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'reason', 'family_full');
   END IF;
 
-  -- Expire all existing pending invites for this family (atomic with insert below)
-  UPDATE invitations
-  SET status = 'expired'
-  WHERE family_id = p_family_id AND status = 'pending';
+  -- LOCKED: Refuse if a pending invite already exists (must cancel first)
+  IF EXISTS (
+    SELECT 1 FROM invitations
+    WHERE family_id = p_family_id AND status = 'pending'
+  ) THEN
+    RETURN jsonb_build_object('success', false, 'reason', 'invite_already_pending');
+  END IF;
 
-  -- Create new invitation
+  -- Create new invitation (no auto-expire — old invite must be cancelled explicitly)
   INSERT INTO invitations (family_id, email, token, status)
   VALUES (p_family_id, p_email, p_token, 'pending');
 
