@@ -30,6 +30,12 @@ function friendlyError(msg) {
   return key ? t(key) : msg
 }
 
+function setLang(targetLang) {
+  if (lang.value !== targetLang) {
+    toggleLang()
+  }
+}
+
 async function handleSubmit() {
   error.value = ''
   success.value = ''
@@ -75,12 +81,22 @@ function setMode(newMode) {
 
 <template>
   <div class="login-page">
-    <div class="login-container">
-      <!-- Language Toggle -->
-      <button class="lang-toggle" @click="toggleLang">
-        {{ lang === 'en' ? 'עברית' : 'English' }}
-      </button>
+    <!-- Language toggle — top right -->
+    <div class="lang-bar">
+      <div class="lang-toggle-group">
+        <span
+          class="lang-option"
+          :class="{ active: lang === 'en' }"
+          @click="setLang('en')">English</span>
+        <span class="lang-divider">|</span>
+        <span
+          class="lang-option"
+          :class="{ active: lang === 'he' }"
+          @click="setLang('he')">עברית</span>
+      </div>
+    </div>
 
+    <div class="login-container">
       <!-- Logo -->
       <div class="logo-section">
         <img src="/assets/becket_logo.png" alt="Becket AI" class="logo">
@@ -175,7 +191,8 @@ function setMode(newMode) {
           </div>
 
           <!-- Submit Button -->
-          <button type="submit" :disabled="loading" class="submit-btn">
+          <button type="submit" :disabled="loading"
+            class="modal-primary-btn" style="background: #BD5B39">
             {{ loading ? t('login_loading') : mode === 'forgot' ? t('login_sendReset') : mode === 'login' ? t('login_signIn') : t('login_signUp') }}
           </button>
         </form>
@@ -191,6 +208,9 @@ function setMode(newMode) {
         </div>
       </div>
     </div>
+
+    <!-- Copyright bar -->
+    <div class="copyright-bar">All rights reserved to Rujum 2026 &copy;</div>
   </div>
 </template>
 
@@ -201,8 +221,9 @@ function setMode(newMode) {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #BD5B39 0%, #d87a56 100%);
+  background: var(--warm-linen, #FDFBF7);
   padding: 2rem;
+  padding-bottom: calc(2rem + 28px);
   position: relative;
 }
 
@@ -211,35 +232,46 @@ function setMode(newMode) {
   max-width: 26rem;
 }
 
-/* Language toggle — top-right floating */
-.lang-toggle {
+/* === LANGUAGE TOGGLE BAR === */
+.lang-bar {
   position: fixed;
-  top: 1rem;
-  right: 1rem;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 2rem;
-  padding: 0.375rem 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 1.25rem;
   z-index: 10;
 }
 
-[dir="rtl"] .lang-toggle {
-  right: auto;
-  left: 1rem;
+.lang-toggle-group {
+  display: flex;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
 }
 
-.lang-toggle:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.25);
+.lang-option {
+  cursor: pointer;
+  transition: color 0.2s;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
+.lang-option:hover {
+  color: #64748b;
+}
+
+.lang-option.active {
+  font-weight: 900;
+  color: var(--deep-slate, #1A1C1E);
+}
+
+.lang-divider {
+  color: #cbd5e1;
+}
+
+/* === LOGO === */
 .logo-section {
   text-align: center;
   margin-bottom: 2rem;
@@ -247,16 +279,16 @@ function setMode(newMode) {
 
 .logo {
   height: 4rem;
-  margin: 0 auto 1rem auto;
+  margin: 0 auto 0.75rem auto;
   display: block;
-  filter: brightness(0) invert(1);
+  opacity: 0.15;
 }
 
 .app-title {
   font-family: 'Fraunces', serif;
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 800;
-  color: white;
+  color: var(--deep-slate, #1A1C1E);
   margin: 0;
   letter-spacing: -0.02em;
 }
@@ -264,15 +296,36 @@ function setMode(newMode) {
 .app-tagline {
   font-size: 0.875rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
+  font-style: italic;
+  color: var(--rust-orange, #BD5B39);
   margin: 0.375rem 0 0;
 }
 
+/* === FORM CARD === */
 .form-card {
-  background: white;
-  border-radius: 1.5rem;
-  padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid var(--deep-slate, #1A1C1E);
+  border-radius: 2.5rem;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 20px 60px -15px rgba(0, 0, 0, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Stripe texture like landing card */
+.form-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(26, 28, 30, 0.03) 2px,
+    rgba(26, 28, 30, 0.03) 4px
+  );
+  border-radius: 2.5rem;
+  pointer-events: none;
 }
 
 .form-title {
@@ -282,15 +335,17 @@ function setMode(newMode) {
   color: var(--deep-slate, #1A1C1E);
   margin: 0 0 2rem 0;
   text-align: center;
+  position: relative;
 }
 
+/* === GOOGLE BUTTON === */
 .google-btn {
   width: 100%;
   background: white;
   color: #334155;
   font-weight: 700;
   padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
+  border-radius: 9999px;
   border: 2px solid #e2e8f0;
   display: flex;
   align-items: center;
@@ -299,6 +354,7 @@ function setMode(newMode) {
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.875rem;
+  position: relative;
 }
 
 .google-icon {
@@ -310,6 +366,8 @@ function setMode(newMode) {
 .google-btn:hover:not(:disabled) {
   border-color: #cbd5e1;
   background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .google-btn:disabled {
@@ -317,6 +375,7 @@ function setMode(newMode) {
   cursor: not-allowed;
 }
 
+/* === DIVIDER === */
 .divider {
   position: relative;
   margin: 1.5rem 0;
@@ -335,25 +394,29 @@ function setMode(newMode) {
 
 .divider span {
   position: relative;
-  background: white;
+  background: rgba(255, 255, 255, 0.7);
   padding: 0 1rem;
   color: #94a3b8;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
+/* === FORGOT DESC === */
 .forgot-desc {
   color: #64748b;
   font-size: 0.875rem;
   margin-bottom: 1.5rem;
   text-align: start;
   line-height: 1.5;
+  position: relative;
 }
 
+/* === FORM === */
 .auth-form {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  position: relative;
 }
 
 .form-field {
@@ -387,6 +450,7 @@ function setMode(newMode) {
   box-shadow: 0 0 0 3px rgba(189, 91, 57, 0.1);
 }
 
+/* === FORGOT LINK === */
 .forgot-link {
   text-align: end;
   margin-top: -0.5rem;
@@ -406,6 +470,7 @@ function setMode(newMode) {
   color: var(--rust-orange, #BD5B39);
 }
 
+/* === MESSAGES === */
 .message {
   padding: 0.875rem 1rem;
   border-radius: 0.75rem;
@@ -425,37 +490,19 @@ function setMode(newMode) {
   border: 1px solid #fecaca;
 }
 
-.submit-btn {
+/* === SUBMIT — uses global modal-primary-btn, width override === */
+.auth-form :deep(.modal-primary-btn) {
   width: 100%;
-  background: var(--deep-slate, #1A1C1E);
-  color: white;
-  font-weight: 700;
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.9375rem;
   margin-top: 0.5rem;
 }
 
-.submit-btn:hover:not(:disabled) {
-  background: #334155;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(26, 28, 30, 0.3);
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
+/* === TOGGLE MODE === */
 .toggle-mode {
   margin-top: 1.5rem;
   text-align: center;
   padding-top: 1.5rem;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  position: relative;
 }
 
 .toggle-mode button {
@@ -472,14 +519,20 @@ function setMode(newMode) {
   color: var(--rust-orange, #BD5B39);
 }
 
-/* Mobile */
+/* === MOBILE === */
 @media (max-width: 640px) {
   .login-page {
     padding: 1rem;
+    padding-bottom: calc(1rem + 28px);
   }
 
   .form-card {
     padding: 2rem 1.5rem;
+    border-radius: 2rem;
+  }
+
+  .form-card::before {
+    border-radius: 2rem;
   }
 
   .form-title {

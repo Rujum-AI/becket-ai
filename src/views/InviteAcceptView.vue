@@ -195,7 +195,7 @@ async function handleGoogleSignIn() {
           </div>
           <h2 class="status-heading">{{ status === 'expired' ? t('invite_expired') : t('invite_error') }}</h2>
           <p class="status-text error-detail">{{ error }}</p>
-          <button @click="$router.push('/login')" class="action-btn">
+          <button @click="$router.push('/')" class="action-btn">
             {{ t('invite_goToLogin') }}
           </button>
         </div>

@@ -186,6 +186,10 @@ export function useFamily() {
 
       if (familyError) throw familyError
 
+      // Ensure profile exists (handles edge cases where trigger didn't fire)
+      const { error: profileError } = await supabase.rpc('ensure_profile_exists')
+      if (profileError) console.warn('ensure_profile_exists warning:', profileError.message)
+
       // Add user as family member
       const { error: memberError } = await supabase
         .from('family_members')

@@ -7,9 +7,11 @@ const router = createRouter({
   routes: [
     {
       path: '/login',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-      meta: { public: true }
+      redirect: '/'
+    },
+    {
+      path: '/landing',
+      redirect: '/'
     },
     {
       path: '/',
@@ -106,13 +108,13 @@ router.beforeEach(async (to, from, next) => {
 
   // Not authenticated
   if (requiresAuth && !session) {
-    console.log('❌ Protected route, no session -> /login')
-    next('/login')
+    console.log('❌ Protected route, no session -> /')
+    next('/')
     return
   }
 
-  // Already logged in, trying to access landing or login — send to app
-  if (isPublic && session && (to.path === '/login' || to.path === '/')) {
+  // Already logged in, trying to access landing — send to app
+  if (isPublic && session && to.path === '/') {
     console.log('✅ Already logged in, checking family status')
     const { checkUserFamily } = useFamily()
     const hasFamily = await checkUserFamily(session.user.id)

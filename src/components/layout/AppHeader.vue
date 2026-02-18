@@ -61,7 +61,7 @@ function setLang(targetLang) {
 
 async function logout() {
   await signOut()
-  router.push('/login')
+  router.push('/')
 }
 
 function goToUpdates() {

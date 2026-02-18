@@ -15,7 +15,7 @@ const { createFamily, updateFamilyPlan } = useFamily()
 
 async function handleLogout() {
   await signOut()
-  router.push('/login')
+  router.push('/')
 }
 const familyStore = useFamilyStore()
 
@@ -58,6 +58,37 @@ const saving = ref(false)
 const error = ref('')
 const inviteToken = ref(null)
 const linkCopied = ref(false)
+const isUserMenuOpen = ref(false)
+
+// Avatar: use Supabase avatar_url or fallback to default
+const avatarUrl = computed(() => {
+  if (!user.value) return '/assets/profile/king_profile.png'
+  return user.value.user_metadata?.avatar_url
+    || '/assets/profile/king_profile.png'
+})
+
+function toggleUserMenu() {
+  isUserMenuOpen.value = !isUserMenuOpen.value
+}
+
+function closeUserMenu() {
+  isUserMenuOpen.value = false
+}
+
+function setLang(targetLang) {
+  if (lang.value !== targetLang) {
+    toggleLang()
+  }
+}
+
+// Close dropdown when clicking outside
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.profile-container')) {
+      closeUserMenu()
+    }
+  })
+}
 
 // === LIFECYCLE ===
 onMounted(() => {
@@ -251,19 +282,46 @@ async function shareNative() {
 
 <template>
   <div class="onboarding-container">
-    <!-- Header -->
-    <nav class="onboarding-nav">
-      <button @click="toggleLang" class="lang-toggle">
-        {{ lang === 'en' ? 'עברית' : 'English' }}
-      </button>
-      <div class="logo-container">
-        <img src="/assets/becket_logo.png" alt="Becket AI" class="logo-img" />
-        <span class="logo-text">Becket AI</span>
+    <!-- Header (matches AppHeader) -->
+    <header class="onboarding-header">
+      <div class="header-left">
+        <span class="header-title">Becket AI</span>
       </div>
-      <button @click="handleLogout" class="logout-btn">
-        {{ t('logout') }}
-      </button>
-    </nav>
+
+      <div class="header-right">
+        <div class="profile-container" @click.stop>
+          <div class="profile-ring" @click="toggleUserMenu">
+            <img :src="avatarUrl" referrerpolicy="no-referrer">
+          </div>
+
+          <Transition name="pop">
+            <div v-if="isUserMenuOpen" class="user-dropdown">
+              <div class="dropdown-item justify-between cursor-default hover-none">
+                <div class="dropdown-lang-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+                </div>
+                <div class="lang-toggle-group">
+                  <span
+                    class="lang-option"
+                    :class="{ active: lang === 'en' }"
+                    @click.stop="setLang('en')">English</span>
+                  <span class="lang-divider">|</span>
+                  <span
+                    class="lang-option"
+                    :class="{ active: lang === 'he' }"
+                    @click.stop="setLang('he')">עברית</span>
+                </div>
+              </div>
+
+              <div class="dropdown-item danger" @click="handleLogout">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                {{ t('logout') }}
+              </div>
+            </div>
+          </Transition>
+        </div>
+      </div>
+    </header>
 
     <!-- Main Content -->
     <main class="onboarding-main">
@@ -600,26 +658,32 @@ async function shareNative() {
       <div class="progress-dots">
         <span v-for="n in 4" :key="n" :class="['dot', { active: step === n, completed: step > n }]"></span>
       </div>
-      <div class="bottom-actions">
-        <button v-if="step > 1" @click="prevStep" class="btn-back">
+      <div class="bottom-actions" :class="{ 'single-btn': step === 1 }">
+        <button v-if="step > 1" @click="prevStep"
+          class="modal-primary-btn onb-back-btn" style="background: #0d9488">
           {{ t('onb_back') }}
         </button>
-        <div v-else class="btn-spacer"></div>
 
         <!-- Step 3: Create Family -->
-        <button v-if="step === 3" @click="handleCreateFamily" :disabled="!canProceed || saving" class="btn-next">
+        <button v-if="step === 3" @click="handleCreateFamily" :disabled="!canProceed || saving"
+          class="modal-primary-btn" style="background: #BD5B39">
           {{ saving ? t('onb_saving') + '...' : t('onb_createFamily') }}
         </button>
         <!-- Step 4: Let's Go -->
-        <button v-else-if="step === 4" @click="handleFinish" :disabled="saving" class="btn-next">
+        <button v-else-if="step === 4" @click="handleFinish" :disabled="saving"
+          class="modal-primary-btn" style="background: #BD5B39">
           {{ saving ? t('onb_saving') + '...' : t('onb_letsGo') }}
         </button>
         <!-- Steps 1-2: Next -->
-        <button v-else @click="nextStep" :disabled="!canProceed" class="btn-next">
+        <button v-else @click="nextStep" :disabled="!canProceed"
+          class="modal-primary-btn" style="background: #BD5B39">
           {{ t('onb_next') }}
         </button>
       </div>
     </div>
+
+    <!-- Copyright bar -->
+    <div class="copyright-bar">All rights reserved to Rujum 2026 &copy;</div>
   </div>
 </template>
 
@@ -633,57 +697,168 @@ async function shareNative() {
   flex-direction: column;
 }
 
-/* === NAV === */
-.onboarding-nav {
-  padding: 0 1.25rem;
-  height: 64px;
+/* === HEADER (matches AppHeader) === */
+.onboarding-header {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(44px, 12vw, 56px);
+  padding: 0 clamp(12px, 3vw, 24px);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #BD5B39;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.3'/%3E%3C/svg%3E");
-  background-blend-mode: soft-light;
-  box-shadow: 0 2px 12px rgba(189, 91, 57, 0.2);
+  z-index: 2000;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  direction: ltr;
   flex-shrink: 0;
 }
 
-.lang-toggle,
-.logout-btn {
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.8);
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 5.5rem;
-  transition: color 0.2s;
+.header-left {
+  display: grid;
+  line-height: 1.1;
+  gap: 1px;
 }
 
-.lang-toggle { text-align: left; }
-.logout-btn { text-align: right; }
-.lang-toggle:hover,
-.logout-btn:hover { color: white; }
+.header-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: clamp(1.25rem, 5vw, 1.7rem);
+  color: #1e293b;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
 
-.logo-container {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: clamp(6px, 2vw, 12px);
+  flex-shrink: 0;
 }
 
-.logo-img {
-  height: 36px;
-  width: auto;
-  object-fit: contain;
+.profile-container {
+  position: relative;
 }
 
-.logo-text {
-  font-size: 1.375rem;
-  font-family: 'Fraunces', serif;
-  font-weight: 800;
-  color: white;
-  letter-spacing: -0.02em;
+.profile-ring {
+  width: clamp(30px, 9vw, 42px);
+  height: clamp(30px, 9vw, 42px);
+  border-radius: 50%;
+  background: #fff;
+  padding: 1.5px;
+  border: 1.5px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.profile-ring img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(clamp(30px, 9vw, 42px) + 8px);
+  right: 0;
+  width: 220px;
+  background: white;
+  border-radius: 1.5rem;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.2);
+  padding: 0.75rem;
+  z-index: 2100;
+  transform-origin: top right;
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #334155;
+}
+
+.dropdown-item:hover {
+  background-color: #f8fafc;
+}
+
+.dropdown-item.hover-none:hover {
+  background-color: transparent;
+  cursor: default;
+}
+
+.dropdown-item.danger {
+  color: #dc2626;
+  margin-top: 0.25rem;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 0.75rem;
+}
+
+.dropdown-item.danger:hover {
+  background-color: #fef2f2;
+}
+
+.dropdown-item.justify-between {
+  justify-content: space-between;
+}
+
+.dropdown-lang-icon {
+  display: flex;
+  align-items: center;
+  color: #64748b;
+}
+
+.lang-toggle-group {
+  display: flex;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.lang-option {
+  cursor: pointer;
+  transition: color 0.2s;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.lang-option:hover {
+  color: #64748b;
+}
+
+.lang-option.active {
+  font-weight: 900;
+  color: #1e293b;
+}
+
+.lang-divider {
+  color: #cbd5e1;
+}
+
+/* Dropdown pop transition */
+.pop-enter-active {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.pop-leave-active {
+  transition: all 0.15s ease-in;
+}
+.pop-enter-from {
+  opacity: 0;
+  transform: scale(0.9) translateY(-4px);
+}
+.pop-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-2px);
 }
 
 /* === MAIN CONTENT === */
@@ -693,7 +868,7 @@ async function shareNative() {
   width: 100%;
   margin: 0 auto;
   padding: 2rem 1.5rem;
-  padding-bottom: 140px;
+  padding-bottom: 168px;
 }
 
 .step-content {
@@ -1459,16 +1634,35 @@ async function shareNative() {
   margin-top: 1.5rem;
 }
 
-/* === FIXED BOTTOM BAR === */
+/* === FIXED BOTTOM BAR (matches app footer style) === */
 .bottom-bar {
+  position: fixed;
+  bottom: 28px;
+  left: 0;
+  right: 0;
+  background: var(--deep-slate, #1A1C1E);
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.06) 2px, rgba(255,255,255,0.06) 4px);
+  padding: 0.75rem 1.5rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+/* Copyright bar */
+.copyright-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: #1A1C1E;
-  padding: 0.75rem 1.5rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  z-index: 100;
+  height: 28px;
+  background: #000000;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
 }
 
 .progress-dots {
@@ -1497,59 +1691,23 @@ async function shareNative() {
 
 .bottom-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   max-width: 600px;
   margin: 0 auto;
   gap: 1rem;
 }
 
-.btn-spacer {
-  flex: 1;
+/* Back button: smaller flex like modal-secondary-btn */
+.onb-back-btn {
+  flex: 1 !important;
 }
 
-.btn-back {
-  flex: 1;
-  padding: 0.875rem 2rem;
-  border-radius: 2rem;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.7);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.btn-back:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  color: white;
-}
-
-.btn-next {
-  flex: 1;
-  padding: 0.875rem 2rem;
-  border-radius: 2rem;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  background: #BD5B39;
-  color: white;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: center;
-}
-
-.btn-next:hover:not(:disabled) {
-  background: #d06a47;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(189, 91, 57, 0.3);
-}
-
-.btn-next:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+/* When only one button, limit its width so it doesn't stretch */
+.bottom-actions.single-btn :deep(.modal-primary-btn) {
+  flex: none;
+  width: 60%;
+  max-width: 280px;
 }
 
 /* === TRANSITIONS === */
@@ -1702,12 +1860,6 @@ async function shareNative() {
 
   .bottom-actions {
     max-width: 640px;
-  }
-
-  .btn-back,
-  .btn-next {
-    padding: 1rem 2rem;
-    font-size: 1rem;
   }
 }
 </style>
