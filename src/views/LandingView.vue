@@ -65,6 +65,7 @@ async function handleGoogleSignIn() {
   background: var(--warm-linen);
   position: relative;
   overflow: hidden;
+  direction: ltr;
 }
 
 /* Image: native aspect ratio, full width, centered, clips horizontally */
