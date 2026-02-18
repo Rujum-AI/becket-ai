@@ -443,7 +443,15 @@ input, textarea, select { text-align: start; }
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 1rem;
     z-index: 9999;
+}
+
+.version-tag {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 0.55rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
 }
 
 /* === FOOTER & WHEEL === */

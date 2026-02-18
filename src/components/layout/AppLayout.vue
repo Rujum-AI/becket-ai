@@ -130,6 +130,9 @@ function closeCheckInDetail() {
     />
 
     <!-- Copyright bar — always visible -->
-    <div class="copyright-bar">All rights reserved to Rujum 2026 &copy;</div>
+    <div class="copyright-bar">
+      <span>All rights reserved to Rujum 2026 &copy;</span>
+      <span class="version-tag">v4.08</span>
+    </div>
   </div>
 </template>
