@@ -702,5 +702,63 @@ export default {
   subEventPaymentFailed: 'Payment Failed',
   subEventPaymentRecovered: 'Payment Recovered',
   subEventOrderCreated: 'Order Created',
-  subEventOrderRefunded: 'Order Refunded'
+  subEventOrderRefunded: 'Order Refunded',
+
+  // === LOGIN ===
+  login_welcome: 'Welcome Back',
+  login_createAccount: 'Create Account',
+  login_resetPassword: 'Reset Password',
+  login_googleContinue: 'Continue with Google',
+  login_orEmail: 'Or continue with email',
+  login_forgotDesc: "Enter your email and we'll send you a link to reset your password.",
+  login_forgotLink: 'Forgot password?',
+  login_resetSent: 'Password reset link sent! Check your email.',
+  login_signIn: 'Sign In',
+  login_signUp: 'Sign Up',
+  login_noAccount: "Don't have an account? Sign up",
+  login_hasAccount: 'Already have an account? Sign in',
+  login_backToSignIn: 'Back to sign in',
+  login_tagline: 'Co-parenting, simplified',
+  login_name: 'Name',
+  login_email: 'Email',
+  login_password: 'Password',
+  login_namePlaceholder: 'Your name',
+  login_emailPlaceholder: 'you@example.com',
+  login_loading: 'Loading...',
+  login_sendReset: 'Send Reset Link',
+
+  // Login errors
+  err_invalidCredentials: 'Email or password is incorrect',
+  err_userExists: 'An account with this email already exists',
+  err_passwordShort: 'Password must be at least 6 characters',
+  err_invalidEmail: 'Please enter a valid email address',
+  err_emailNotConfirmed: 'Please check your email to confirm your account',
+  err_rateLimited: 'Please wait a moment before requesting another reset email',
+
+  // === INVITE ACCEPT ===
+  invite_title: "You've Been Invited!",
+  invite_signInToAccept: 'Sign in to accept the invitation.',
+  invite_signUpToAccept: 'Create an account to join your family.',
+  invite_verifying: 'Verifying invitation...',
+  invite_joining: 'Joining family...',
+  invite_welcomeFamily: 'Welcome to the Family!',
+  invite_redirecting: 'Redirecting you to the app...',
+  invite_expired: 'Invitation Expired',
+  invite_error: 'Something Went Wrong',
+  invite_goToLogin: 'Go to Login',
+  invite_signInAccept: 'Sign In & Accept',
+  invite_signUpAccept: 'Sign Up & Accept',
+  invite_notFound: 'Invitation not found',
+  invite_alreadyAccepted: 'This invitation has already been accepted',
+  invite_noLongerValid: 'This invitation is no longer valid',
+  invite_expiredMsg: 'This invitation has expired',
+  invite_invalidLink: 'Invalid invitation link',
+  invite_emailMismatch: 'Make sure you are using the email the invitation was sent to.',
+
+  // Invite Modal — cancel/resend
+  inviteChangeEmail: 'Change Email',
+
+  // Onboarding — currency
+  onb_currency: 'Family Currency',
+  onb_currencyDesc: 'Used for expense tracking'
 }

@@ -702,5 +702,63 @@ export default {
   subEventPaymentFailed: 'תשלום נכשל',
   subEventPaymentRecovered: 'תשלום שוחזר',
   subEventOrderCreated: 'הזמנה נוצרה',
-  subEventOrderRefunded: 'הזמנה הוחזרה'
+  subEventOrderRefunded: 'הזמנה הוחזרה',
+
+  // === LOGIN ===
+  login_welcome: 'ברוכים השבים',
+  login_createAccount: 'יצירת חשבון',
+  login_resetPassword: 'איפוס סיסמה',
+  login_googleContinue: 'המשך עם Google',
+  login_orEmail: 'או המשך עם אימייל',
+  login_forgotDesc: 'הזן את האימייל שלך ונשלח לך קישור לאיפוס הסיסמה.',
+  login_forgotLink: 'שכחת סיסמה?',
+  login_resetSent: 'קישור איפוס נשלח! בדוק את האימייל.',
+  login_signIn: 'התחברות',
+  login_signUp: 'הרשמה',
+  login_noAccount: 'אין לך חשבון? הירשם',
+  login_hasAccount: 'יש לך חשבון? התחבר',
+  login_backToSignIn: 'חזרה להתחברות',
+  login_tagline: 'הורות משותפת, בפשטות',
+  login_name: 'שם',
+  login_email: 'אימייל',
+  login_password: 'סיסמה',
+  login_namePlaceholder: 'השם שלך',
+  login_emailPlaceholder: 'you@example.com',
+  login_loading: 'טוען...',
+  login_sendReset: 'שלח קישור איפוס',
+
+  // Login errors
+  err_invalidCredentials: 'אימייל או סיסמה שגויים',
+  err_userExists: 'חשבון עם אימייל זה כבר קיים',
+  err_passwordShort: 'הסיסמה חייבת להכיל לפחות 6 תווים',
+  err_invalidEmail: 'נא להזין כתובת אימייל תקינה',
+  err_emailNotConfirmed: 'נא לבדוק את האימייל לאימות החשבון',
+  err_rateLimited: 'נא להמתין לפני בקשת קישור איפוס נוסף',
+
+  // === INVITE ACCEPT ===
+  invite_title: 'קיבלת הזמנה!',
+  invite_signInToAccept: 'התחבר כדי לקבל את ההזמנה.',
+  invite_signUpToAccept: 'צור חשבון כדי להצטרף למשפחה.',
+  invite_verifying: 'מאמת הזמנה...',
+  invite_joining: 'מצטרף למשפחה...',
+  invite_welcomeFamily: 'ברוכים הבאים למשפחה!',
+  invite_redirecting: 'מעביר אותך לאפליקציה...',
+  invite_expired: 'ההזמנה פגה',
+  invite_error: 'משהו השתבש',
+  invite_goToLogin: 'עבור להתחברות',
+  invite_signInAccept: 'התחבר וקבל',
+  invite_signUpAccept: 'הירשם וקבל',
+  invite_notFound: 'ההזמנה לא נמצאה',
+  invite_alreadyAccepted: 'ההזמנה כבר התקבלה',
+  invite_noLongerValid: 'ההזמנה כבר אינה בתוקף',
+  invite_expiredMsg: 'תוקף ההזמנה פג',
+  invite_invalidLink: 'קישור הזמנה לא תקין',
+  invite_emailMismatch: 'ודא שאתה משתמש באימייל שאליו נשלחה ההזמנה.',
+
+  // Invite Modal — cancel/resend
+  inviteChangeEmail: 'שנה אימייל',
+
+  // Onboarding — currency
+  onb_currency: 'מטבע משפחתי',
+  onb_currencyDesc: 'משמש למעקב הוצאות'
 }

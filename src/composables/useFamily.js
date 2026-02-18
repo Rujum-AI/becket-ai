@@ -179,7 +179,7 @@ export function useFamily() {
           relationship_status: relationshipStatusMap[onboardingData.relationshipStatus] || onboardingData.relationshipStatus,
           agreement_basis: agreementBasisMap[onboardingData.agreementType] || onboardingData.agreementType,
           plan: planMap[onboardingData.selectedPlan] || 'essential',
-          currency: 'NIS'
+          currency: onboardingData.currency || 'NIS'
         })
         .select()
         .single()
@@ -218,6 +218,13 @@ export function useFamily() {
       // If co-parent mode, create invitation with client-generated token
       let inviteToken = null
       if (onboardingData.mode === 'co-parent' && onboardingData.partnerEmail) {
+        // Cancel any existing pending invites for this family first
+        await supabase
+          .from('invitations')
+          .update({ status: 'expired' })
+          .eq('family_id', familyData.id)
+          .eq('status', 'pending')
+
         inviteToken = generateToken()
 
         const { error: inviteError } = await supabase

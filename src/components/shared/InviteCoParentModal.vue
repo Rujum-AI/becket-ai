@@ -78,12 +78,23 @@ watch(() => props.show, async (isOpen) => {
   }
 }, { immediate: true })
 
+async function cancelExistingInvite() {
+  if (!family.value) return
+  await supabase
+    .from('invitations')
+    .update({ status: 'expired' })
+    .eq('family_id', family.value.id)
+    .eq('status', 'pending')
+  existingInvite.value = null
+  pendingInvite.value = null
+}
+
 async function createInvitation() {
   if (!email.value || !family.value || !user.value) return
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email.value)) {
-    error.value = 'Please enter a valid email address'
+    error.value = t('err_invalidEmail')
     return
   }
 
@@ -91,6 +102,13 @@ async function createInvitation() {
   error.value = ''
 
   try {
+    // Cancel any existing pending invites first
+    await supabase
+      .from('invitations')
+      .update({ status: 'expired' })
+      .eq('family_id', family.value.id)
+      .eq('status', 'pending')
+
     // Generate token client-side to avoid SELECT after INSERT
     const token = generateToken()
 
@@ -228,6 +246,10 @@ function handleClose() {
       </div>
 
       <p class="expires-note">{{ t('inviteExpires7Days') }}</p>
+
+      <button class="change-email-btn" @click="cancelExistingInvite">
+        {{ t('inviteChangeEmail') }}
+      </button>
     </div>
 
     <!-- Form: enter email to create invite -->
@@ -488,5 +510,24 @@ function handleClose() {
   color: #94a3b8;
   text-align: center;
   margin: 0;
+}
+
+.change-email-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: none;
+  border: 2px dashed #e2e8f0;
+  border-radius: 0.75rem;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.change-email-btn:hover {
+  border-color: #f87171;
+  color: #ef4444;
+  background: #fef2f2;
 }
 </style>

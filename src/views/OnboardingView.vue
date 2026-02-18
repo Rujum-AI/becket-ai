@@ -33,6 +33,7 @@ const childDraft = ref(null)
 const homes = ref(1)
 const relationshipStatus = ref('')
 const agreementType = ref('')
+const currency = ref('NIS')
 const selectedPlan = ref('free')
 
 const freePlanFeatures = [
@@ -78,7 +79,7 @@ const canProceed = computed(() => {
     if (mode.value === 'co-parent' && !partnerEmail.value) return false
     return true
   }
-  if (step.value === 2) return parentRole.value && children.value.length > 0 && !childDraft.value
+  if (step.value === 2) return displayName.value.trim() && parentRole.value && children.value.length > 0 && !childDraft.value
   if (step.value === 3) return homes.value && relationshipStatus.value && agreementType.value
   return true
 })
@@ -159,6 +160,7 @@ async function handleCreateFamily() {
       homes: homes.value,
       relationshipStatus: relationshipStatus.value,
       agreementType: agreementType.value,
+      currency: currency.value,
       selectedPlan: 'free'
     })
 
@@ -169,6 +171,7 @@ async function handleCreateFamily() {
       homes: homes.value,
       relationshipStatus: relationshipStatus.value,
       agreementType: agreementType.value,
+      currency: currency.value,
       selectedPlan: 'free'
     })
 
@@ -513,6 +516,22 @@ async function shareNative() {
             </div>
           </div>
 
+          <!-- Currency Selector -->
+          <div class="form-section">
+            <label class="section-label">{{ t('onb_currency') }}</label>
+            <p class="section-hint">{{ t('onb_currencyDesc') }}</p>
+            <div class="select-buttons">
+              <button
+                v-for="cur in ['NIS', 'USD', 'EUR', 'SGD']"
+                :key="cur"
+                @click="currency = cur"
+                :class="['select-btn currency-btn', { active: currency === cur }]"
+              >
+                {{ cur === 'NIS' ? '₪ NIS' : cur === 'USD' ? '$ USD' : cur === 'EUR' ? '€ EUR' : 'S$ SGD' }}
+              </button>
+            </div>
+          </div>
+
           <!-- Error Message -->
           <div v-if="error" class="error-banner">
             {{ error }}
@@ -524,6 +543,12 @@ async function shareNative() {
           <div class="step-header">
             <h2 class="step-title">{{ t('onb_step4Title') }}</h2>
             <p class="step-subtitle">{{ t('onb_step4Sub') }}</p>
+          </div>
+
+          <!-- Welcome banner -->
+          <div class="welcome-banner">
+            <img src="/assets/becket_logo.png" alt="Becket AI" class="welcome-logo" />
+            <p class="welcome-text">✨</p>
           </div>
 
           <div class="plans-duo">
@@ -786,6 +811,17 @@ async function shareNative() {
   font-weight: 700;
   color: #1A1C1E;
   margin-bottom: 0.75rem;
+}
+
+.section-hint {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin: -0.5rem 0 0.75rem;
+}
+
+.currency-btn {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 /* === ROLE PICKER === */
@@ -1262,6 +1298,24 @@ async function shareNative() {
 }
 
 .ai-card:hover { opacity: 0.95; }
+
+/* === WELCOME BANNER (Step 4) === */
+.welcome-banner {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.welcome-logo {
+  height: 3rem;
+  margin: 0 auto 0.5rem;
+  display: block;
+  opacity: 0.2;
+}
+
+.welcome-text {
+  font-size: 1.5rem;
+  margin: 0;
+}
 
 /* === ERROR BANNER === */
 .error-banner {

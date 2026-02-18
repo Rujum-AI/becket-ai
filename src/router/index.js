@@ -13,7 +13,9 @@ const router = createRouter({
     },
     {
       path: '/',
-      redirect: '/family'
+      name: 'landing',
+      component: () => import('@/views/LandingView.vue'),
+      meta: { public: true }
     },
     {
       path: '/onboarding',
@@ -109,10 +111,9 @@ router.beforeEach(async (to, from, next) => {
     return
   }
 
-  // Already logged in, trying to access login
-  if (isPublic && session && to.path === '/login') {
+  // Already logged in, trying to access landing or login — send to app
+  if (isPublic && session && (to.path === '/login' || to.path === '/')) {
     console.log('✅ Already logged in, checking family status')
-    // Check if user has family
     const { checkUserFamily } = useFamily()
     const hasFamily = await checkUserFamily(session.user.id)
     next(hasFamily ? '/family' : '/onboarding')
