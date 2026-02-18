@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useFamily } from '@/composables/useFamily'
 import { useAuth } from '@/composables/useAuth'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { supabase } from '@/lib/supabase'
 import { Clock, CheckCircle, Copy, Check, MessageCircle, Mail, Share2 } from 'lucide-vue-next'
 import BaseModal from './BaseModal.vue'
@@ -15,6 +16,7 @@ const emit = defineEmits(['close'])
 
 const { t } = useI18n()
 const { family, pendingInvite } = useFamily()
+const dashboardStore = useSupabaseDashboardStore()
 const { user } = useAuth()
 
 const email = ref('')
@@ -41,7 +43,10 @@ function generateToken() {
 
 // Check invite status when modal opens
 watch(() => props.show, async (isOpen) => {
-  if (isOpen && family.value) {
+  if (isOpen) {
+    const familyId = family.value?.id || dashboardStore.family?.id
+    if (!familyId) return
+
     checkingStatus.value = true
     error.value = ''
     try {
@@ -49,19 +54,21 @@ watch(() => props.show, async (isOpen) => {
       const { count } = await supabase
         .from('family_members')
         .select('*', { count: 'exact', head: true })
-        .eq('family_id', family.value.id)
+        .eq('family_id', familyId)
 
       familyFull.value = count >= 2
 
-      // Check pending invite — use cached data first, then try DB
+      // Check pending invite — use store first, then in-memory cache, then DB
       if (!familyFull.value) {
-        if (pendingInvite.value) {
+        if (dashboardStore.pendingInvite) {
+          existingInvite.value = dashboardStore.pendingInvite
+        } else if (pendingInvite.value) {
           existingInvite.value = pendingInvite.value
         } else {
           const { data } = await supabase
             .from('invitations')
             .select('*')
-            .eq('family_id', family.value.id)
+            .eq('family_id', familyId)
             .eq('status', 'pending')
             .order('created_at', { ascending: false })
             .limit(1)
@@ -79,18 +86,21 @@ watch(() => props.show, async (isOpen) => {
 }, { immediate: true })
 
 async function cancelExistingInvite() {
-  if (!family.value) return
+  const familyId = family.value?.id || dashboardStore.family?.id
+  if (!familyId) return
   await supabase
     .from('invitations')
     .update({ status: 'expired' })
-    .eq('family_id', family.value.id)
+    .eq('family_id', familyId)
     .eq('status', 'pending')
   existingInvite.value = null
   pendingInvite.value = null
+  dashboardStore.pendingInvite = null
 }
 
 async function createInvitation() {
-  if (!email.value || !family.value || !user.value) return
+  const hasFamilyId = family.value?.id || dashboardStore.family?.id
+  if (!email.value || !hasFamilyId || !user.value) return
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email.value)) {
@@ -102,11 +112,13 @@ async function createInvitation() {
   error.value = ''
 
   try {
+    const familyId = family.value?.id || dashboardStore.family?.id
+
     // Cancel any existing pending invites first
     await supabase
       .from('invitations')
       .update({ status: 'expired' })
-      .eq('family_id', family.value.id)
+      .eq('family_id', familyId)
       .eq('status', 'pending')
 
     // Generate token client-side to avoid SELECT after INSERT
@@ -115,7 +127,7 @@ async function createInvitation() {
     const { error: inviteError } = await supabase
       .from('invitations')
       .insert({
-        family_id: family.value.id,
+        family_id: familyId,
         email: email.value,
         status: 'pending',
         token
@@ -123,9 +135,11 @@ async function createInvitation() {
 
     if (inviteError) throw inviteError
 
-    // Set directly — no DB query needed
-    existingInvite.value = { email: email.value, token }
-    pendingInvite.value = { email: email.value, token }
+    // Sync to all state sources
+    const inviteData = { email: email.value, token }
+    existingInvite.value = inviteData
+    pendingInvite.value = inviteData
+    dashboardStore.pendingInvite = inviteData
 
     // Try edge function email as bonus (fire and forget)
     const inviterName = user.value.user_metadata?.display_name || user.value.email?.split('@')[0]

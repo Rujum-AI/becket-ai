@@ -120,7 +120,8 @@ if (typeof document !== 'undefined') {
 
             <div v-if="!dashboardStore.partnerId" class="dropdown-item" @click="openInviteModal">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              {{ t('inviteCoParent') }}
+              <span>{{ t('inviteCoParent') }}</span>
+              <span v-if="dashboardStore.pendingInvite" class="invite-pending-dot"></span>
             </div>
 
             <div class="dropdown-item" @click="closeUserMenu(); router.push('/subscription')">
@@ -158,3 +159,19 @@ if (typeof document !== 'undefined') {
   <!-- Invite Co-Parent Modal -->
   <InviteCoParentModal :show="showInviteModal" @close="showInviteModal = false" />
 </template>
+
+<style scoped>
+.invite-pending-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+  animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+</style>
