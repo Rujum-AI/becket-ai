@@ -47,6 +47,9 @@ public/assets/*.psd
 # Generated content editor
 CONTENT.md
 
+# Credentials (NEVER commit)
+databasepassword.txt
+
 # OS files
 Thumbs.db
 

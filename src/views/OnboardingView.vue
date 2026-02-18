@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
-import { useAuth, DEV_BYPASS } from '@/composables/useAuth'
+import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
 import { useFamilyStore } from '@/stores/family'
 import { supabase } from '@/lib/supabase'
@@ -179,24 +179,6 @@ async function handleCreateFamily() {
   error.value = ''
 
   try {
-    // Dev bypass — skip all Supabase calls, just advance UI
-    if (DEV_BYPASS) {
-      familyStore.saveOnboarding({
-        mode: mode.value,
-        partnerEmail: partnerEmail.value,
-        children: children.value,
-        homes: homes.value,
-        relationshipStatus: relationshipStatus.value,
-        agreementType: agreementType.value,
-        currency: currency.value,
-        selectedPlan: 'free'
-      })
-      direction.value = 'forward'
-      step.value = 4
-      saving.value = false
-      return
-    }
-
     if (displayName.value) {
       await supabase.auth.updateUser({ data: { display_name: displayName.value } })
     }
