@@ -114,26 +114,25 @@ async function createInvitation() {
   try {
     const familyId = family.value?.id || dashboardStore.family?.id
 
-    // Cancel any existing pending invites first
-    await supabase
-      .from('invitations')
-      .update({ status: 'expired' })
-      .eq('family_id', familyId)
-      .eq('status', 'pending')
-
-    // Generate token client-side to avoid SELECT after INSERT
+    // Generate token client-side
     const token = generateToken()
 
-    const { error: inviteError } = await supabase
-      .from('invitations')
-      .insert({
-        family_id: familyId,
-        email: email.value,
-        status: 'pending',
-        token
-      })
+    // Use atomic RPC — expires old invites + creates new one in single transaction
+    const { data: result, error: rpcError } = await supabase.rpc('create_family_invitation', {
+      p_family_id: familyId,
+      p_email: email.value,
+      p_token: token
+    })
 
-    if (inviteError) throw inviteError
+    if (rpcError) throw rpcError
+
+    if (!result.success) {
+      if (result.reason === 'family_full') {
+        familyFull.value = true
+        return
+      }
+      throw new Error(result.reason)
+    }
 
     // Sync to all state sources
     const inviteData = { email: email.value, token }

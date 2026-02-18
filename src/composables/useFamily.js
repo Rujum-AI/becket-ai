@@ -219,28 +219,21 @@ export function useFamily() {
         if (childrenError) throw childrenError
       }
 
-      // If co-parent mode, create invitation with client-generated token
+      // If co-parent mode, create invitation via atomic RPC
       let inviteToken = null
       if (onboardingData.mode === 'co-parent' && onboardingData.partnerEmail) {
-        // Cancel any existing pending invites for this family first
-        await supabase
-          .from('invitations')
-          .update({ status: 'expired' })
-          .eq('family_id', familyData.id)
-          .eq('status', 'pending')
-
         inviteToken = generateToken()
 
-        const { error: inviteError } = await supabase
-          .from('invitations')
-          .insert({
-            family_id: familyData.id,
-            email: onboardingData.partnerEmail,
-            status: 'pending',
-            token: inviteToken
-          })
+        const { data: invResult, error: inviteError } = await supabase.rpc('create_family_invitation', {
+          p_family_id: familyData.id,
+          p_email: onboardingData.partnerEmail,
+          p_token: inviteToken
+        })
 
         if (inviteError) throw inviteError
+        if (!invResult?.success) {
+          console.warn('Invitation creation failed:', invResult?.reason)
+        }
 
         // Cache for the invite modal to pick up
         pendingInvite.value = { email: onboardingData.partnerEmail, token: inviteToken }
