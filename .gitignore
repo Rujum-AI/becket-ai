@@ -31,9 +31,18 @@ build
 .env
 .env.local
 .env.*.local
+.env.development
+
+# Vercel local config
+.vercel/
 
 # Supabase local development
 .supabase/
+supabase/.gitignore
+supabase/config.toml
+
+# Design source files
+public/assets/*.psd
 
 # OS files
 Thumbs.db
