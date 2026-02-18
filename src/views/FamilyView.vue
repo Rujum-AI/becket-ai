@@ -14,7 +14,8 @@ import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
 import { useAuth } from '@/composables/useAuth'
-import { AlertTriangle } from 'lucide-vue-next'
+import { AlertTriangle, Clock, Send } from 'lucide-vue-next'
+import InviteCoParentModal from '@/components/shared/InviteCoParentModal.vue'
 
 const { t } = useI18n()
 const dashboardStore = useSupabaseDashboardStore()
@@ -24,6 +25,8 @@ const { user } = useAuth()
 const children = computed(() => dashboardStore.children)
 const hasChildren = computed(() => children.value.length > 0)
 const loading = computed(() => dashboardStore.loading)
+const pendingInvite = computed(() => dashboardStore.pendingInvite)
+const showInviteModal = ref(false)
 
 // Load family data on mount
 onMounted(() => {
@@ -133,6 +136,18 @@ async function handleDeleteEvent(event) {
 
 <template>
   <AppLayout>
+    <!-- Pending Invite Banner -->
+    <div v-if="pendingInvite" class="invite-banner" @click="showInviteModal = true">
+      <div class="invite-banner-content">
+        <Clock :size="20" class="invite-banner-icon" />
+        <div class="invite-banner-text">
+          <p class="invite-banner-title">{{ t('invitePendingFor') }} <strong>{{ pendingInvite.email }}</strong></p>
+          <p class="invite-banner-sub">{{ t('inviteAwaitingApproval') }}</p>
+        </div>
+        <Send :size="16" class="invite-banner-action" />
+      </div>
+    </div>
+
     <div class="mb-12">
       <SectionHeader :title="t('children')" icon="family.png" />
 
@@ -223,10 +238,66 @@ async function handleDeleteEvent(event) {
       @confirm="forcePickup"
       @close="cancelUnexpectedPickup"
     />
+
+    <!-- Invite Co-Parent Modal -->
+    <InviteCoParentModal :show="showInviteModal" @close="showInviteModal = false" />
   </AppLayout>
 </template>
 
 <style scoped>
+.invite-banner {
+  margin-bottom: 1rem;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, #fffbeb, #fef3c7);
+  border: 2px solid #fcd34d;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.invite-banner:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.invite-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.invite-banner-icon {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.invite-banner-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.invite-banner-title {
+  font-size: 0.875rem;
+  color: #92400e;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.invite-banner-title strong {
+  font-weight: 700;
+}
+
+.invite-banner-sub {
+  font-size: 0.75rem;
+  color: #a16207;
+  margin: 0.125rem 0 0;
+}
+
+.invite-banner-action {
+  color: #d97706;
+  flex-shrink: 0;
+}
+
 .children-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

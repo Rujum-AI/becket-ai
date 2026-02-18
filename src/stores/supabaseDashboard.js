@@ -15,6 +15,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const custodySchedule = ref({})
   const custodyOverrides = ref([])
   const pendingOverrides = ref([])
+  const pendingInvite = ref(null) // { email, token } if co-parent not yet joined
   const loading = ref(false)
   const error = ref(null)
 
@@ -52,6 +53,22 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       partnerId.value = partnerData?.profile_id || null
       partnerLabel.value = partnerData?.parent_label || null
+
+      // If no co-parent yet, check for pending invite
+      if (!partnerId.value) {
+        const { data: inviteData } = await supabase
+          .from('invitations')
+          .select('email, token')
+          .eq('family_id', familyMember.family_id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        pendingInvite.value = inviteData || null
+      } else {
+        pendingInvite.value = null
+      }
 
       // Get children (now includes current_status columns)
       const { data: childrenData, error: childrenError } = await supabase
@@ -808,6 +825,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     parentLabel,
     partnerId,
     partnerLabel,
+    pendingInvite,
     events,
     custodySchedule,
     custodyOverrides,
