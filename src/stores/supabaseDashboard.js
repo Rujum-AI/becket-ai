@@ -487,9 +487,10 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     if (!user.value) return
 
     try {
+      await supabase.from('event_children').delete().eq('event_id', eventId)
       const { error: delError } = await supabase
         .from('events')
-        .update({ status: 'cancelled' })
+        .delete()
         .eq('id', eventId)
 
       if (delError) throw delError
