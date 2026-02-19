@@ -600,6 +600,8 @@ export default {
   editEvent: 'Edit',
   deleteEvent: 'Delete',
   deleteEventConfirm: 'Are you sure you want to delete this event?',
+  deleteThisOne: 'This one',
+  deleteAllUpcoming: 'All upcoming',
   deleteEventMsg: 'This action cannot be undone.',
   saveChanges: 'Save Changes',
   needsApproval: "This event is on your co-parent's day and will need their approval.",

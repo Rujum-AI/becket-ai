@@ -11,7 +11,7 @@ const props = defineProps({
   event: { type: Object, required: true }
 })
 
-const emit = defineEmits(['close', 'edit', 'delete'])
+const emit = defineEmits(['close', 'edit', 'delete', 'deleteAllSimilar'])
 
 const dashboardStore = useSupabaseDashboardStore()
 const showDeleteConfirm = ref(false)
@@ -91,6 +91,15 @@ function confirmDelete() {
 function handleDelete() {
   emit('delete', props.event)
 }
+
+function handleDeleteAll() {
+  emit('deleteAllSimilar', props.event)
+}
+
+// Show "Delete all" option for trustee-linked or repeating events
+const hasSimilarEvents = computed(() => {
+  return !!(props.event.school_id || props.event.activity_id || props.event.person_id || props.event.recurrence_rule)
+})
 </script>
 
 <template>
@@ -190,7 +199,11 @@ function handleDelete() {
           </button>
           <button class="modal-delete-btn" @click="handleDelete">
             <Trash2 :size="16" />
-            {{ t('delete') }}
+            {{ t('deleteThisOne') }}
+          </button>
+          <button v-if="hasSimilarEvents" class="modal-delete-all-btn" @click="handleDeleteAll">
+            <Trash2 :size="16" />
+            {{ t('deleteAllUpcoming') }}
           </button>
         </div>
       </div>
@@ -369,6 +382,27 @@ function handleDelete() {
 .delete-confirm-actions {
   display: flex;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.modal-delete-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 1.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  background: #dc2626;
+  color: white;
+  border: 2px solid #dc2626;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-delete-all-btn:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 </style>

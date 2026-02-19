@@ -502,6 +502,49 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
+  // Delete all upcoming events that share the same trustee (school/activity/person) as the given event
+  async function deleteAllSimilarEvents(event) {
+    if (!user.value) return
+
+    try {
+      // Determine which FK column links this event to its trustee
+      let fkColumn = null
+      let fkValue = null
+      if (event.school_id) { fkColumn = 'school_id'; fkValue = event.school_id }
+      else if (event.activity_id) { fkColumn = 'activity_id'; fkValue = event.activity_id }
+      else if (event.person_id) { fkColumn = 'person_id'; fkValue = event.person_id }
+
+      if (!fkColumn) {
+        // No trustee link — fall back to matching by title + type
+        fkColumn = null
+      }
+
+      const now = new Date().toISOString()
+      let query = supabase.from('events').select('id').gte('start_time', now)
+
+      if (fkColumn) {
+        query = query.eq(fkColumn, fkValue)
+      } else {
+        // Match by title + type for non-trustee events
+        query = query.eq('title', event.title).eq('type', event.type)
+          .eq('family_id', family.value.id)
+      }
+
+      const { data: upcoming } = await query
+      if (upcoming && upcoming.length > 0) {
+        const ids = upcoming.map(e => e.id)
+        await supabase.from('event_children').delete().in('event_id', ids)
+        await supabase.from('events').delete().in('id', ids)
+      }
+
+      await loadFamilyData()
+    } catch (err) {
+      console.error('Error deleting similar events:', err)
+      error.value = err.message
+      throw err
+    }
+  }
+
   // Check if current user is the expected custody parent today
   function isExpectedParentToday() {
     const now = new Date()
@@ -1073,6 +1116,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     createEvent,
     updateEvent,
     deleteEvent,
+    deleteAllSimilarEvents,
     parseBackpackItems,
     confirmPickup,
     confirmDropoff,

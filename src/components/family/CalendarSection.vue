@@ -13,7 +13,7 @@ const { t } = useI18n()
 const langStore = useLanguageStore()
 const dashboardStore = useSupabaseDashboardStore()
 
-const emit = defineEmits(['addEvent', 'editEvent', 'deleteEvent'])
+const emit = defineEmits(['addEvent', 'editEvent', 'deleteEvent', 'deleteAllSimilarEvents'])
 
 const viewMode = ref('month') // 'month', 'week', 'day'
 const currentDate = ref(new Date())
@@ -298,6 +298,11 @@ function handleDeleteEvent(event) {
   selectedEvent.value = null
   emit('deleteEvent', event)
 }
+
+function handleDeleteAllSimilar(event) {
+  selectedEvent.value = null
+  emit('deleteAllSimilarEvents', event)
+}
 </script>
 
 <template>
@@ -508,6 +513,7 @@ function handleDeleteEvent(event) {
       @close="selectedEvent = null"
       @edit="handleEditEvent"
       @delete="handleDeleteEvent"
+      @delete-all-similar="handleDeleteAllSimilar"
     />
   </div>
 </template>

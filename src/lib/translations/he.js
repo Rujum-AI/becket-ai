@@ -600,6 +600,8 @@ export default {
   editEvent: 'עריכה',
   deleteEvent: 'מחיקה',
   deleteEventConfirm: 'בטוח שרוצה למחוק את האירוע?',
+  deleteThisOne: 'רק את זה',
+  deleteAllUpcoming: 'כל העתידיים',
   deleteEventMsg: 'הפעולה הזו לא ניתנת לביטול.',
   saveChanges: 'שמור שינויים',
   needsApproval: 'האירוע הזה ביום של ההורה השני ויידרש אישור.',

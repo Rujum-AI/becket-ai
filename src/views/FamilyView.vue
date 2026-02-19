@@ -142,6 +142,10 @@ function handleEditEvent(event) {
 async function handleDeleteEvent(event) {
   await dashboardStore.deleteEvent(event.id)
 }
+
+async function handleDeleteAllSimilar(event) {
+  await dashboardStore.deleteAllSimilarEvents(event)
+}
 </script>
 
 <template>
@@ -199,6 +203,7 @@ async function handleDeleteEvent(event) {
         @addEvent="openAddEventModal"
         @editEvent="handleEditEvent"
         @deleteEvent="handleDeleteEvent"
+        @deleteAllSimilarEvents="handleDeleteAllSimilar"
       />
     </div>
 
