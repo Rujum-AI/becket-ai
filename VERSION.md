@@ -1,12 +1,18 @@
 # Becket AI — Version History
 
-**Current Version: v1.07**
+**Current Version: v1.08**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.08 — Fix handoff type: use custody direction, not stale DB status
+`pending` — 2026-02-20
+- Handoff type (pickup/dropoff) now always based on custody transition direction
+- School events no longer force 'pickup' — outgoing parent correctly sees 'dropoff'
+- Remove stale childIsWithMe override that flipped dropoff→pickup incorrectly
 
 ### v1.07 — Resolve profile_ids back to labels for calendar + all consumers
 `pending` — 2026-02-19

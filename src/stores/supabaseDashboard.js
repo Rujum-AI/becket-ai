@@ -167,11 +167,6 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const childIsWithMe = status === `with_${myLabel}`
         const nextAction = childIsWithMe ? 'drop' : 'pick'
 
-        // Can't dropoff a child who isn't with me — force pickup
-        if (nextHandoff && nextHandoff.type === 'dropoff' && !childIsWithMe) {
-          nextHandoff.type = 'pickup'
-        }
-
         return {
           id: child.id,
           name: child.name,
@@ -1056,11 +1051,10 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         if (now > handoffMoment) continue
       }
 
-      // Type: school event → always "pickup" (picking up from school)
-      //        no school → depends on custody direction
-      const type = (schoolEvent && schoolEvent.end_time)
-        ? 'pickup'
-        : (isMe(tomorrowParent) ? 'pickup' : 'dropoff')
+      // Type depends on custody direction:
+      //   tomorrowParent is me → I'm picking up (child comes to me)
+      //   tomorrowParent is partner → I'm dropping off (child goes to them)
+      const type = isMe(tomorrowParent) ? 'pickup' : 'dropoff'
 
       return { type, time: handoffTime, location, date: handoffDate }
     }
