@@ -9,7 +9,7 @@ Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then majo
 ## v1 — Production Launch
 
 ### v1.02 — Smart handoff time: computed from custody transitions + school events
-`TBD` — 2026-02-19
+`7ce64ec` — 2026-02-19
 - Compute next handoff from custody schedule transitions (no manual pickup/dropoff events needed)
 - If school event exists on transition day → use school end time as handoff time
 - Otherwise → use configurable default handoff time (stored in custody_cycles table)
