@@ -96,10 +96,8 @@ function handleDeleteAll() {
   emit('deleteAllSimilar', props.event)
 }
 
-// Show "Delete all" option for trustee-linked or repeating events
-const hasSimilarEvents = computed(() => {
-  return !!(props.event.school_id || props.event.activity_id || props.event.person_id || props.event.recurrence_rule)
-})
+// Always show "Delete all" — matches by title + time pattern
+const hasSimilarEvents = true
 </script>
 
 <template>

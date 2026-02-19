@@ -502,39 +502,43 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
-  // Delete all upcoming events that share the same trustee (school/activity/person) as the given event
+  // Delete all upcoming events with the same title and daily time pattern
   async function deleteAllSimilarEvents(event) {
-    if (!user.value) return
+    if (!user.value || !family.value) return
 
     try {
-      // Determine which FK column links this event to its trustee
-      let fkColumn = null
-      let fkValue = null
-      if (event.school_id) { fkColumn = 'school_id'; fkValue = event.school_id }
-      else if (event.activity_id) { fkColumn = 'activity_id'; fkValue = event.activity_id }
-      else if (event.person_id) { fkColumn = 'person_id'; fkValue = event.person_id }
-
-      if (!fkColumn) {
-        // No trustee link — fall back to matching by title + type
-        fkColumn = null
-      }
-
       const now = new Date().toISOString()
-      let query = supabase.from('events').select('id').gte('start_time', now)
 
-      if (fkColumn) {
-        query = query.eq(fkColumn, fkValue)
-      } else {
-        // Match by title + type for non-trustee events
-        query = query.eq('title', event.title).eq('type', event.type)
-          .eq('family_id', family.value.id)
-      }
+      // Fetch all upcoming events in this family with the same title
+      const { data: upcoming } = await supabase
+        .from('events')
+        .select('id, start_time, end_time')
+        .eq('family_id', family.value.id)
+        .eq('title', event.title)
+        .gte('start_time', now)
 
-      const { data: upcoming } = await query
-      if (upcoming && upcoming.length > 0) {
-        const ids = upcoming.map(e => e.id)
-        await supabase.from('event_children').delete().in('event_id', ids)
-        await supabase.from('events').delete().in('id', ids)
+      if (!upcoming || upcoming.length === 0) { await loadFamilyData(); return }
+
+      // Extract time-of-day from the source event for matching
+      const srcStart = new Date(event.start_time)
+      const srcStartHM = `${srcStart.getHours()}:${srcStart.getMinutes()}`
+      const srcEnd = event.end_time ? new Date(event.end_time) : null
+      const srcEndHM = srcEnd ? `${srcEnd.getHours()}:${srcEnd.getMinutes()}` : null
+
+      // Filter to events with matching time-of-day
+      const matchIds = upcoming.filter(e => {
+        const s = new Date(e.start_time)
+        if (`${s.getHours()}:${s.getMinutes()}` !== srcStartHM) return false
+        if (srcEndHM) {
+          const en = e.end_time ? new Date(e.end_time) : null
+          if (!en || `${en.getHours()}:${en.getMinutes()}` !== srcEndHM) return false
+        }
+        return true
+      }).map(e => e.id)
+
+      if (matchIds.length > 0) {
+        await supabase.from('event_children').delete().in('event_id', matchIds)
+        await supabase.from('events').delete().in('id', matchIds)
       }
 
       await loadFamilyData()
