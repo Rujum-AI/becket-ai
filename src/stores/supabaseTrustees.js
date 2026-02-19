@@ -14,6 +14,23 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   const loading = ref(false)
   const error = ref(null)
 
+  // Helper: delete all UPCOMING events linked to a trustee (school/activity/person)
+  // Past events are preserved for the record
+  async function deleteUpcomingEventsFor(fkColumn, trusteeId) {
+    const now = new Date().toISOString()
+    const { data: upcoming } = await supabase
+      .from('events')
+      .select('id')
+      .eq(fkColumn, trusteeId)
+      .gte('start_time', now)
+
+    if (upcoming && upcoming.length > 0) {
+      const ids = upcoming.map(e => e.id)
+      await supabase.from('event_children').delete().in('event_id', ids)
+      await supabase.from('events').delete().in('id', ids)
+    }
+  }
+
   // Helper: generate events for this family after schedule changes
   async function regenerateEvents() {
     if (!family.value?.id) return
@@ -349,11 +366,17 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
     schools.value = schools.value.filter(s => s.id !== id)
 
     try {
+      // Delete upcoming calendar events linked to this school
+      await deleteUpcomingEventsFor('school_id', id)
+
       await supabase.from('trustee_children').delete().eq('trustee_type', 'school').eq('trustee_id', id)
       await supabase.from('trustee_schedules').delete().eq('trustee_type', 'school').eq('trustee_id', id)
 
       const { error: schoolError } = await supabase.from('trustees_schools').delete().eq('id', id)
       if (schoolError) throw schoolError
+
+      // Refresh dashboard to reflect removed events
+      await dashboardStore.loadFamilyData()
     } catch (err) {
       error.value = err.message
       await fetchSchools() // Revert on error
@@ -517,11 +540,17 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
     activities.value = activities.value.filter(a => a.id !== id)
 
     try {
+      // Delete upcoming calendar events linked to this activity
+      await deleteUpcomingEventsFor('activity_id', id)
+
       await supabase.from('trustee_children').delete().eq('trustee_type', 'activity').eq('trustee_id', id)
       await supabase.from('trustee_schedules').delete().eq('trustee_type', 'activity').eq('trustee_id', id)
 
       const { error: activityError } = await supabase.from('trustees_activities').delete().eq('id', id)
       if (activityError) throw activityError
+
+      // Refresh dashboard to reflect removed events
+      await dashboardStore.loadFamilyData()
     } catch (err) {
       error.value = err.message
       await fetchActivities() // Revert on error
@@ -580,8 +609,14 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
     people.value = people.value.filter(p => p.id !== id)
 
     try {
+      // Delete upcoming calendar events linked to this person
+      await deleteUpcomingEventsFor('person_id', id)
+
       const { error: personError } = await supabase.from('trustees_people').delete().eq('id', id)
       if (personError) throw personError
+
+      // Refresh dashboard to reflect removed events
+      await dashboardStore.loadFamilyData()
     } catch (err) {
       error.value = err.message
       await fetchPeople() // Revert on error

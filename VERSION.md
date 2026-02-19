@@ -1,12 +1,19 @@
 # Becket AI — Version History
 
-**Current Version: v1.02**
+**Current Version: v1.03**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.03 — "Take to event" logic + trustee cascade delete
+`f4f7b85` — 2026-02-19
+- Next interaction: non-school/non-other events on custody days → "Take to [Event]"
+- Delete upcoming calendar events when a trustee (school/activity/person) is removed
+- Past events preserved for record; dashboard auto-refreshes after deletion
+- EN + HE translations for "Take to" interaction type
 
 ### v1.02 — Smart handoff time: computed from custody transitions + school events
 `7ce64ec` — 2026-02-19

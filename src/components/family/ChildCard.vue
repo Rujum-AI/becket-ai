@@ -92,9 +92,14 @@ const nextInteractionText = computed(() => {
   const loc = props.child.nextHandoffLoc
   const date = props.child.nextHandoffDate
 
-  let text = t(type)
-  if (loc) {
-    text += ` ${t('fromPlace')} ${loc}`
+  let text
+  if (type === 'takeToEvent') {
+    text = `${t('takeToEvent')} ${loc || ''}`
+  } else {
+    text = t(type)
+    if (loc) {
+      text += ` ${t('fromPlace')} ${loc}`
+    }
   }
   const relDay = getRelativeDay(date)
   if (relDay) {

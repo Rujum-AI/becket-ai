@@ -857,8 +857,9 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
-  // Helper: Get next handoff (pickup or dropoff) for a child
-  // Computed from custody schedule transitions + school events + default handoff time
+  // Helper: Get next interaction for a child
+  // Priority: 1) Non-school/non-other event on my custody day → "take to event"
+  //           2) Custody transition → pickup/dropoff (with school time or default)
   function getNextHandoff(childId) {
     const now = new Date()
     const myLabel = parentLabel.value // 'dad' or 'mom'
@@ -869,25 +870,60 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
 
-    // Scan up to 14 days ahead for a custody transition
+    const childEvents = getChildEvents(childId)
+
+    // Scan up to 14 days ahead
     for (let i = 0; i <= 14; i++) {
       const date = new Date(now)
       date.setDate(date.getDate() + i)
       const dateStr = fmtDate(date)
 
+      const dayParent = custodySchedule.value[dateStr]
+      if (!dayParent) continue
+
+      // --- Check 1: Non-school/non-other event on MY custody day → "take to event" ---
+      if (dayParent === myLabel) {
+        // Find earliest upcoming event on this day (not school, not other)
+        const dayEvent = childEvents
+          .filter(e => {
+            if (e.type === 'school' || e.type === 'other') return false
+            if (!e.start_time) return false
+            const eStart = new Date(e.start_time)
+            if (fmtDate(eStart) !== dateStr) return false
+            // If today, skip events that already started
+            if (i === 0 && now >= eStart) return false
+            // Ensure event ends within custody range (if end_time exists)
+            if (e.end_time) {
+              const eEnd = new Date(e.end_time)
+              const endParent = custodySchedule.value[fmtDate(eEnd)]
+              if (endParent && endParent !== myLabel) return false
+            }
+            return true
+          })
+          .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0]
+
+        if (dayEvent) {
+          const eStart = new Date(dayEvent.start_time)
+          const eventTime = `${String(eStart.getHours()).padStart(2, '0')}:${String(eStart.getMinutes()).padStart(2, '0')}`
+          return {
+            type: 'takeToEvent',
+            time: eventTime,
+            location: dayEvent.title || dayEvent.type,
+            date: date
+          }
+        }
+      }
+
+      // --- Check 2: Custody transition → pickup/dropoff ---
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
       const nextDateStr = fmtDate(nextDay)
-
-      const todayParent = custodySchedule.value[dateStr]
       const tomorrowParent = custodySchedule.value[nextDateStr]
 
-      if (!todayParent || !tomorrowParent) continue
-      if (todayParent === tomorrowParent) continue
+      if (!tomorrowParent) continue
+      if (dayParent === tomorrowParent) continue
 
-      // Transition found: custody changes from todayParent → tomorrowParent
-      // Determine handoff time: check for school event on transition day
-      const childEvents = getChildEvents(childId)
+      // Transition found: custody changes from dayParent → tomorrowParent
       const schoolEvent = childEvents.find(e => {
         if (e.type !== 'school') return false
         const eDate = new Date(e.start_time)

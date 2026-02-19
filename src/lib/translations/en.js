@@ -660,6 +660,8 @@ export default {
   noUpcoming: 'Nothing scheduled',
   noUpcomingHandoff: 'No upcoming handoff',
   fromPlace: 'from',
+  toPlace: 'to',
+  takeToEvent: 'Take to',
   atTime: 'at',
   onDay: 'on',
   tomorrow: 'Tomorrow',

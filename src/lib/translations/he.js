@@ -660,6 +660,8 @@ export default {
   noUpcoming: 'אין אירועים',
   noUpcomingHandoff: 'אין מסירה קרובה',
   fromPlace: 'מ',
+  toPlace: 'ל',
+  takeToEvent: 'קחו ל',
   atTime: 'בשעה',
   onDay: 'ביום',
   tomorrow: 'מחר',
