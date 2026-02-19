@@ -84,6 +84,11 @@ const parsedDescription = computed(() => {
 const backpackItems = computed(() => parsedDescription.value.items)
 const eventNotes = computed(() => parsedDescription.value.notes)
 
+// Past events cannot be deleted (preserve history)
+const isPastEvent = computed(() => {
+  return new Date(props.event.start_time) < new Date()
+})
+
 function confirmDelete() {
   showDeleteConfirm.value = true
 }
@@ -215,7 +220,7 @@ const hasSimilarEvents = true
           <Pencil :size="16" />
           {{ t('edit') }}
         </button>
-        <button class="modal-delete-btn" @click="confirmDelete">
+        <button v-if="!isPastEvent" class="modal-delete-btn" @click="confirmDelete">
           <Trash2 :size="16" />
           {{ t('delete') }}
         </button>

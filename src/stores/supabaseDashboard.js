@@ -157,6 +157,11 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const childIsWithMe = status === `with_${myLabel}`
         const nextAction = childIsWithMe ? 'drop' : 'pick'
 
+        // Can't dropoff a child who isn't with me — force pickup
+        if (nextHandoff && nextHandoff.type === 'dropoff' && !childIsWithMe) {
+          nextHandoff.type = 'pickup'
+        }
+
         return {
           id: child.id,
           name: child.name,
