@@ -16,7 +16,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const custodyOverrides = ref([])
   const pendingOverrides = ref([])
   const pendingInvite = ref(null) // { email, token } if co-parent not yet joined
-  const defaultHandoffTime = ref('17:00') // from custody_cycles.default_handoff_time
+  const defaultHandoffTime = ref('') // from custody_cycles.default_handoff_time (user must set)
   const loading = ref(false)
   const error = ref(null)
   let statusRefreshTimer = null
@@ -127,7 +127,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       }
 
       if (custodyData) {
-        defaultHandoffTime.value = custodyData.default_handoff_time || '17:00'
+        defaultHandoffTime.value = custodyData.default_handoff_time || ''
         buildCustodySchedule(custodyData)
       }
 
@@ -891,8 +891,11 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         handoffTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
         location = schoolEvent.title || 'School'
       } else {
-        handoffTime = defaultHandoffTime.value || '17:00'
+        handoffTime = defaultHandoffTime.value || null
       }
+
+      // No time available (no school event and user hasn't set default) — skip
+      if (!handoffTime) continue
 
       // If today and handoff time already passed, skip to next transition
       if (i === 0) {

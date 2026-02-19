@@ -18,7 +18,7 @@ const props = defineProps({
   },
   defaultHandoffTime: {
     type: String,
-    default: '17:00'
+    default: ''
   }
 })
 

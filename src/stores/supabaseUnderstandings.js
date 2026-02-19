@@ -15,7 +15,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
   const originalCycleDays = ref([])
   const activeCycleId = ref(null)
   const activeCycleVersion = ref(1)
-  const defaultHandoffTime = ref('17:00')
+  const defaultHandoffTime = ref('')
 
   // Understandings State
   const understandings = ref([])
@@ -265,7 +265,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
         activeCycleId.value = data.id
         activeCycleVersion.value = data.version_number
         cycleLength.value = data.cycle_length
-        defaultHandoffTime.value = data.default_handoff_time || '17:00'
+        defaultHandoffTime.value = data.default_handoff_time || ''
 
         // Convert DB cycle_data to UI format
         const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
