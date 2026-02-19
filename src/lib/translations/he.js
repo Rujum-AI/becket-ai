@@ -602,6 +602,7 @@ export default {
   deleteEventConfirm: 'בטוח שרוצה למחוק את האירוע?',
   deleteThisOne: 'רק את זה',
   deleteAllUpcoming: 'כל העתידיים',
+  deleteAllUpcomingConfirm: 'למחוק את כל האירועים העתידיים עם אותו שם ושעה?',
   deleteEventMsg: 'הפעולה הזו לא ניתנת לביטול.',
   saveChanges: 'שמור שינויים',
   needsApproval: 'האירוע הזה ביום של ההורה השני ויידרש אישור.',

@@ -602,6 +602,7 @@ export default {
   deleteEventConfirm: 'Are you sure you want to delete this event?',
   deleteThisOne: 'This one',
   deleteAllUpcoming: 'All upcoming',
+  deleteAllUpcomingConfirm: 'Delete ALL upcoming events with this name and time?',
   deleteEventMsg: 'This action cannot be undone.',
   saveChanges: 'Save Changes',
   needsApproval: "This event is on your co-parent's day and will need their approval.",

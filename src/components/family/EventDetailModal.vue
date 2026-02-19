@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useLanguageStore } from '@/stores/language'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
@@ -14,7 +14,6 @@ const props = defineProps({
 const emit = defineEmits(['close', 'edit', 'delete', 'deleteAllSimilar'])
 
 const dashboardStore = useSupabaseDashboardStore()
-const showDeleteConfirm = ref(false)
 
 const { t } = useI18n()
 const langStore = useLanguageStore()
@@ -89,20 +88,16 @@ const isPastEvent = computed(() => {
   return new Date(props.event.start_time) < new Date()
 })
 
-function confirmDelete() {
-  showDeleteConfirm.value = true
-}
-
 function handleDelete() {
+  if (!confirm(t('deleteEventConfirm'))) return
   emit('delete', props.event)
 }
 
 function handleDeleteAll() {
+  if (!confirm(t('deleteAllUpcomingConfirm'))) return
   emit('deleteAllSimilar', props.event)
 }
 
-// Always show "Delete all" — matches by title + time pattern
-const hasSimilarEvents = true
 </script>
 
 <template>
@@ -193,26 +188,7 @@ const hasSimilarEvents = true
     </div>
 
     <template #footer>
-      <!-- Delete Confirmation -->
-      <div v-if="showDeleteConfirm" class="delete-confirm">
-        <p class="delete-confirm-msg">{{ t('deleteEventConfirm') }}</p>
-        <div class="delete-confirm-actions">
-          <button class="modal-secondary-btn" @click="showDeleteConfirm = false">
-            {{ t('cancel') }}
-          </button>
-          <button class="modal-delete-btn" @click="handleDelete">
-            <Trash2 :size="16" />
-            {{ t('deleteThisOne') }}
-          </button>
-          <button v-if="hasSimilarEvents" class="modal-delete-all-btn" @click="handleDeleteAll">
-            <Trash2 :size="16" />
-            {{ t('deleteAllUpcoming') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Normal Footer -->
-      <div v-else class="modal-action-bar">
+      <div class="modal-action-bar">
         <button class="modal-secondary-btn" @click="emit('close')">
           {{ t('close') }}
         </button>
@@ -220,10 +196,16 @@ const hasSimilarEvents = true
           <Pencil :size="16" />
           {{ t('edit') }}
         </button>
-        <button v-if="!isPastEvent" class="modal-delete-btn" @click="confirmDelete">
-          <Trash2 :size="16" />
-          {{ t('delete') }}
-        </button>
+        <template v-if="!isPastEvent">
+          <button class="modal-delete-btn" @click="handleDelete">
+            <Trash2 :size="16" />
+            {{ t('deleteThisOne') }}
+          </button>
+          <button class="modal-delete-all-btn" @click="handleDeleteAll">
+            <Trash2 :size="16" />
+            {{ t('deleteAllUpcoming') }}
+          </button>
+        </template>
       </div>
     </template>
   </BaseModal>

@@ -102,6 +102,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           )
         `)
         .eq('family_id', familyMember.family_id)
+        .neq('status', 'cancelled')
         .gte('start_time', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .lte('start_time', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString())
         .order('start_time', { ascending: true })
