@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import ChildCard from '@/components/family/ChildCard.vue'
@@ -31,6 +31,11 @@ const showInviteModal = ref(false)
 // Load family data on mount
 onMounted(() => {
   dashboardStore.loadFamilyData()
+})
+
+// Clean up status refresh timer on unmount
+onBeforeUnmount(() => {
+  dashboardStore.stopStatusRefresh()
 })
 
 const activeModal = ref(null)
@@ -106,6 +111,11 @@ function confirmDropoff(data) {
   dashboardStore.confirmDropoff(data.child.id, data.location, data.items, data.snapshotId)
 }
 
+function confirmEventDropoff(data) {
+  // Quick-confirm dropoff from conflict banner (no items/snapshot)
+  dashboardStore.confirmDropoff(data.child.id, data.eventTitle, [])
+}
+
 function openAddEventModal(date) {
   editingEvent.value = null
   if (date instanceof Date) {
@@ -178,6 +188,7 @@ async function handleDeleteEvent(event) {
           @open-brief="c => openModal(c, 'brief')"
           @open-documents="c => openModal(c, 'documents')"
           @send-nudge="sendNudge"
+          @confirm-event-dropoff="confirmEventDropoff"
         />
       </div>
     </div>

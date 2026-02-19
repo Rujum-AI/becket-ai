@@ -93,6 +93,8 @@ async function createInvitation() {
   const hasFamilyId = family.value?.id || dashboardStore.family?.id
   if (!email.value || !hasFamilyId || !user.value) return
 
+  email.value = email.value.trim().toLowerCase()
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(email.value)) {
     error.value = t('err_invalidEmail')
@@ -140,12 +142,6 @@ async function createInvitation() {
     existingInvite.value = inviteData
     pendingInvite.value = inviteData
     dashboardStore.pendingInvite = inviteData
-
-    // Try edge function email as bonus (fire and forget)
-    const inviterName = user.value.user_metadata?.display_name || user.value.email?.split('@')[0]
-    supabase.functions.invoke('send-invite-email', {
-      body: { email: email.value, inviterName, token }
-    }).catch(() => {})
   } catch (err) {
     console.error('Invitation error:', err)
     error.value = t('inviteError')

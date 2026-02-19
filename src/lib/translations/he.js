@@ -477,12 +477,12 @@ export default {
   iAmMom: 'אני אמא',
   chooseRole: '...אני',
   familyFull: 'ההורה השותף כבר הצטרף!',
-  invitePending: 'הזמנה ממתינה',
-  invitePendingFor: 'הזמנה נשלחה ל',
-  inviteAwaitingApproval: 'ממתין לאישור ההורה השותף — לחצו לשליחה מחדש',
+  invitePending: 'הזמנה מוכנה',
+  invitePendingFor: 'הזמנה עבור',
+  inviteAwaitingApproval: 'שלח קישור זה להורה השותף — לחץ לשיתוף',
   copyInviteLink: 'העתק קישור הזמנה',
   linkCopied: 'הקישור הועתק!',
-  shareInviteLink: 'שתף את הקישור עם ההורה השותף',
+  shareInviteLink: 'שלח קישור זה להורה השותף דרך וואטסאפ או העתק אותו',
   inviteExpires7Days: 'ההזמנה תפוג בעוד 7 ימים',
   createInvite: 'צור הזמנה',
   creating: 'יוצר',
@@ -531,6 +531,11 @@ export default {
   dropoffTitle: 'אישור מסירה',
   goingTo: 'בדרך ל',
   comingBackFrom: 'חוזר/ת מ',
+  statusFromSchedule: 'לפי לוח משמורת',
+  didYouDropOff: 'האם הורדת את',
+  atPlace: 'ב',
+  pickupNeeded: 'צריך לאסוף מ',
+  overdueDropoff: 'באיחור!',
 
   // === CUSTODY OVERRIDES ===
   changeCustody: 'שינוי משמורת',
@@ -746,6 +751,19 @@ export default {
   invite_expiredMsg: 'תוקף ההזמנה פג',
   invite_invalidLink: 'קישור הזמנה לא תקין',
   invite_emailMismatch: 'ודא שאתה משתמש באימייל שאליו נשלחה ההזמנה.',
+
+  // Co-Parent Onboarding (invite acceptance flow)
+  invite_welcomeTitle: 'ברוכים הבאים!',
+  invite_welcomeMsg: '{inviter} הזמין אותך לנהל יחד דרך Becket',
+  invite_yourChildren: 'הילדים שלכם',
+  invite_reviewTitle: 'הגדרות המשפחה',
+  invite_reviewSub: 'כך המשפחה שלכם מוגדרת. תוכלו לעדכן בהמשך.',
+  invite_acceptJoin: 'קבל והצטרף למשפחה',
+  invite_homesLabel: 'בתים',
+  invite_relationshipLabel: 'מערכת יחסים',
+  invite_agreementLabel: 'הסכמה',
+  invite_currencyLabel: 'מטבע',
+  invite_alreadyInFamily: 'אתה כבר חבר במשפחה.',
 
   // Invite Modal — cancel/resend
   inviteChangeEmail: 'שנה אימייל',

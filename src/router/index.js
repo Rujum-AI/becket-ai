@@ -35,37 +35,37 @@ const router = createRouter({
       path: '/finance',
       name: 'finance',
       component: () => import('@/views/FinanceView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/management',
       name: 'management',
       component: () => import('@/views/ManagementView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/trustees',
       name: 'trustees',
       component: () => import('@/views/TrusteesView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/understandings',
       name: 'understandings',
       component: () => import('@/views/UnderstandingsView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/updates',
       name: 'updates',
       component: () => import('@/views/UpdatesView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/subscription',
       name: 'subscription',
       component: () => import('@/views/SubscriptionView.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresFamily: true }
     },
     {
       path: '/reset-password',
@@ -91,13 +91,11 @@ router.beforeEach(async (to, from, next) => {
   const hasAuthParams = to.hash.includes('access_token') || to.query.code
 
   if (hasAuthParams) {
-    console.log('✅ Auth callback detected, allowing route')
     next()
     return
   }
 
   const { data: { session } } = await supabase.auth.getSession()
-  console.log('🔑 Session:', session ? 'EXISTS' : 'NONE')
 
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiresFamily = to.matched.some(record => record.meta.requiresFamily)
@@ -106,14 +104,12 @@ router.beforeEach(async (to, from, next) => {
 
   // Not authenticated
   if (requiresAuth && !session) {
-    console.log('❌ Protected route, no session -> /')
     next('/')
     return
   }
 
   // Already logged in, trying to access landing — send to app
   if (isPublic && session && to.path === '/') {
-    console.log('✅ Already logged in, checking family status')
     const { checkUserFamily } = useFamily()
     const hasFamily = await checkUserFamily(session.user.id)
     next(hasFamily ? '/family' : '/onboarding')
@@ -125,22 +121,17 @@ router.beforeEach(async (to, from, next) => {
     const { checkUserFamily } = useFamily()
     const hasFamily = await checkUserFamily(session.user.id)
 
-    console.log('👨‍👩‍👧‍👦 Has family:', hasFamily)
-
     if (requiresFamily && !hasFamily) {
-      console.log('❌ Requires family, but none found -> /onboarding')
       next('/onboarding')
       return
     }
 
-    if (requiresNoFamily && hasFamily && !to.query.preview) {
-      console.log('❌ Requires no family, but has one -> /family')
+    if (requiresNoFamily && hasFamily) {
       next('/family')
       return
     }
   }
 
-  console.log('✅ Allowing navigation')
   next()
 })
 

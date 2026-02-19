@@ -477,12 +477,12 @@ export default {
   iAmMom: "I'm Mommy",
   chooseRole: 'I am...',
   familyFull: 'Your co-parent has already joined!',
-  invitePending: 'Invitation pending',
-  invitePendingFor: 'Invite sent to',
-  inviteAwaitingApproval: 'Awaiting co-parent approval — tap to reshare',
+  invitePending: 'Invitation ready',
+  invitePendingFor: 'Invite for',
+  inviteAwaitingApproval: 'Send this link to your co-parent — tap to share',
   copyInviteLink: 'Copy Invite Link',
   linkCopied: 'Link copied!',
-  shareInviteLink: 'Share this link with your co-parent',
+  shareInviteLink: 'Send this link to your co-parent via WhatsApp or copy it',
   inviteExpires7Days: 'This invitation expires in 7 days',
   createInvite: 'Create Invitation',
   creating: 'Creating',
@@ -531,6 +531,11 @@ export default {
   dropoffTitle: 'Confirm Dropoff',
   goingTo: 'going to',
   comingBackFrom: 'coming back from',
+  statusFromSchedule: 'Based on custody schedule',
+  didYouDropOff: 'Did you drop off',
+  atPlace: 'at',
+  pickupNeeded: 'should be picked up from',
+  overdueDropoff: 'Overdue!',
 
   // === CUSTODY OVERRIDES ===
   changeCustody: 'Change Custody',
@@ -746,6 +751,19 @@ export default {
   invite_expiredMsg: 'This invitation has expired',
   invite_invalidLink: 'Invalid invitation link',
   invite_emailMismatch: 'Make sure you are using the email the invitation was sent to.',
+
+  // Co-Parent Onboarding (invite acceptance flow)
+  invite_welcomeTitle: 'Welcome!',
+  invite_welcomeMsg: '{inviter} invited you to co-parent together on Becket',
+  invite_yourChildren: 'Your children',
+  invite_reviewTitle: 'Your Family Setup',
+  invite_reviewSub: 'Here\'s how your family is configured. You can update these later.',
+  invite_acceptJoin: 'Accept & Join Family',
+  invite_homesLabel: 'Homes',
+  invite_relationshipLabel: 'Relationship',
+  invite_agreementLabel: 'Agreement',
+  invite_currencyLabel: 'Currency',
+  invite_alreadyInFamily: 'You are already a member of a family.',
 
   // Invite Modal — cancel/resend
   inviteChangeEmail: 'Change Email',

@@ -1,12 +1,24 @@
 # Becket AI — Version History
 
-**Current Version: v1.00**
+**Current Version: v1.01**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.01 — Post-launch hardening + invite flow overhaul
+`152f8cb` — 2026-02-19
+- QA hardening: requiresFamily guard on 6 routes, strip console.log, global error handler
+- Fix invite "not found" bug: lookup_invitation_by_token RPC bypasses RLS
+- Co-parent onboarding wizard: welcome screen, name/role picker, family settings review
+- Child status engine: effective status from custody cycle, conflict banners, 60s refresh
+- Full-page layout for entire invite + onboarding flow (dark textured footer, white header, styled buttons)
+- Share interstitial: bottom bar with textured Continue button + progress dots
+- Replace embedded families(*) joins with separate queries (fix PostgREST 406 errors)
+- Generate family UUID client-side to bypass SELECT RLS on INSERT RETURNING
+- Remove email edge function calls (invite shared via WhatsApp/copy-link)
 
 ### v1.00 — Production baseline
 `0c3aed1` — 2026-02-18

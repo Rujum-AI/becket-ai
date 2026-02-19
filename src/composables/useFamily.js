@@ -61,15 +61,10 @@ export function useFamily() {
   async function _doCheckUserFamily(userId) {
     loading.value = true
     try {
-      // Check family_members table
-      const { data, error } = await supabase
+      // Check family_members table (separate queries to avoid PostgREST join issues)
+      const { data: memberData, error } = await supabase
         .from('family_members')
-        .select(`
-          family_id,
-          parent_label,
-          role,
-          families (*)
-        `)
+        .select('family_id, parent_label, role')
         .eq('profile_id', userId)
         .single()
 
@@ -77,10 +72,17 @@ export function useFamily() {
         throw error
       }
 
-      // If user already has a family, return it
-      if (data) {
-        family.value = data.families
-        userRole.value = data.role
+      // If user already has a family, fetch the family record separately
+      if (memberData) {
+        const { data: familyData, error: famErr } = await supabase
+          .from('families')
+          .select('*')
+          .eq('id', memberData.family_id)
+          .single()
+
+        if (famErr) throw famErr
+        family.value = familyData
+        userRole.value = memberData.role
         await fetchChildren()
         return true
       }
@@ -108,21 +110,22 @@ export function useFamily() {
 
         if (result?.accepted) {
           console.log('✅ Invitation accepted! Joining family:', result.family_id)
-          // Re-check family membership
-          const { data: familyData } = await supabase
+          // Re-check family membership (separate queries)
+          const { data: memberData2 } = await supabase
             .from('family_members')
-            .select(`
-              family_id,
-              parent_label,
-              role,
-              families (*)
-            `)
+            .select('family_id, parent_label, role')
             .eq('profile_id', userId)
             .single()
 
-          if (familyData) {
-            family.value = familyData.families
-            userRole.value = familyData.role
+          if (memberData2) {
+            const { data: familyData2 } = await supabase
+              .from('families')
+              .select('*')
+              .eq('id', memberData2.family_id)
+              .single()
+
+            family.value = familyData2
+            userRole.value = memberData2.role
             await fetchChildren()
             return true
           }
@@ -170,21 +173,27 @@ export function useFamily() {
         'full': 'full'
       }
 
-      // Create family
-      const { data: familyData, error: familyError } = await supabase
+      // Create family — generate ID client-side so we don't need .select()
+      // (.select() triggers RETURNING which requires SELECT RLS, but user isn't
+      //  in family_members yet so user_family_ids() is empty → RLS blocks it)
+      const familyId = crypto.randomUUID()
+      const familyRow = {
+        id: familyId,
+        mode: onboardingData.mode,
+        home_count: onboardingData.homes,
+        relationship_status: relationshipStatusMap[onboardingData.relationshipStatus] || onboardingData.relationshipStatus,
+        agreement_basis: agreementBasisMap[onboardingData.agreementType] || onboardingData.agreementType,
+        plan: planMap[onboardingData.selectedPlan] || 'essential',
+        currency: onboardingData.currency || 'NIS'
+      }
+      const { error: familyError } = await supabase
         .from('families')
-        .insert({
-          mode: onboardingData.mode,
-          home_count: onboardingData.homes,
-          relationship_status: relationshipStatusMap[onboardingData.relationshipStatus] || onboardingData.relationshipStatus,
-          agreement_basis: agreementBasisMap[onboardingData.agreementType] || onboardingData.agreementType,
-          plan: planMap[onboardingData.selectedPlan] || 'essential',
-          currency: onboardingData.currency || 'NIS'
-        })
-        .select()
-        .single()
+        .insert(familyRow)
 
       if (familyError) throw familyError
+
+      // Use the local object as familyData (we have all fields)
+      const familyData = { ...familyRow, created_at: new Date().toISOString() }
 
       // Ensure profile exists (handles edge cases where trigger didn't fire)
       const { error: profileError } = await supabase.rpc('ensure_profile_exists')
@@ -237,19 +246,6 @@ export function useFamily() {
 
         // Cache for the invite modal to pick up
         pendingInvite.value = { email: onboardingData.partnerEmail, token: inviteToken }
-
-        // Send invite email (fire and forget)
-        const { data: { session } } = await supabase.auth.getSession()
-        const inviterName = session?.user?.user_metadata?.display_name
-          || session?.user?.email?.split('@')[0]
-          || 'Your co-parent'
-        supabase.functions.invoke('send-invite-email', {
-          body: {
-            email: onboardingData.partnerEmail,
-            inviterName,
-            token: inviteToken
-          }
-        }).catch(() => {})
       }
 
       family.value = familyData

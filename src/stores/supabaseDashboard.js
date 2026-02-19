@@ -18,6 +18,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const pendingInvite = ref(null) // { email, token } if co-parent not yet joined
   const loading = ref(false)
   const error = ref(null)
+  let statusRefreshTimer = null
 
   // Load family and children from Supabase
   async function loadFamilyData() {
@@ -30,17 +31,22 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       // Get user's family membership
       const { data: familyMember, error: memberError } = await supabase
         .from('family_members')
-        .select(`
-          family_id,
-          parent_label,
-          families (*)
-        `)
+        .select('family_id, parent_label')
         .eq('profile_id', user.value.id)
         .single()
 
       if (memberError) throw memberError
 
-      family.value = familyMember.families
+      // Fetch family record separately (avoids PostgREST embedded join issues)
+      const { data: familyRecord, error: familyError } = await supabase
+        .from('families')
+        .select('*')
+        .eq('id', familyMember.family_id)
+        .single()
+
+      if (familyError) throw familyError
+
+      family.value = familyRecord
       parentLabel.value = familyMember.parent_label
 
       // Get partner (co-parent) if exists
@@ -131,8 +137,11 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const nextHandoff = getNextHandoff(child.id)
         const myLabel = parentLabel.value || 'dad'
 
-        // Status comes from DB (button press), not computed from custody
-        const status = child.current_status || 'unknown'
+        // Effective status: DB status, or custody cycle fallback when unknown
+        const { status, source: statusSource } = getEffectiveStatus(child)
+
+        // Detect conflict between current status and expected (from events)
+        const conflict = getStatusConflict(child.id, status, child.name)
 
         // Next action: if child is with me → dropoff, otherwise → pickup
         const childIsWithMe = status === `with_${myLabel}`
@@ -145,6 +154,9 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           dob: child.date_of_birth,
           medical: child.medical_notes,
           status: status,
+          statusSource: statusSource,
+          conflict: conflict,
+          _dbStatus: child.current_status || 'unknown',
           currentParentId: child.current_parent_id,
           nextEventTime: nextEvent?.time || '--:--',
           nextEventLoc: nextEvent?.location || '',
@@ -158,6 +170,9 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           dayProgress: dayProgress
         }
       })
+
+      // Start periodic status/conflict refresh (events may start/end while app is open)
+      startStatusRefresh()
     } catch (err) {
       console.error('Error loading family data:', err)
       error.value = err.message
@@ -675,6 +690,134 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     )
   }
 
+  // Effective status: use DB status if set, otherwise fall back to custody cycle
+  function getEffectiveStatus(child) {
+    const dbStatus = child.current_status || 'unknown'
+
+    if (dbStatus !== 'unknown') {
+      return { status: dbStatus, source: 'explicit' }
+    }
+
+    // Fall back to custody cycle for today
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const expectedParent = getExpectedParent(todayStr)
+
+    if (expectedParent && expectedParent !== 'unknown') {
+      return { status: `with_${expectedParent}`, source: 'custody_cycle' }
+    }
+
+    return { status: 'unknown', source: 'none' }
+  }
+
+  // Detect conflict between current status and what events expect
+  function getStatusConflict(childId, currentStatus, childName) {
+    const now = new Date()
+    const childEvents = getChildEvents(childId)
+
+    // Find active event right now (school/activity)
+    const activeEvent = childEvents.find(event => {
+      if (event.status === 'cancelled') return false
+      if (event.type !== 'school' && event.type !== 'activity') return false
+      const start = new Date(event.start_time)
+      const end = event.end_time ? new Date(event.end_time) : null
+      if (!end) return false
+      return start <= now && now <= end
+    })
+
+    if (activeEvent) {
+      const isWithParent = currentStatus.startsWith('with_')
+      if (isWithParent) {
+        const minutesSinceStart = (now - new Date(activeEvent.start_time)) / 60000
+        return {
+          type: minutesSinceStart >= 15 ? 'dropoff_overdue' : 'dropoff_needed',
+          childName,
+          eventTitle: activeEvent.title || activeEvent.type,
+          eventStart: activeEvent.start_time,
+          eventType: activeEvent.type
+        }
+      }
+      return null // Status matches expectation (at_school/at_activity)
+    }
+
+    // Find upcoming event starting within 30 minutes
+    const soon = new Date(now.getTime() + 30 * 60 * 1000)
+    const upcomingEvent = childEvents.find(event => {
+      if (event.status === 'cancelled') return false
+      if (event.type !== 'school' && event.type !== 'activity') return false
+      const start = new Date(event.start_time)
+      return start > now && start <= soon
+    })
+
+    if (upcomingEvent && currentStatus.startsWith('with_')) {
+      return {
+        type: 'dropoff_needed',
+        childName,
+        eventTitle: upcomingEvent.title || upcomingEvent.type,
+        eventStart: upcomingEvent.start_time,
+        eventType: upcomingEvent.type
+      }
+    }
+
+    // Check if child is at_school/at_activity but no active event (event ended)
+    if ((currentStatus === 'at_school' || currentStatus === 'at_activity') && !activeEvent) {
+      // Find the most recent ended event today for this child
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const recentEndedEvent = [...childEvents].reverse().find(event => {
+        if (event.status === 'cancelled') return false
+        if (event.type !== 'school' && event.type !== 'activity') return false
+        const end = event.end_time ? new Date(event.end_time) : null
+        if (!end) return false
+        return end < now && end >= today
+      })
+
+      if (recentEndedEvent) {
+        return {
+          type: 'pickup_needed',
+          childName,
+          eventTitle: recentEndedEvent.title || recentEndedEvent.type,
+          eventStart: recentEndedEvent.end_time,
+          eventType: recentEndedEvent.type
+        }
+      }
+    }
+
+    return null
+  }
+
+  // Refresh timer: re-evaluate statuses and conflicts every 60s
+  function startStatusRefresh() {
+    stopStatusRefresh()
+    statusRefreshTimer = setInterval(() => {
+      if (!children.value.length) return
+      const myLabel = parentLabel.value || 'dad'
+
+      children.value = children.value.map(child => {
+        const { status, source: statusSource } = getEffectiveStatus({
+          current_status: child._dbStatus || 'unknown'
+        })
+        const conflict = getStatusConflict(child.id, status, child.name)
+        const childIsWithMe = status === `with_${myLabel}`
+
+        return {
+          ...child,
+          status,
+          statusSource,
+          conflict,
+          nextAction: childIsWithMe ? 'drop' : 'pick'
+        }
+      })
+    }, 60000)
+  }
+
+  function stopStatusRefresh() {
+    if (statusRefreshTimer) {
+      clearInterval(statusRefreshTimer)
+      statusRefreshTimer = null
+    }
+  }
+
   // Helper: Get next event for a child
   function getNextEvent(childId) {
     const now = new Date()
@@ -841,6 +984,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     getPendingOverrideForDate,
     requestCustodyOverride,
     respondToCustodyOverride,
-    generateBrief
+    generateBrief,
+    stopStatusRefresh
   }
 })

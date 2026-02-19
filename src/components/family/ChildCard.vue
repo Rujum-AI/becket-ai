@@ -7,7 +7,8 @@ import {
   ArrowLeftRight,
   Heart,
   FileText,
-  FolderOpen
+  FolderOpen,
+  AlertTriangle
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -18,7 +19,7 @@ const props = defineProps({
   colorIndex: { type: Number, default: 0 }
 })
 
-defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge'])
+defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge', 'confirm-event-dropoff'])
 
 const { t } = useI18n()
 
@@ -43,6 +44,28 @@ const cardColorVars = computed(() => ({
 const isPickup = computed(() => props.child.nextAction === 'pick')
 const actionLabel = computed(() => isPickup.value ? t('pickup') : t('dropoff'))
 const actionEvent = computed(() => isPickup.value ? 'open-pickup' : 'open-dropoff')
+
+// Dynamic status dot color class
+const statusDotClass = computed(() => {
+  const s = props.child.status
+  if (s === 'at_school' || s === 'at_activity') return 'dot-location'
+  if (s === 'with_dad' || s === 'with_mom') return 'dot-parent'
+  return 'dot-unknown'
+})
+
+// Conflict banner
+const conflict = computed(() => props.child.conflict)
+const conflictText = computed(() => {
+  if (!conflict.value) return ''
+  const c = conflict.value
+  if (c.type === 'dropoff_needed' || c.type === 'dropoff_overdue') {
+    return `${t('didYouDropOff')} ${c.childName} ${t('atPlace')} ${c.eventTitle}?`
+  }
+  if (c.type === 'pickup_needed') {
+    return `${c.childName} ${t('pickupNeeded')} ${c.eventTitle}`
+  }
+  return ''
+})
 
 function getRelativeDay(dateStr) {
   if (!dateStr) return ''
@@ -98,8 +121,8 @@ const nextInteractionText = computed(() => {
       </div>
       <div class="card-info">
         <h3 class="child-name">{{ child.name }}</h3>
-        <div class="status-pill">
-          <div class="status-dot"></div>
+        <div class="status-pill" :title="child.statusSource === 'custody_cycle' ? t('statusFromSchedule') : ''">
+          <div :class="['status-dot', statusDotClass]"></div>
           <span>{{ t(child.status) }}</span>
         </div>
       </div>
@@ -124,6 +147,28 @@ const nextInteractionText = computed(() => {
           <CircleArrowUp v-else :size="20" />
         </span>
         <span class="action-label">{{ actionLabel }}</span>
+      </button>
+    </div>
+
+    <!-- CONFLICT BANNER: status vs expected mismatch -->
+    <div v-if="conflict" :class="['conflict-banner', conflict.type === 'dropoff_overdue' ? 'conflict-urgent' : 'conflict-warn']">
+      <div class="conflict-row">
+        <AlertTriangle :size="14" class="conflict-icon" />
+        <span class="conflict-text">{{ conflictText }}</span>
+      </div>
+      <button
+        v-if="conflict.type === 'dropoff_needed' || conflict.type === 'dropoff_overdue'"
+        class="conflict-action-btn"
+        @click.stop="$emit('confirm-event-dropoff', { child, eventTitle: conflict.eventTitle, eventType: conflict.eventType })"
+      >
+        {{ t('confirmDropoff') }}
+      </button>
+      <button
+        v-else-if="conflict.type === 'pickup_needed'"
+        class="conflict-action-btn"
+        @click.stop="$emit('open-pickup', child)"
+      >
+        {{ t('pickup') }}
       </button>
     </div>
 
@@ -257,15 +302,33 @@ const nextInteractionText = computed(() => {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: #22c55e;
-  animation: statusPulse 2s ease-in-out infinite;
   flex-shrink: 0;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 }
 
-@keyframes statusPulse {
+.dot-parent {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+  animation: statusPulseGreen 2s ease-in-out infinite;
+}
+
+.dot-location {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.4);
+  animation: statusPulseBlue 2s ease-in-out infinite;
+}
+
+.dot-unknown {
+  background: #94a3b8;
+}
+
+@keyframes statusPulseGreen {
   0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(34, 197, 94, 0.4); }
   50% { opacity: 0.5; box-shadow: 0 0 2px rgba(34, 197, 94, 0.2); }
+}
+
+@keyframes statusPulseBlue {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px rgba(59, 130, 246, 0.4); }
+  50% { opacity: 0.5; box-shadow: 0 0 2px rgba(59, 130, 246, 0.2); }
 }
 
 .status-pill span {
@@ -430,6 +493,87 @@ const nextInteractionText = computed(() => {
   animation: nudgePulse 0.6s ease-in-out infinite;
 }
 
+/* ===== Conflict Banner ===== */
+.conflict-banner {
+  position: relative;
+  z-index: 1;
+  margin: 0 0.75rem 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.conflict-warn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.3);
+}
+
+.conflict-urgent {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
+  animation: conflictPulse 2s ease-in-out infinite;
+}
+
+@keyframes conflictPulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.3); }
+  50% { border-color: rgba(239, 68, 68, 0.6); }
+}
+
+.conflict-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.conflict-icon {
+  flex-shrink: 0;
+}
+
+.conflict-warn .conflict-icon { color: #f59e0b; }
+.conflict-urgent .conflict-icon { color: #ef4444; }
+
+.conflict-text {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.conflict-warn .conflict-text { color: #92400e; }
+.conflict-urgent .conflict-text { color: #991b1b; }
+
+.conflict-action-btn {
+  align-self: flex-end;
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  border: none;
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.conflict-warn .conflict-action-btn {
+  background: #f59e0b;
+  color: white;
+}
+
+.conflict-warn .conflict-action-btn:hover {
+  background: #d97706;
+}
+
+.conflict-urgent .conflict-action-btn {
+  background: #ef4444;
+  color: white;
+}
+
+.conflict-urgent .conflict-action-btn:hover {
+  background: #dc2626;
+}
+
 /* ===== Schedule Section ===== */
 .schedule-section {
   position: relative;
@@ -533,18 +677,16 @@ const nextInteractionText = computed(() => {
 /* ===== Mobile: Single-column full-width card ===== */
 @media (max-width: 640px) {
 
-  /* Card becomes a 2-column grid: [header | actions] over [schedule] over [quick-actions] */
+  /* Card becomes a 2-column grid: [header | actions] over [conflict?] over [schedule] over [quick-actions] */
   .child-card {
     display: grid;
     grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto auto;
     border-radius: 1.5rem;
   }
 
-  /* Header occupies left side of row 1 */
+  /* Header occupies left side of first row */
   .card-header {
     grid-column: 1;
-    grid-row: 1;
     padding: 1rem 0 0.5rem;
     padding-inline-start: 1rem;
     gap: 0.75rem;
@@ -564,10 +706,9 @@ const nextInteractionText = computed(() => {
     font-size: 0.6875rem;
   }
 
-  /* Action buttons occupy right side of row 1, stacked vertically */
+  /* Action buttons occupy right side of first row, stacked vertically */
   .action-row {
     grid-column: 2;
-    grid-row: 1;
     flex-direction: column;
     align-items: stretch;
     justify-content: center;
@@ -591,12 +732,16 @@ const nextInteractionText = computed(() => {
     min-height: 2.5rem;
   }
 
-  /* Schedule spans full width in row 2 */
+  /* Conflict banner spans full width */
+  .conflict-banner {
+    grid-column: 1 / -1;
+    margin: 0 0.875rem 0.5rem;
+  }
+
+  /* Schedule spans full width */
   .schedule-section {
     grid-column: 1 / -1;
-    grid-row: 2;
     margin: 0 0.875rem 0.5rem;
-    border-radius: 0.875rem;
   }
 
   .schedule-row {
@@ -608,10 +753,9 @@ const nextInteractionText = computed(() => {
     font-size: 0.8125rem;
   }
 
-  /* Quick actions span full width in row 3, horizontal pill layout */
+  /* Quick actions span full width, horizontal pill layout */
   .quick-actions {
     grid-column: 1 / -1;
-    grid-row: 3;
     padding: 0 0.875rem 0.875rem;
     gap: 0.5rem;
   }

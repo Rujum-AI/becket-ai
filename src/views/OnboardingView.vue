@@ -362,11 +362,6 @@ async function shareNative() {
             <p class="share-expires">{{ t('inviteExpires7Days') }}</p>
           </div>
 
-          <div class="share-continue">
-            <button @click="goToPlanStep" class="btn-next">
-              {{ t('onb_continue') }}
-            </button>
-          </div>
         </div>
 
         <!-- STEP 1: MODE SELECTION -->
@@ -654,18 +649,23 @@ async function shareNative() {
     </main>
 
     <!-- Fixed Bottom Bar -->
-    <div v-if="!showShareScreen" class="bottom-bar">
+    <div class="bottom-bar">
       <div class="progress-dots">
-        <span v-for="n in 4" :key="n" :class="['dot', { active: step === n, completed: step > n }]"></span>
+        <span v-for="n in 4" :key="n" :class="['dot', { active: showShareScreen ? false : step === n, completed: showShareScreen ? n <= 3 : step > n }]"></span>
       </div>
-      <div class="bottom-actions" :class="{ 'single-btn': step === 1 }">
-        <button v-if="step > 1" @click="prevStep"
+      <div class="bottom-actions" :class="{ 'single-btn': step === 1 || showShareScreen }">
+        <button v-if="!showShareScreen && step > 1" @click="prevStep"
           class="modal-primary-btn onb-back-btn" style="background: #0d9488">
           {{ t('onb_back') }}
         </button>
 
+        <!-- Share screen: Continue to plans -->
+        <button v-if="showShareScreen" @click="goToPlanStep"
+          class="modal-primary-btn" style="background: #BD5B39">
+          {{ t('onb_continue') }}
+        </button>
         <!-- Step 3: Create Family -->
-        <button v-if="step === 3" @click="handleCreateFamily" :disabled="!canProceed || saving"
+        <button v-else-if="step === 3" @click="handleCreateFamily" :disabled="!canProceed || saving"
           class="modal-primary-btn" style="background: #BD5B39">
           {{ saving ? t('onb_saving') + '...' : t('onb_createFamily') }}
         </button>
@@ -1627,11 +1627,6 @@ async function shareNative() {
   color: #94a3b8;
   text-align: center;
   margin: 0;
-}
-
-.share-continue {
-  width: 100%;
-  margin-top: 1.5rem;
 }
 
 /* === FIXED BOTTOM BAR (matches app footer style) === */
