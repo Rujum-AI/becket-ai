@@ -102,7 +102,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           )
         `)
         .eq('family_id', familyMember.family_id)
-        .neq('status', 'cancelled')
+        .or('status.neq.cancelled,status.is.null')
         .gte('start_time', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
         .lte('start_time', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString())
         .order('start_time', { ascending: true })
@@ -986,21 +986,28 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       let handoffTime
       let location = null
+      let handoffDate = date // default: transition day itself
+
       if (schoolEvent && schoolEvent.end_time) {
+        // School pickup: happens on the transition day at school end time
         const endDate = new Date(schoolEvent.end_time)
         handoffTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
         location = schoolEvent.title || 'School'
       } else {
+        // Default handoff: happens on the FIRST day of the new custody period
         handoffTime = defaultHandoffTime.value || null
+        handoffDate = nextDay // handoff is tomorrow morning, not today
       }
 
       // No time available (no school event and user hasn't set default) — skip
       if (!handoffTime) continue
 
-      // If today and handoff time already passed, skip to next transition
-      if (i === 0) {
+      // If handoff date is today and time already passed, skip
+      const handoffDateStr = fmtDate(handoffDate)
+      const todayStr = fmtDate(now)
+      if (handoffDateStr === todayStr) {
         const [hh, mm] = handoffTime.split(':').map(Number)
-        const handoffMoment = new Date(date)
+        const handoffMoment = new Date(handoffDate)
         handoffMoment.setHours(hh, mm, 0, 0)
         if (now > handoffMoment) continue
       }
@@ -1011,7 +1018,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         ? 'pickup'
         : (tomorrowParent === myLabel ? 'pickup' : 'dropoff')
 
-      return { type, time: handoffTime, location, date }
+      return { type, time: handoffTime, location, date: handoffDate }
     }
 
     return null

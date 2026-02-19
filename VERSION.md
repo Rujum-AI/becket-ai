@@ -1,12 +1,18 @@
 # Becket AI — Version History
 
-**Current Version: v1.03**
+**Current Version: v1.04**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.04 — Fix handoff date + NULL-safe events filter
+`pending` — 2026-02-19
+- Fix handoff date: non-school transitions use first day of new custody period (not transition day)
+- NULL-safe events query: include events with NULL status (from RPC generator)
+- Prevents "already passed" check from skipping tomorrow's handoff when checked tonight
 
 ### v1.03 — "Take to event" logic + trustee cascade delete
 `f4f7b85` — 2026-02-19
