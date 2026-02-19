@@ -21,6 +21,14 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const error = ref(null)
   let statusRefreshTimer = null
 
+  // Helper: get local timezone offset string like "+02:00" or "-05:00"
+  function getTzOffset() {
+    const offset = new Date().getTimezoneOffset() // minutes, e.g. -120 for UTC+2
+    const sign = offset <= 0 ? '+' : '-'
+    const abs = Math.abs(offset)
+    return `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`
+  }
+
   // Load family and children from Supabase
   async function loadFamilyData() {
     if (!user.value) return
@@ -349,7 +357,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     if (!user.value || !family.value) return
 
     try {
-      const startTime = time ? `${date}T${time}:00` : `${date}T00:00:00`
+      const tz = getTzOffset()
+      const startTime = time ? `${date}T${time}:00${tz}` : `${date}T00:00:00${tz}`
       const allDay = !time
 
       // Auto-detect co-parent custody day for pending approval
@@ -367,7 +376,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         title,
         description: buildDescription(notes, backpackItems),
         start_time: startTime,
-        end_time: endTime ? `${date}T${endTime}:00` : null,
+        end_time: endTime ? `${date}T${endTime}:00${tz}` : null,
         all_day: allDay,
         location_name: location || null,
         school_id: schoolId,
@@ -417,7 +426,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     if (!user.value || !family.value) return
 
     try {
-      const startTime = time ? `${date}T${time}:00` : `${date}T00:00:00`
+      const tz = getTzOffset()
+      const startTime = time ? `${date}T${time}:00${tz}` : `${date}T00:00:00${tz}`
 
       // Check co-parent custody for pending approval
       let eventStatus = 'scheduled'
@@ -433,7 +443,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         type: type || 'manual',
         description: buildDescription(notes, backpackItems),
         start_time: startTime,
-        end_time: endTime ? `${date}T${endTime}:00` : null,
+        end_time: endTime ? `${date}T${endTime}:00${tz}` : null,
         all_day: !time,
         location_name: location || null,
         school_id: schoolId,
