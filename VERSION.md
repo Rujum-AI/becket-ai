@@ -1,12 +1,21 @@
 # Becket AI — Version History
 
-**Current Version: v1.06**
+**Current Version: v1.07**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.07 — Resolve profile_ids back to labels for calendar + all consumers
+`pending` — 2026-02-19
+- New `resolveCustodyLabel()` helper in dashboard store (profile_id → 'dad'/'mom'/'split')
+- CalendarSection: custody day colors now work with profile_id schedule values
+- ChangeCustodyModal: suggest-parent and preview resolve correctly
+- AddEventFlow + CreateItemModal: co-parent day warnings resolve correctly
+- isExpectedParentToday + createEvent/updateEvent pending_approval use resolver
+- Fixes calendar showing only co-parent days, not user's own custody days
 
 ### v1.06 — Custody editor uses profile_ids end-to-end
 `pending` — 2026-02-19

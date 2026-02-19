@@ -27,7 +27,8 @@ const submitError = ref(null)
 
 // Suggest the opposite parent of who has custody on the clicked date
 function suggestParent() {
-  const current = dashboardStore.custodySchedule[props.initialDate]
+  const raw = dashboardStore.custodySchedule[props.initialDate]
+  const current = dashboardStore.resolveCustodyLabel(raw) || 'mom'
   return current === 'dad' ? 'mom' : 'dad'
 }
 
@@ -42,11 +43,12 @@ const previewDays = computed(() => {
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     const key = `${y}-${m}-${day}`
+    const raw = dashboardStore.custodySchedule[key]
     days.push({
       dateKey: key,
       dayOfWeek: d.toLocaleDateString(locale.value, { weekday: 'short' }),
       dayNum: d.getDate(),
-      currentParent: dashboardStore.custodySchedule[key] || 'unknown'
+      currentParent: dashboardStore.resolveCustodyLabel(raw) || 'unknown'
     })
   }
   return days

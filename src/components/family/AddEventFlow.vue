@@ -230,8 +230,9 @@ function removeBackpackItem(idx) {
 // Co-parent day warning
 const isCoParentDay = computed(() => {
   if (!form.value.date || !dashboardStore.partnerId) return false
-  const expected = dashboardStore.getExpectedParent(form.value.date)
-  return expected && expected !== dashboardStore.parentLabel
+  const raw = dashboardStore.getExpectedParent(form.value.date)
+  const label = dashboardStore.resolveCustodyLabel(raw)
+  return label && label !== dashboardStore.parentLabel && label !== 'split'
 })
 
 // Display date nicely

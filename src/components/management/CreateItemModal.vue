@@ -70,8 +70,9 @@ function toggleChild(childId) {
 // Co-parent day warning: watch due date
 watch(() => newItem.value.dueDate, (val) => {
   if (!val || createType.value === 'switch') return
-  const expected = dashboardStore.getExpectedParent(val)
-  if (expected && expected !== dashboardStore.parentLabel) {
+  const raw = dashboardStore.getExpectedParent(val)
+  const label = dashboardStore.resolveCustodyLabel(raw)
+  if (label && label !== dashboardStore.parentLabel && label !== 'split') {
     showCoParentWarning.value = true
     if (createType.value === 'task') {
       createType.value = 'ask'

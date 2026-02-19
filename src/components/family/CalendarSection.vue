@@ -88,7 +88,10 @@ const currentDayEvents = computed(() => {
 
 function getCustodyForDate(date) {
   const key = formatDateKey(date)
-  return custodySchedule.value[key] || 'mom'
+  const raw = custodySchedule.value[key]
+  if (!raw) return 'mom'
+  // Resolve profile_id back to 'dad'/'mom'/'split' for CSS classes
+  return dashboardStore.resolveCustodyLabel(raw) || 'mom'
 }
 
 function isSameDay(date1, date2) {

@@ -380,7 +380,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       let eventStatus = 'scheduled'
       if (partnerId.value) {
         const custodyParent = getExpectedParent(date)
-        if (custodyParent && custodyParent !== user.value?.id && custodyParent !== parentLabel.value && custodyParent !== 'split') {
+        const custodyLabel = resolveCustodyLabel(custodyParent)
+        if (custodyLabel && custodyLabel !== parentLabel.value && custodyLabel !== 'split') {
           eventStatus = 'pending_approval'
         }
       }
@@ -448,7 +449,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       let eventStatus = 'scheduled'
       if (partnerId.value) {
         const custodyParent = getExpectedParent(date)
-        if (custodyParent && custodyParent !== user.value?.id && custodyParent !== parentLabel.value && custodyParent !== 'split') {
+        const custodyLabel = resolveCustodyLabel(custodyParent)
+        if (custodyLabel && custodyLabel !== parentLabel.value && custodyLabel !== 'split') {
           eventStatus = 'pending_approval'
         }
       }
@@ -571,7 +573,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const expected = getExpectedParent(today)
     if (!expected) return true // No cycle = anyone can pick up
-    return expected === parentLabel.value
+    const label = resolveCustodyLabel(expected)
+    return label === parentLabel.value || label === 'split'
   }
 
   // Confirm pickup — child is now WITH ME
@@ -710,6 +713,15 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     }
     return custodySchedule.value[dateStr] || null
+  }
+
+  // Resolve a schedule value (profile_id or raw label) back to 'dad'/'mom'/'split'
+  function resolveCustodyLabel(val) {
+    if (!val) return null
+    if (val === 'dad' || val === 'mom' || val === 'split') return val
+    if (val === user.value?.id) return parentLabel.value || 'dad'
+    if (val === partnerId.value) return partnerLabel.value || 'mom'
+    return val
   }
 
   // Helper: Build custody schedule from cycle data
@@ -1173,6 +1185,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     confirmPickup,
     confirmDropoff,
     getExpectedParent,
+    resolveCustodyLabel,
     getPendingOverrideForDate,
     requestCustodyOverride,
     respondToCustodyOverride,
