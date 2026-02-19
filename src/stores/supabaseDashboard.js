@@ -915,9 +915,11 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         if (now > handoffMoment) continue
       }
 
-      // Type: if tomorrowParent === myLabel → child coming to me (pickup)
-      //        if todayParent === myLabel → child leaving me (dropoff)
-      const type = tomorrowParent === myLabel ? 'pickup' : 'dropoff'
+      // Type: school event → always "pickup" (picking up from school)
+      //        no school → depends on custody direction
+      const type = (schoolEvent && schoolEvent.end_time)
+        ? 'pickup'
+        : (tomorrowParent === myLabel ? 'pickup' : 'dropoff')
 
       return { type, time: handoffTime, location, date }
     }
