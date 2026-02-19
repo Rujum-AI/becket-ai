@@ -1,12 +1,22 @@
 # Becket AI — Version History
 
-**Current Version: v1.01**
+**Current Version: v1.02**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.02 — Smart handoff time: computed from custody transitions + school events
+`TBD` — 2026-02-19
+- Compute next handoff from custody schedule transitions (no manual pickup/dropoff events needed)
+- If school event exists on transition day → use school end time as handoff time
+- Otherwise → use configurable default handoff time (stored in custody_cycles table)
+- New "Default handoff time" input in custody cycle editor (Understandings page)
+- Always-visible nudge/check-in button on child cards (grayed when inactive)
+- Always-visible next interaction section with placeholder when no data
+- EN + HE translations for new handoff time UI
 
 ### v1.01 — Post-launch hardening + invite flow overhaul
 `152f8cb` — 2026-02-19

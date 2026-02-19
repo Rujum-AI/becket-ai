@@ -15,6 +15,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
   const originalCycleDays = ref([])
   const activeCycleId = ref(null)
   const activeCycleVersion = ref(1)
+  const defaultHandoffTime = ref('17:00')
 
   // Understandings State
   const understandings = ref([])
@@ -264,6 +265,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
         activeCycleId.value = data.id
         activeCycleVersion.value = data.version_number
         cycleLength.value = data.cycle_length
+        defaultHandoffTime.value = data.default_handoff_time || '17:00'
 
         // Convert DB cycle_data to UI format
         const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -379,6 +381,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
             family_id: family.value.id,
             cycle_length: cycleLength.value,
             cycle_data: cycleData,
+            default_handoff_time: defaultHandoffTime.value,
             valid_from: today,
             valid_until: null,
             version_number: activeCycleVersion.value + 1,
@@ -400,6 +403,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
             family_id: family.value.id,
             cycle_length: cycleLength.value,
             cycle_data: cycleData,
+            default_handoff_time: defaultHandoffTime.value,
             valid_from: today,
             valid_until: null,
             version_number: 1,
@@ -879,6 +883,7 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     cycleLength,
     cycleDays,
     isCycleEditing,
+    defaultHandoffTime,
     understandings,
     expenseRules,
     pendingExpenseRules,

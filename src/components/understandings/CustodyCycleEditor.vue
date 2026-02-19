@@ -15,10 +15,14 @@ const props = defineProps({
   isEditing: {
     type: Boolean,
     default: false
+  },
+  defaultHandoffTime: {
+    type: String,
+    default: '17:00'
   }
 })
 
-const emit = defineEmits(['setCycle', 'dayClick'])
+const emit = defineEmits(['setCycle', 'dayClick', 'update:defaultHandoffTime'])
 
 const { t } = useI18n()
 const dashboardStore = useDashboardStore()
@@ -116,6 +120,22 @@ function handleDayClick(index) {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Default Handoff Time -->
+    <div class="mt-4 px-2">
+      <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">
+        {{ t('defaultHandoffTime') }}
+      </label>
+      <p class="text-[11px] text-slate-400 mt-0.5 mb-2">{{ t('defaultHandoffTimeDesc') }}</p>
+      <input
+        type="time"
+        :value="defaultHandoffTime"
+        @input="emit('update:defaultHandoffTime', $event.target.value)"
+        :disabled="!isEditing"
+        class="w-full px-4 py-2.5 rounded-xl border-2 text-sm font-semibold text-center transition-colors"
+        :class="isEditing ? 'border-slate-300 bg-white text-slate-800' : 'border-slate-100 bg-slate-50 text-slate-400 cursor-default'"
+      />
     </div>
   </div>
 </template>

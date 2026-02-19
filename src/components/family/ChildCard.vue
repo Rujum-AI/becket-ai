@@ -131,9 +131,9 @@ const nextInteractionText = computed(() => {
     <!-- ACTION ROW: Check-in + Smart Button -->
     <div class="action-row">
       <button
-        v-if="canNudge"
-        :class="['checkin-btn', { sending: nudgeSending }]"
-        @click.stop="$emit('send-nudge', child)"
+        :class="['checkin-btn', { sending: nudgeSending, inactive: !canNudge }]"
+        :disabled="!canNudge"
+        @click.stop="canNudge && $emit('send-nudge', child)"
       >
         <Heart :size="15" />
         <span>{{ t('nudge') }}</span>
@@ -173,13 +173,13 @@ const nextInteractionText = computed(() => {
     </div>
 
     <!-- NEXT INTERACTION -->
-    <div v-if="nextInteractionText" class="schedule-section">
+    <div class="schedule-section" :class="{ inactive: !nextInteractionText }">
       <div class="schedule-row">
         <div class="schedule-icon icon-amber">
           <ArrowLeftRight :size="13" />
         </div>
         <div class="schedule-text bidi-isolate">
-          {{ nextInteractionText }}
+          {{ nextInteractionText || t('noUpcomingHandoff') }}
         </div>
       </div>
     </div>
@@ -487,6 +487,19 @@ const nextInteractionText = computed(() => {
   50% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15); }
 }
 
+.checkin-btn.inactive {
+  background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+  border-color: #94a3b8;
+  cursor: default;
+  animation: none;
+  opacity: 0.5;
+}
+
+.checkin-btn.inactive:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .checkin-btn.sending {
   opacity: 0.6;
   pointer-events: none;
@@ -584,6 +597,10 @@ const nextInteractionText = computed(() => {
   margin: 0 0.75rem 0.5rem;
   border: 1.5px solid rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(4px);
+}
+
+.schedule-section.inactive {
+  opacity: 0.45;
 }
 
 .schedule-row {

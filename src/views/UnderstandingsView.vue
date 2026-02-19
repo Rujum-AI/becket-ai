@@ -218,8 +218,10 @@ function executeConfirmAction() {
         :cycle-days="understandingsStore.cycleDays"
         :cycle-length="understandingsStore.cycleLength"
         :is-editing="understandingsStore.isCycleEditing"
+        :default-handoff-time="understandingsStore.defaultHandoffTime"
         @set-cycle="handleSetCycle"
         @day-click="handleDayClick"
+        @update:default-handoff-time="v => understandingsStore.defaultHandoffTime = v"
       />
     </div>
 
