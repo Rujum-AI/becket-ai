@@ -29,14 +29,25 @@ const dashboardStore = useDashboardStore()
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+// Resolve allocation parent field to a label ('dad'/'mom') for styling
+// Supports both old format (parent='dad') and new format (parent=profile_id)
+function resolveParentLabel(parentVal) {
+  if (parentVal === 'dad' || parentVal === 'mom') return parentVal
+  // Profile_id → label
+  if (parentVal === dashboardStore.userId) return dashboardStore.parentLabel
+  if (parentVal === dashboardStore.partnerId) return dashboardStore.partnerLabel
+  return null
+}
+
 function getDayClass(day) {
   if (!day.allocation || day.allocation.length === 0) return ''
 
-  const dadCount = day.allocation.filter(a => a.parent === 'dad').length
-  const momCount = day.allocation.filter(a => a.parent === 'mom').length
+  const labels = day.allocation.map(a => resolveParentLabel(a.parent))
+  const allSame = labels.every(l => l === labels[0])
 
-  if (dadCount === dashboardStore.children.length) return 'bg-dad filled'
-  if (momCount === dashboardStore.children.length) return 'bg-mom filled'
+  if (allSame && labels.length === dashboardStore.children.length) {
+    return labels[0] === 'dad' ? 'bg-dad filled' : 'bg-mom filled'
+  }
   if (day.allocation.length > 0) return 'bg-split filled'
   return ''
 }
@@ -45,14 +56,13 @@ function isDayFilled(day) {
   return day.allocation && day.allocation.length > 0
 }
 
-function getDadCount(day) {
-  if (!day.allocation) return 0
-  return day.allocation.filter(a => a.parent === 'dad').length
-}
-
-function getMomCount(day) {
-  if (!day.allocation) return 0
-  return day.allocation.filter(a => a.parent === 'mom').length
+// Returns the dominant parent label for the day ('dad', 'mom', or 'split')
+function getDayDominantLabel(day) {
+  if (!day.allocation || day.allocation.length === 0) return null
+  const labels = day.allocation.map(a => resolveParentLabel(a.parent))
+  const allSame = labels.every(l => l === labels[0])
+  if (allSame && labels.length === dashboardStore.children.length) return labels[0]
+  return 'split'
 }
 
 function handleDayClick(index) {
@@ -106,16 +116,16 @@ function handleDayClick(index) {
               <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
           </div>
-          <div v-else-if="getDadCount(day) === dashboardStore.children.length" class="mini-icon-wrapper">
+          <div v-else-if="getDayDominantLabel(day) === 'dad'" class="mini-icon-wrapper">
             <img src="/assets/profile/king_profile.png" class="mini-icon rounded-full">
           </div>
-          <div v-else-if="getMomCount(day) === dashboardStore.children.length" class="mini-icon-wrapper">
+          <div v-else-if="getDayDominantLabel(day) === 'mom'" class="mini-icon-wrapper">
             <img src="/assets/profile/queen_profile.png" class="mini-icon rounded-full">
           </div>
           <div v-else class="split-icons">
             <div v-for="alloc in day.allocation" :key="`${day.index}-${alloc.childId}`" class="mini-split-avatar">
               <img :src="alloc.childGender === 'boy' ? '/assets/thumbnail_boy.png' : '/assets/thumbnail_girl.png'">
-              <div class="dot-indicator" :class="alloc.parent === 'dad' ? 'dot-dad' : 'dot-mom'"></div>
+              <div class="dot-indicator" :class="resolveParentLabel(alloc.parent) === 'dad' ? 'dot-dad' : 'dot-mom'"></div>
             </div>
           </div>
         </div>

@@ -380,7 +380,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       let eventStatus = 'scheduled'
       if (partnerId.value) {
         const custodyParent = getExpectedParent(date)
-        if (custodyParent && custodyParent !== parentLabel.value) {
+        if (custodyParent && custodyParent !== user.value?.id && custodyParent !== 'split') {
           eventStatus = 'pending_approval'
         }
       }
@@ -448,7 +448,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       let eventStatus = 'scheduled'
       if (partnerId.value) {
         const custodyParent = getExpectedParent(date)
-        if (custodyParent && custodyParent !== parentLabel.value) {
+        if (custodyParent && custodyParent !== user.value?.id && custodyParent !== 'split') {
           eventStatus = 'pending_approval'
         }
       }
@@ -1158,6 +1158,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     pendingOverrides,
     loading,
     error,
+    userId: computed(() => user.value?.id || null),
+    labelToProfileId,
     loadFamilyData,
     createEvent,
     updateEvent,

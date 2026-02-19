@@ -25,8 +25,34 @@ const dashboardStore = useDashboardStore()
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const selectedKids = ref([])
-const selectedParent = ref(null)
+const selectedParent = ref(null) // profile_id of selected parent
 const isRepeat = ref(false)
+
+// Build parent options from actual family members
+const parentOptions = computed(() => {
+  const opts = []
+  const myId = dashboardStore.parentLabel ? dashboardStore.userId : null
+  const myLabel = dashboardStore.parentLabel
+  if (myId && myLabel) {
+    opts.push({
+      id: myId,
+      label: myLabel,
+      icon: myLabel === 'mom' ? '/assets/profile/queen_profile.png' : '/assets/profile/king_profile.png',
+      bgClass: myLabel === 'mom' ? 'bg-orange-50' : 'bg-cyan-50'
+    })
+  }
+  const pid = dashboardStore.partnerId
+  const pLabel = dashboardStore.partnerLabel
+  if (pid && pLabel) {
+    opts.push({
+      id: pid,
+      label: pLabel,
+      icon: pLabel === 'mom' ? '/assets/profile/queen_profile.png' : '/assets/profile/king_profile.png',
+      bgClass: pLabel === 'mom' ? 'bg-orange-50' : 'bg-cyan-50'
+    })
+  }
+  return opts
+})
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
@@ -117,20 +143,14 @@ function getChildImg(child) {
             <label class="modal-form-label">{{ t('where') }}</label>
             <div class="flex gap-4">
               <div
-                @click="selectedParent = 'dad'"
-                class="parent-select-btn bg-cyan-50"
-                :class="{ selected: selectedParent === 'dad' }"
+                v-for="p in parentOptions"
+                :key="p.id"
+                @click="selectedParent = p.id"
+                class="parent-select-btn"
+                :class="[p.bgClass, { selected: selectedParent === p.id }]"
               >
-                <img src="/assets/profile/king_profile.png" class="w-12 h-12 rounded-full">
-                <span class="font-bold text-slate-800">{{ t('Dad') }}</span>
-              </div>
-              <div
-                @click="selectedParent = 'mom'"
-                class="parent-select-btn bg-orange-50"
-                :class="{ selected: selectedParent === 'mom' }"
-              >
-                <img src="/assets/profile/queen_profile.png" class="w-12 h-12 rounded-full">
-                <span class="font-bold text-slate-800">{{ t('Mom') }}</span>
+                <img :src="p.icon" class="w-12 h-12 rounded-full">
+                <span class="font-bold text-slate-800">{{ t(p.label === 'dad' ? 'Dad' : 'Mom') }}</span>
               </div>
             </div>
           </div>

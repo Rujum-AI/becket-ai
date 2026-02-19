@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 
 export const useUnderstandingsStore = defineStore('understandings', () => {
   const { user } = useAuth()
@@ -268,13 +269,23 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
         defaultHandoffTime.value = data.default_handoff_time || ''
 
         // Convert DB cycle_data to UI format
+        // Normalize old 'dad'/'mom' labels to profile_ids in allocations
+        const dashStore = useSupabaseDashboardStore()
+        const ltpMap = dashStore.labelToProfileId || {}
         const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
         cycleDays.value = Array.from({ length: data.cycle_length }, (_, i) => {
           const dbDay = data.cycle_data?.[i]
+          const allocs = (dbDay?.allocations || []).map(a => {
+            // If parent is a label ('dad'/'mom'), convert to profile_id
+            if ((a.parent === 'dad' || a.parent === 'mom') && ltpMap[a.parent]) {
+              return { ...a, parent: ltpMap[a.parent] }
+            }
+            return a
+          })
           return {
             index: i,
             dayName: weekDays[i % 7],
-            allocation: dbDay?.allocations || []
+            allocation: allocs
           }
         })
       } else {
@@ -344,6 +355,16 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     isCycleEditing.value = false
   }
 
+  // Resolve a profile_id or label to a parent_label string ('dad'/'mom')
+  function resolveToLabel(parentVal) {
+    if (parentVal === 'dad' || parentVal === 'mom') return parentVal
+    // It's a profile_id — look up the label from dashboard store
+    const dashboardStore = useSupabaseDashboardStore()
+    if (parentVal === dashboardStore.userId) return dashboardStore.parentLabel
+    if (parentVal === dashboardStore.partnerId) return dashboardStore.partnerLabel
+    return null
+  }
+
   async function saveCycle() {
     if (!family.value?.id || !user.value?.id) return
 
@@ -351,12 +372,12 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
       // Convert UI cycle data to DB format (hybrid: parent_label + allocations)
       const cycleData = cycleDays.value.map((day, i) => {
         const allocs = day.allocation || []
-        // Determine dominant parent for get_custody_parent() function
+        // Determine dominant parent label for get_custody_parent() SQL function
         let parentLabel = null
         if (allocs.length > 0) {
-          const allDad = allocs.every(a => a.parent === 'dad')
-          const allMom = allocs.every(a => a.parent === 'mom')
-          parentLabel = allDad ? 'dad' : allMom ? 'mom' : 'split'
+          const labels = allocs.map(a => resolveToLabel(a.parent))
+          const allSame = labels.every(l => l === labels[0])
+          parentLabel = allSame ? labels[0] : 'split'
         }
         return {
           day: i,

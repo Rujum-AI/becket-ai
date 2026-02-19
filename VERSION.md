@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v1.05**
+**Current Version: v1.06**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.06 — Custody editor uses profile_ids end-to-end
+`pending` — 2026-02-19
+- CustodyAssignModal emits profile_id instead of 'dad'/'mom' strings
+- CustodyCycleEditor resolves both old labels and new profile_ids for styling
+- saveCycle derives parent_label from profile_id for SQL backward compat
+- Old cycle_data normalized on load (dad/mom → profile_id)
+- createEvent pending_approval uses profile_id comparison
 
 ### v1.05 — Pin custody to profile_ids + family timezone for RPC events
 `pending` — 2026-02-19
