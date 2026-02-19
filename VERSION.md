@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v1.04**
+**Current Version: v1.05**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.05 — Pin custody to profile_ids + family timezone for RPC events
+`pending` — 2026-02-19
+- Custody schedule resolved to profile UUIDs instead of fragile 'dad'/'mom' labels
+- getNextHandoff() and getEffectiveStatus() compare user.id directly
+- Handles 'split' custody days correctly
+- RPC event generators (011, 014) now SET LOCAL timezone from families.timezone
+- Fixes +2h offset on school/activity events generated server-side
 
 ### v1.04 — Fix handoff date + NULL-safe events filter
 `pending` — 2026-02-19

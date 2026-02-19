@@ -11,6 +11,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const parentLabel = ref(null) // 'dad' or 'mom'
   const partnerId = ref(null)   // co-parent's profile_id (null in solo)
   const partnerLabel = ref(null) // co-parent's parent_label
+  const labelToProfileId = ref({}) // { 'dad': uuid, 'mom': uuid } — resolved at load
   const events = ref([])
   const custodySchedule = ref({})
   const custodyOverrides = ref([])
@@ -68,6 +69,14 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       partnerId.value = partnerData?.profile_id || null
       partnerLabel.value = partnerData?.parent_label || null
+
+      // Build label→profileId map for custody schedule resolution
+      const ltpMap = {}
+      if (familyMember.parent_label) ltpMap[familyMember.parent_label] = user.value.id
+      if (partnerData?.parent_label && partnerData?.profile_id) {
+        ltpMap[partnerData.parent_label] = partnerData.profile_id
+      }
+      labelToProfileId.value = ltpMap
 
       // If no co-parent yet, check for pending invite via RPC (bypasses RLS)
       if (!partnerId.value) {
@@ -730,7 +739,13 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       const daysSinceEpoch = Math.floor((date - cycleEpoch) / (24 * 60 * 60 * 1000))
       const cycleDay = ((daysSinceEpoch % cycleLength) + cycleLength) % cycleLength
       const dayData = cycleData[cycleDay]
-      schedule[dateKey] = dayData?.parent_label || dayData || 'unknown'
+      const label = dayData?.parent_label
+      // Resolve label → profile_id; keep 'split' as-is
+      if (label === 'split') {
+        schedule[dateKey] = 'split'
+      } else {
+        schedule[dateKey] = labelToProfileId.value[label] || null
+      }
     }
 
     // Layer APPROVED overrides on top of cycle schedule
@@ -742,7 +757,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const oy = d.getFullYear()
         const om = String(d.getMonth() + 1).padStart(2, '0')
         const od = String(d.getDate()).padStart(2, '0')
-        schedule[`${oy}-${om}-${od}`] = override.override_parent
+        // Resolve override label → profile_id too
+        schedule[`${oy}-${om}-${od}`] = labelToProfileId.value[override.override_parent] || override.override_parent
       }
     }
 
@@ -767,9 +783,21 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     // Fall back to custody cycle for today
     const now = new Date()
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const expectedParent = getExpectedParent(todayStr)
+    const expectedParent = getExpectedParent(todayStr) // profile_id or 'split'
 
     if (expectedParent && expectedParent !== 'unknown') {
+      // Reverse-resolve profile_id back to label for with_X status
+      if (expectedParent === 'split') {
+        // Split day: both parents have partial custody; default to current user
+        return { status: `with_${parentLabel.value}`, source: 'custody_cycle' }
+      }
+      if (expectedParent === user.value?.id) {
+        return { status: `with_${parentLabel.value}`, source: 'custody_cycle' }
+      }
+      if (expectedParent === partnerId.value) {
+        return { status: `with_${partnerLabel.value}`, source: 'custody_cycle' }
+      }
+      // Fallback (shouldn't happen): use raw value
       return { status: `with_${expectedParent}`, source: 'custody_cycle' }
     }
 
@@ -916,8 +944,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   //           2) Custody transition → pickup/dropoff (with school time or default)
   function getNextHandoff(childId) {
     const now = new Date()
-    const myLabel = parentLabel.value // 'dad' or 'mom'
-    if (!myLabel) return null
+    const myId = user.value?.id // profile UUID
+    if (!myId) return null
 
     // Helper to format date as YYYY-MM-DD in local timezone
     function fmtDate(d) {
@@ -936,7 +964,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       if (!dayParent) continue
 
       // --- Check 1: Non-school/non-other event on MY custody day → "take to event" ---
-      if (dayParent === myLabel) {
+      if (dayParent === myId || dayParent === 'split') {
         // Find earliest upcoming event on this day (not school, not other)
         const dayEvent = childEvents
           .filter(e => {
@@ -950,7 +978,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
             if (e.end_time) {
               const eEnd = new Date(e.end_time)
               const endParent = custodySchedule.value[fmtDate(eEnd)]
-              if (endParent && endParent !== myLabel) return false
+              if (endParent && endParent !== myId && endParent !== 'split') return false
             }
             return true
           })
@@ -1016,7 +1044,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       //        no school → depends on custody direction
       const type = (schoolEvent && schoolEvent.end_time)
         ? 'pickup'
-        : (tomorrowParent === myLabel ? 'pickup' : 'dropoff')
+        : (tomorrowParent === myId ? 'pickup' : 'dropoff')
 
       return { type, time: handoffTime, location, date: handoffDate }
     }

@@ -42,7 +42,12 @@ DECLARE
   v_event_type text;
   v_school_id uuid;
   v_activity_id uuid;
+  v_family_tz text;
 BEGIN
+  -- Set session timezone to family's timezone (default Asia/Jerusalem)
+  SELECT COALESCE(timezone, 'Asia/Jerusalem') INTO v_family_tz FROM families WHERE id = p_family_id;
+  EXECUTE format('SET LOCAL timezone = %L', v_family_tz);
+
   -- Loop through all active schedules for this family
   FOR v_schedule IN
     SELECT

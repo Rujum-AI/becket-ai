@@ -85,7 +85,12 @@ DECLARE
   v_dropoff_time time := '18:00:00';
   v_pickup_time time := '08:00:00';
   v_child_record record;
+  v_family_tz text;
 BEGIN
+  -- Set session timezone to family's timezone (default Asia/Jerusalem)
+  SELECT COALESCE(timezone, 'Asia/Jerusalem') INTO v_family_tz FROM families WHERE id = p_family_id;
+  EXECUTE format('SET LOCAL timezone = %L', v_family_tz);
+
   -- Get active custody cycle ID
   SELECT id INTO v_cycle_id
   FROM custody_cycles
