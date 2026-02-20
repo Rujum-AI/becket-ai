@@ -662,6 +662,8 @@ export default {
   handoff: 'מסירה',
   noUpcoming: 'אין אירועים',
   noUpcomingHandoff: 'אין מסירה קרובה',
+  handoffPendingPickup: 'מסירה צפויה — אספו את',
+  handoffPendingDropoff: 'מסירה צפויה — פזרו את',
   fromPlace: 'מ',
   toPlace: 'ל',
   takeToEvent: 'קחו ל',

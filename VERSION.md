@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v1.08**
+**Current Version: v1.09**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.09 — Handoff pending alert + school in next interaction
+`pending` — 2026-02-20
+- Status NO LONGER auto-flips on custody transition days (keeps yesterday's parent)
+- Blue "Handoff expected" conflict banner with Confirm Pickup/Dropoff button
+- Next interaction now shows school events ("Take to School Friday at 8:00")
+- Removed school exclusion filter — school is the primary daily interaction
+- EN + HE translations for handoff pending alerts
 
 ### v1.08 — Fix handoff type: use custody direction, not stale DB status
 `pending` — 2026-02-20

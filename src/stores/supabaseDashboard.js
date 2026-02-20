@@ -161,7 +161,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const { status, source: statusSource } = getEffectiveStatus(child)
 
         // Detect conflict between current status and expected (from events)
-        const conflict = getStatusConflict(child.id, status, child.name)
+        const conflict = getStatusConflict(child.id, status, child.name, statusSource)
 
         // Next action: if child is with me → dropoff, otherwise → pickup
         const childIsWithMe = status === `with_${myLabel}`
@@ -780,6 +780,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   }
 
   // Effective status: use DB status if set, otherwise fall back to custody cycle
+  // IMPORTANT: On transition days, do NOT auto-flip — keep yesterday's parent
+  // until handoff is explicitly confirmed (pickup/dropoff button)
   function getEffectiveStatus(child) {
     const dbStatus = child.current_status || 'unknown'
 
@@ -792,28 +794,55 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const expectedParent = getExpectedParent(todayStr) // profile_id or 'split'
 
-    if (expectedParent && expectedParent !== 'unknown') {
-      // Reverse-resolve profile_id (or raw label) back to label for with_X status
-      if (expectedParent === 'split') {
-        return { status: `with_${parentLabel.value}`, source: 'custody_cycle' }
+    if (!expectedParent || expectedParent === 'unknown') {
+      return { status: 'unknown', source: 'none' }
+    }
+
+    // Check if today is a transition day (custody parent changed from yesterday)
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+    const yesterdayParent = getExpectedParent(yStr)
+
+    const isTransitionDay = yesterdayParent && expectedParent !== yesterdayParent && yesterdayParent !== 'split'
+
+    if (isTransitionDay) {
+      // DON'T auto-flip! Keep yesterday's parent until handoff is confirmed.
+      const yLabel = resolveCustodyLabel(yesterdayParent)
+      if (yLabel) {
+        return { status: `with_${yLabel}`, source: 'custody_cycle_pending' }
       }
-      // Match by profile_id OR raw label string
-      if (expectedParent === user.value?.id || expectedParent === parentLabel.value) {
-        return { status: `with_${parentLabel.value}`, source: 'custody_cycle' }
-      }
-      if (expectedParent === partnerId.value || expectedParent === partnerLabel.value) {
-        return { status: `with_${partnerLabel.value || expectedParent}`, source: 'custody_cycle' }
-      }
-      // Fallback: raw value (unresolved label like 'mom' when solo)
-      return { status: `with_${expectedParent}`, source: 'custody_cycle' }
+    }
+
+    // Not a transition day — safe to use today's schedule
+    const todayLabel = resolveCustodyLabel(expectedParent)
+    if (todayLabel === 'split') {
+      return { status: `with_${parentLabel.value}`, source: 'custody_cycle' }
+    }
+    if (todayLabel) {
+      return { status: `with_${todayLabel}`, source: 'custody_cycle' }
     }
 
     return { status: 'unknown', source: 'none' }
   }
 
   // Detect conflict between current status and what events expect
-  function getStatusConflict(childId, currentStatus, childName) {
+  function getStatusConflict(childId, currentStatus, childName, statusSource) {
     const now = new Date()
+
+    // HANDOFF PENDING: transition day, no explicit confirmation
+    if (statusSource === 'custody_cycle_pending') {
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      const expectedLabel = resolveCustodyLabel(getExpectedParent(todayStr))
+      const isMyDay = expectedLabel === parentLabel.value || expectedLabel === 'split'
+      return {
+        type: 'handoff_pending',
+        childName,
+        expectedParent: expectedLabel,
+        isMyPickup: isMyDay // true = I should pick up, false = I should drop off
+      }
+    }
+
     const childEvents = getChildEvents(childId)
 
     // Find active event right now (school/activity)
@@ -898,7 +927,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         const { status, source: statusSource } = getEffectiveStatus({
           current_status: child._dbStatus || 'unknown'
         })
-        const conflict = getStatusConflict(child.id, status, child.name)
+        const conflict = getStatusConflict(child.id, status, child.name, statusSource)
         const childIsWithMe = status === `with_${myLabel}`
 
         return {
@@ -974,12 +1003,12 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       const dayParent = custodySchedule.value[dateStr]
       if (!dayParent) continue
 
-      // --- Check 1: Non-school/non-other event on MY custody day → "take to event" ---
+      // --- Check 1: Event on MY custody day → "take to event" (school included) ---
       if (isMe(dayParent) || dayParent === 'split') {
-        // Find earliest upcoming event on this day (not school, not other)
+        // Find earliest upcoming event on this day (skip 'other' type only)
         const dayEvent = childEvents
           .filter(e => {
-            if (e.type === 'school' || e.type === 'other') return false
+            if (e.type === 'other') return false
             if (!e.start_time) return false
             const eStart = new Date(e.start_time)
             if (fmtDate(eStart) !== dateStr) return false

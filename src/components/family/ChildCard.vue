@@ -58,6 +58,11 @@ const conflict = computed(() => props.child.conflict)
 const conflictText = computed(() => {
   if (!conflict.value) return ''
   const c = conflict.value
+  if (c.type === 'handoff_pending') {
+    return c.isMyPickup
+      ? `${t('handoffPendingPickup')} ${c.childName}`
+      : `${t('handoffPendingDropoff')} ${c.childName}`
+  }
   if (c.type === 'dropoff_needed' || c.type === 'dropoff_overdue') {
     return `${t('didYouDropOff')} ${c.childName} ${t('atPlace')} ${c.eventTitle}?`
   }
@@ -156,13 +161,27 @@ const nextInteractionText = computed(() => {
     </div>
 
     <!-- CONFLICT BANNER: status vs expected mismatch -->
-    <div v-if="conflict" :class="['conflict-banner', conflict.type === 'dropoff_overdue' ? 'conflict-urgent' : 'conflict-warn']">
+    <div v-if="conflict" :class="['conflict-banner', conflict.type === 'dropoff_overdue' ? 'conflict-urgent' : conflict.type === 'handoff_pending' ? 'conflict-handoff' : 'conflict-warn']">
       <div class="conflict-row">
         <AlertTriangle :size="14" class="conflict-icon" />
         <span class="conflict-text">{{ conflictText }}</span>
       </div>
       <button
-        v-if="conflict.type === 'dropoff_needed' || conflict.type === 'dropoff_overdue'"
+        v-if="conflict.type === 'handoff_pending' && conflict.isMyPickup"
+        class="conflict-action-btn"
+        @click.stop="$emit('open-pickup', child)"
+      >
+        {{ t('confirmPickup') }}
+      </button>
+      <button
+        v-else-if="conflict.type === 'handoff_pending' && !conflict.isMyPickup"
+        class="conflict-action-btn"
+        @click.stop="$emit('open-dropoff', child)"
+      >
+        {{ t('confirmDropoff') }}
+      </button>
+      <button
+        v-else-if="conflict.type === 'dropoff_needed' || conflict.type === 'dropoff_overdue'"
         class="conflict-action-btn"
         @click.stop="$emit('confirm-event-dropoff', { child, eventTitle: conflict.eventTitle, eventType: conflict.eventType })"
       >
@@ -526,6 +545,12 @@ const nextInteractionText = computed(() => {
 .conflict-warn {
   background: rgba(245, 158, 11, 0.12);
   border: 1.5px solid rgba(245, 158, 11, 0.3);
+}
+
+.conflict-handoff {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  animation: conflictPulse 2s ease-in-out infinite;
 }
 
 .conflict-urgent {

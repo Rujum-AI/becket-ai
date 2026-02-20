@@ -662,6 +662,8 @@ export default {
   handoff: 'Handoff',
   noUpcoming: 'Nothing scheduled',
   noUpcomingHandoff: 'No upcoming handoff',
+  handoffPendingPickup: 'Handoff expected — pick up',
+  handoffPendingDropoff: 'Handoff expected — drop off',
   fromPlace: 'from',
   toPlace: 'to',
   takeToEvent: 'Take to',
