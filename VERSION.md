@@ -1,12 +1,17 @@
 # Becket AI — Version History
 
-**Current Version: v1.09**
+**Current Version: v1.10**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v1 — Production Launch
+
+### v1.10 — Compact desktop modal headers
+`pending` — 2026-02-23
+- Reduced header padding, title font-size, and image size on desktop
+- Mobile modal headers unchanged
 
 ### v1.09 — Handoff pending alert + school in next interaction
 `pending` — 2026-02-20
