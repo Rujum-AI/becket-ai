@@ -468,8 +468,8 @@ export default {
 
   // === SHARED ===
   subscription: 'מנוי',
-  dashboardSetup: 'הגדרת לוח בקרה',
-  dashboardSetupDesc: 'בחרו אילו חלקים יופיעו באפליקציה',
+  dashboardSetup: 'למה אני משתמש בבקט',
+  dashboardSetupDesc: 'הפעילו את הכלים שאתם צריכים — אפשר לשנות בכל עת',
   saveDashPrefs: 'שמור',
   inviteCoParent: 'הזמן הורה שותף',
   inviteCoParentTitle: 'הזמן את ההורה השותף',

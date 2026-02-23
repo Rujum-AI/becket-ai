@@ -468,8 +468,8 @@ export default {
 
   // === SHARED ===
   subscription: 'Subscription',
-  dashboardSetup: 'Dashboard Setup',
-  dashboardSetupDesc: 'Choose which sections appear in your app',
+  dashboardSetup: 'What I Use Becket For',
+  dashboardSetupDesc: 'Toggle the tools you need — you can always change this later',
   saveDashPrefs: 'Save',
   inviteCoParent: 'Invite Co-Parent',
   inviteCoParentTitle: 'Invite Your Co-Parent',

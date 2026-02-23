@@ -204,29 +204,32 @@ if (typeof document !== 'undefined') {
           <h3 class="dash-setup-title">{{ t('dashboardSetup') }}</h3>
           <p class="dash-setup-desc">{{ t('dashboardSetupDesc') }}</p>
 
-          <div class="dash-setup-list">
-            <div class="dash-setup-row" @click="toggleLocalPref('finance')">
-              <div class="dash-setup-info">
-                <span class="dash-setup-label">{{ t('dash_finance') }}</span>
-                <span class="dash-setup-sub">{{ t('dash_financeDesc') }}</span>
+          <div class="dash-setup-cards">
+            <div class="dash-setup-card" :class="{ active: dashPrefsLocal.finance }" @click="toggleLocalPref('finance')">
+              <img src="/assets/finance.png" alt="" class="dash-setup-icon" />
+              <div class="dash-setup-card-body">
+                <span class="dash-setup-card-title">{{ t('dash_finance') }}</span>
+                <span class="dash-setup-card-desc">{{ t('dash_financeDesc') }}</span>
               </div>
               <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.finance }">
                 <div class="dash-setup-knob"></div>
               </div>
             </div>
-            <div class="dash-setup-row" @click="toggleLocalPref('management')">
-              <div class="dash-setup-info">
-                <span class="dash-setup-label">{{ t('dash_management') }}</span>
-                <span class="dash-setup-sub">{{ t('dash_managementDesc') }}</span>
+            <div class="dash-setup-card" :class="{ active: dashPrefsLocal.management }" @click="toggleLocalPref('management')">
+              <img src="/assets/management.png" alt="" class="dash-setup-icon" />
+              <div class="dash-setup-card-body">
+                <span class="dash-setup-card-title">{{ t('dash_management') }}</span>
+                <span class="dash-setup-card-desc">{{ t('dash_managementDesc') }}</span>
               </div>
               <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.management }">
                 <div class="dash-setup-knob"></div>
               </div>
             </div>
-            <div class="dash-setup-row" @click="toggleLocalPref('understandings')">
-              <div class="dash-setup-info">
-                <span class="dash-setup-label">{{ t('dash_understandings') }}</span>
-                <span class="dash-setup-sub">{{ t('dash_understandingsDesc') }}</span>
+            <div class="dash-setup-card" :class="{ active: dashPrefsLocal.understandings }" @click="toggleLocalPref('understandings')">
+              <img src="/assets/understandings.png" alt="" class="dash-setup-icon" />
+              <div class="dash-setup-card-body">
+                <span class="dash-setup-card-title">{{ t('dash_understandings') }}</span>
+                <span class="dash-setup-card-desc">{{ t('dash_understandingsDesc') }}</span>
               </div>
               <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.understandings }">
                 <div class="dash-setup-knob"></div>
@@ -264,7 +267,7 @@ if (typeof document !== 'undefined') {
 .dash-setup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   z-index: 9000;
   display: flex;
   align-items: center;
@@ -273,66 +276,86 @@ if (typeof document !== 'undefined') {
 }
 
 .dash-setup-modal {
-  background: white;
-  border-radius: 1.25rem;
-  padding: 1.75rem;
+  background: var(--warm-linen, #FDFBF7);
+  border-radius: 1.5rem;
+  padding: 2rem 1.5rem 1.5rem;
   width: 100%;
-  max-width: 380px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  text-align: center;
 }
 
 .dash-setup-title {
   font-family: 'Fraunces', serif;
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  color: #1A1C1E;
-  margin: 0 0 0.25rem;
+  color: var(--deep-slate, #1A1C1E);
+  margin: 0 0 0.375rem;
+  line-height: 1.2;
 }
 
 .dash-setup-desc {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   color: #64748b;
-  margin: 0 0 1.25rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.4;
 }
 
-.dash-setup-list {
+.dash-setup-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: 0.625rem;
+  margin-bottom: 1rem;
 }
 
-.dash-setup-row {
+.dash-setup-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.875rem 1rem;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 0.875rem;
+  gap: 0.875rem;
+  padding: 1rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 1rem;
   cursor: pointer;
   transition: all 0.2s;
+  text-align: start;
 }
 
-.dash-setup-row:hover {
+.dash-setup-card:hover {
   border-color: #cbd5e1;
 }
 
-.dash-setup-info {
+.dash-setup-card.active {
+  border-color: #BD5B39;
+  background: rgba(189, 91, 57, 0.03);
+}
+
+.dash-setup-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.dash-setup-card-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
 }
 
-.dash-setup-label {
+.dash-setup-card-title {
   font-size: 0.9375rem;
   font-weight: 700;
   color: #1A1C1E;
 }
 
-.dash-setup-sub {
+.dash-setup-card-desc {
   font-size: 0.75rem;
   color: #94a3b8;
+  line-height: 1.3;
 }
 
 .dash-setup-toggle {
@@ -374,13 +397,13 @@ if (typeof document !== 'undefined') {
 
 .dash-setup-save {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.875rem;
   background: #BD5B39;
   border: none;
   border-radius: 0.75rem;
   color: white;
   font-weight: 700;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   cursor: pointer;
   transition: background 0.2s;
 }
