@@ -237,8 +237,6 @@ if (typeof document !== 'undefined') {
             </div>
           </div>
 
-          <p class="dash-setup-note">{{ t('dash_alwaysIncluded') }}</p>
-
           <button class="dash-setup-save" :disabled="savingPrefs" @click="saveDashPrefs">
             {{ savingPrefs ? '...' : t('saveDashPrefs') }}
           </button>

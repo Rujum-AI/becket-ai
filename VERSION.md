@@ -1,12 +1,21 @@
 # Becket AI — Version History
 
-**Current Version: v2.02**
+**Current Version: v2.03**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.03 — Onboarding polish: merge steps, human-focused copy
+`pending` — 2026-02-23
+- Merge Type + Situation into single step (agreement inline for separated)
+- Remove Challenges step entirely (derive from dashboard prefs)
+- Rename Dashboard → Usage with problem-focused descriptions
+- Remove "Family & Trustees always included" note
+- All family types now 5 steps: Type → Profile → Usage → Currency → Plan
+- Updated EN + HE copy: "Expenses & Costs", "Schedules & Tasks", "Parenting Agreements"
 
 ### v2.02 — Dashboard Setup in profile menu
 `pending` — 2026-02-23

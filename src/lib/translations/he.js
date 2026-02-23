@@ -17,7 +17,7 @@ export default {
   // === ONBOARDING ===
   // Step titles
   onb_step1Title: 'איך תשתמשו בבקט?',
-  onb_step1Sub: 'בחרו את ההגדרה שלכם — תמיד אפשר לשנות.',
+  onb_step1Sub: 'זה עוזר לנו להגדיר את הכלים הנכונים עבורכם',
   onb_step2Title: 'בנו את המשפחה',
   onb_step2Sub: 'ספרו לנו עליכם ועל הקטנטנים.',
   onb_step3Title: 'עוד כמה פרטים',
@@ -787,9 +787,11 @@ export default {
 
   // === NEW ONBOARDING FUNNEL ===
   // Step titles
-  onb_whatBrings: 'מה מביא אותך לבקט?',
+  onb_whatBrings: 'איך אתם מגדלים?',
   onb_aboutYou: 'קצת עליכם ועל הילדים',
   onb_challenges: 'מה מאתגר?',
+  onb_usage: 'איך תשתמשו בבקט?',
+  onb_usageSub: 'הפעילו את הכלים שאתם צריכים — אפשר לשנות בכל עת',
   onb_dashboard: 'הגדרת לוח הבקרה',
   onb_situation: 'המצב שלכם',
   onb_almostDone: 'כמעט סיימנו!',
@@ -815,12 +817,12 @@ export default {
   ch_support: 'מציאת תמיכה',
 
   // Dashboard pref cards
-  dash_finance: 'כספים',
-  dash_financeDesc: 'מעקב הוצאות ועלויות',
-  dash_management: 'ניהול',
-  dash_managementDesc: 'אירועים, לוחות זמנים ומשימות',
-  dash_understandings: 'הסכמות',
-  dash_understandingsDesc: 'הסכמים, חוקים ומשמורת',
+  dash_finance: 'הוצאות ועלויות',
+  dash_financeDesc: 'מעקב הוצאות משותפות, חלוקת עלויות, ניהול תשלומים',
+  dash_management: 'לוחות זמנים ומשימות',
+  dash_managementDesc: 'תיאום יומנים, בית ספר, חוגים ומשימות',
+  dash_understandings: 'הסכמות הוריות',
+  dash_understandingsDesc: 'בניית הסדרי משמורת, כללי בית וסטנדרטים משותפים',
   dash_alwaysIncluded: 'משפחה ונאמנים תמיד כלולים',
   dash_recommended: 'מומלץ',
 

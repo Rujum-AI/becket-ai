@@ -17,7 +17,7 @@ export default {
   // === ONBOARDING ===
   // Step titles
   onb_step1Title: 'How will you use Becket?',
-  onb_step1Sub: 'Choose your setup — you can always change later.',
+  onb_step1Sub: 'This helps us set up the right tools for you',
   onb_step2Title: 'Build your family',
   onb_step2Sub: 'Tell us about you and the little ones.',
   onb_step3Title: 'A few more details',
@@ -787,9 +787,11 @@ export default {
 
   // === NEW ONBOARDING FUNNEL ===
   // Step titles
-  onb_whatBrings: 'What brings you to Becket?',
+  onb_whatBrings: 'How do you parent?',
   onb_aboutYou: 'About You & Your Kids',
   onb_challenges: "What's Challenging?",
+  onb_usage: 'How will you use Becket?',
+  onb_usageSub: 'Toggle the tools you need — you can always change this later',
   onb_dashboard: 'Set Up Your Dashboard',
   onb_situation: 'Your Situation',
   onb_almostDone: 'Almost Done!',
@@ -815,12 +817,12 @@ export default {
   ch_support: 'Finding Support',
 
   // Dashboard pref cards
-  dash_finance: 'Finance',
-  dash_financeDesc: 'Track expenses & costs',
-  dash_management: 'Management',
-  dash_managementDesc: 'Events, schedules & tasks',
-  dash_understandings: 'Understandings',
-  dash_understandingsDesc: 'Agreements, rules & custody',
+  dash_finance: 'Expenses & Costs',
+  dash_financeDesc: 'Track shared expenses, split costs, manage payments',
+  dash_management: 'Schedules & Tasks',
+  dash_managementDesc: 'Coordinate calendars, school, activities and to-dos',
+  dash_understandings: 'Parenting Agreements',
+  dash_understandingsDesc: 'Build custody arrangements, house rules, and shared standards',
   dash_alwaysIncluded: 'Family & Trustees are always included',
   dash_recommended: 'Recommended',
 

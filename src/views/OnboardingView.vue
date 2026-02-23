@@ -31,7 +31,6 @@ const partnerEmail = ref('')
 const parentRole = ref('')
 const children = ref([])
 const childDraft = ref(null)
-const challenges = ref([])
 const dashboardPrefs = ref({ finance: true, management: true, understandings: true })
 const homes = ref(2)
 const agreementType = ref('')
@@ -62,17 +61,6 @@ const inviteToken = ref(null)
 const linkCopied = ref(false)
 const isUserMenuOpen = ref(false)
 
-// Challenge options by family type
-const challengeOptions = computed(() => {
-  if (familyType.value === 'separated') {
-    return ['communication', 'scheduling', 'expenses', 'handoffs', 'consistency', 'medical', 'school']
-  }
-  if (familyType.value === 'together') {
-    return ['scheduling', 'expenses', 'medical', 'school', 'activities', 'responsibilities']
-  }
-  return ['scheduling', 'expenses', 'medical', 'school', 'support']
-})
-
 // Dashboard prefs to show (Understandings only for separated)
 const dashboardOptions = computed(() => {
   const opts = [
@@ -87,10 +75,7 @@ const dashboardOptions = computed(() => {
 
 // Dynamic step names based on family type
 const allSteps = computed(() => {
-  const base = ['type', 'profile', 'challenges', 'dashboard']
-  if (familyType.value === 'separated') base.push('situation')
-  base.push('currency', 'plan')
-  return base
+  return ['type', 'profile', 'usage', 'currency', 'plan']
 })
 const currentStepName = computed(() => allSteps.value[step.value - 1])
 const totalSteps = computed(() => allSteps.value.length)
@@ -141,11 +126,9 @@ const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
 
 const canProceed = computed(() => {
   const s = currentStepName.value
-  if (s === 'type') return !!familyType.value
+  if (s === 'type') return !!familyType.value && (familyType.value !== 'separated' || agreementType.value)
   if (s === 'profile') return displayName.value.trim() && parentRole.value && children.value.length > 0 && !childDraft.value
-  if (s === 'challenges') return true // optional
-  if (s === 'dashboard') return true // toggles have defaults
-  if (s === 'situation') return homes.value && agreementType.value
+  if (s === 'usage') return true // toggles have defaults
   if (s === 'currency') return true // currency has default
   if (s === 'plan') return true
   return true
@@ -187,22 +170,7 @@ function selectFamilyType(type) {
   }
 }
 
-// === CHALLENGES (Step 3) ===
-function toggleChallenge(ch) {
-  const idx = challenges.value.indexOf(ch)
-  if (idx >= 0) {
-    challenges.value.splice(idx, 1)
-  } else {
-    challenges.value.push(ch)
-  }
-}
-
-function isChallengeRecommended(dashKey) {
-  const opt = dashboardOptions.value.find(o => o.key === dashKey)
-  return opt && challenges.value.includes(opt.challenge)
-}
-
-// === DASHBOARD PREFS (Step 4) ===
+// === DASHBOARD PREFS ===
 function toggleDashPref(key) {
   dashboardPrefs.value = { ...dashboardPrefs.value, [key]: !dashboardPrefs.value[key] }
 }
@@ -270,7 +238,7 @@ async function handleCreateFamily() {
       currency: currency.value,
       selectedPlan: 'free',
       dashboardPrefs: dashboardPrefs.value,
-      challenges: challenges.value
+      challenges: []
     })
 
     familyStore.saveOnboarding({
@@ -284,7 +252,7 @@ async function handleCreateFamily() {
       currency: currency.value,
       selectedPlan: 'free',
       dashboardPrefs: dashboardPrefs.value,
-      challenges: challenges.value
+      challenges: []
     })
 
     if (mode.value === 'co-parent' && result._inviteToken) {
@@ -468,6 +436,21 @@ async function shareNative() {
               <p class="type-desc">{{ t('onb_soloDesc') }}</p>
             </div>
           </div>
+
+          <!-- Agreement (inline — separated only) -->
+          <div v-if="familyType === 'separated'" class="agreement-inline">
+            <label class="section-label">{{ t('agreementLabel') }}</label>
+            <div class="select-buttons">
+              <button
+                v-for="agree in ['agree1', 'agree2', 'agree3']"
+                :key="agree"
+                @click="agreementType = agree"
+                :class="['select-btn', { active: agreementType === agree }]"
+              >
+                {{ t(agree) }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- STEP: PROFILE (name + role + kids) -->
@@ -585,33 +568,11 @@ async function shareNative() {
           </button>
         </div>
 
-        <!-- STEP: CHALLENGES -->
-        <div v-else-if="currentStepName === 'challenges'" key="challenges" class="step-content">
+        <!-- STEP: HOW WILL YOU USE BECKET -->
+        <div v-else-if="currentStepName === 'usage'" key="usage" class="step-content">
           <div class="step-header">
-            <h2 class="step-title">{{ t('onb_challenges') }}</h2>
-            <p class="step-subtitle">{{ t('onb_selectChallenges') }}</p>
-          </div>
-
-          <div class="challenge-grid">
-            <button
-              v-for="ch in challengeOptions"
-              :key="ch"
-              class="challenge-card"
-              :class="{ active: challenges.includes(ch) }"
-              @click="toggleChallenge(ch)"
-            >
-              {{ t('ch_' + ch) }}
-            </button>
-          </div>
-
-          <p class="step-hint">{{ t('onb_challengesSub') }}</p>
-        </div>
-
-        <!-- STEP: DASHBOARD PREFS -->
-        <div v-else-if="currentStepName === 'dashboard'" key="dashboard" class="step-content">
-          <div class="step-header">
-            <h2 class="step-title">{{ t('onb_dashboard') }}</h2>
-            <p class="step-subtitle">{{ t('onb_step1Sub') }}</p>
+            <h2 class="step-title">{{ t('onb_usage') }}</h2>
+            <p class="step-subtitle">{{ t('onb_usageSub') }}</p>
           </div>
 
           <div class="dash-cards">
@@ -629,53 +590,6 @@ async function shareNative() {
                 </div>
               </div>
               <p class="dash-card-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
-              <span v-if="isChallengeRecommended(opt.key)" class="dash-badge">{{ t('dash_recommended') }}</span>
-            </div>
-          </div>
-
-          <p class="dash-note">{{ t('dash_alwaysIncluded') }}</p>
-        </div>
-
-        <!-- STEP: SITUATION (Separated only) -->
-        <div v-else-if="currentStepName === 'situation'" key="situation" class="step-content">
-          <div class="step-header">
-            <h2 class="step-title">{{ t('onb_situation') }}</h2>
-            <p class="step-subtitle">{{ t('onb_step3Sub') }}</p>
-          </div>
-
-          <div class="form-section">
-            <label class="section-label">{{ t('singleHome') }} / {{ t('dualHome') }}</label>
-            <div class="house-buttons">
-              <label class="house-card">
-                <input type="radio" v-model="homes" :value="1" />
-                <img src="@/assets/button_house1.png" alt="Single Home" class="house-img" />
-                <div class="house-content">
-                  <h4>{{ t('singleHome') }}</h4>
-                  <p>{{ t('singleHomeDesc') }}</p>
-                </div>
-              </label>
-              <label class="house-card">
-                <input type="radio" v-model="homes" :value="2" />
-                <img src="@/assets/button_house2.png" alt="Dual Home" class="house-img" />
-                <div class="house-content">
-                  <h4>{{ t('dualHome') }}</h4>
-                  <p>{{ t('dualHomeDesc') }}</p>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-section">
-            <label class="section-label">{{ t('agreementLabel') }}</label>
-            <div class="select-buttons">
-              <button
-                v-for="agree in ['agree1', 'agree2', 'agree3']"
-                :key="agree"
-                @click="agreementType = agree"
-                :class="['select-btn', { active: agreementType === agree }]"
-              >
-                {{ t(agree) }}
-              </button>
             </div>
           </div>
         </div>
@@ -1082,6 +996,12 @@ async function shareNative() {
   font-size: 0.75rem;
   color: #64748b;
   line-height: 1.4;
+}
+
+/* === AGREEMENT INLINE (Type step — separated only) === */
+.agreement-inline {
+  margin-top: 2rem;
+  text-align: center;
 }
 
 /* === FORM ELEMENTS === */
