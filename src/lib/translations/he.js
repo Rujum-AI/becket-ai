@@ -780,5 +780,51 @@ export default {
 
   // Onboarding — currency
   onb_currency: 'מטבע משפחתי',
-  onb_currencyDesc: 'משמש למעקב הוצאות'
+  onb_currencyDesc: 'משמש למעקב הוצאות',
+
+  // === NEW ONBOARDING FUNNEL ===
+  // Step titles
+  onb_whatBrings: 'מה מביא אותך לבקט?',
+  onb_aboutYou: 'קצת עליכם ועל הילדים',
+  onb_challenges: 'מה מאתגר?',
+  onb_dashboard: 'הגדרת לוח הבקרה',
+  onb_situation: 'המצב שלכם',
+  onb_almostDone: 'כמעט סיימנו!',
+  onb_choosePlan: 'בחרו תוכנית',
+
+  // User type cards
+  onb_separated: 'מגדלים בנפרד',
+  onb_separatedDesc: 'גרים בנפרד, מנהלים את הילדים ביחד',
+  onb_together: 'מגדלים ביחד',
+  onb_togetherDesc: 'גרים ביחד, צריכים עזרה בניהול',
+  // onb_solo / onb_soloDesc already exist above
+
+  // Challenge labels
+  ch_communication: 'תקשורת',
+  ch_scheduling: 'תיאום לוחות זמנים',
+  ch_expenses: 'חלוקת הוצאות',
+  ch_handoffs: 'איסוף ומסירה',
+  ch_consistency: 'עקביות בחוקים',
+  ch_medical: 'תיאום רפואי',
+  ch_school: 'תיאום בית ספר',
+  ch_activities: 'חוגים ופעילויות',
+  ch_responsibilities: 'חלוקת אחריות',
+  ch_support: 'מציאת תמיכה',
+
+  // Dashboard pref cards
+  dash_finance: 'כספים',
+  dash_financeDesc: 'מעקב הוצאות ועלויות',
+  dash_management: 'ניהול',
+  dash_managementDesc: 'אירועים, לוחות זמנים ומשימות',
+  dash_understandings: 'הסכמות',
+  dash_understandingsDesc: 'הסכמים, חוקים ומשמורת',
+  dash_alwaysIncluded: 'משפחה ונאמנים תמיד כלולים',
+  dash_recommended: 'מומלץ',
+
+  // Currency & invite step
+  onb_partnerEmail: 'אימייל של בן/בת הזוג',
+  onb_inviteDesc: 'נשלח להם הזמנה להצטרף',
+  onb_addContactsLater: 'תוכלו להוסיף אנשי קשר אחר כך מהנאמנים',
+  onb_selectChallenges: 'בחרו מה רלוונטי לכם',
+  onb_challengesSub: 'זה עוזר לנו להתאים את החוויה שלכם'
 }

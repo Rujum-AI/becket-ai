@@ -25,13 +25,15 @@ const direction = ref('forward')
 const showShareScreen = ref(false)
 const displayName = ref('')
 
-const mode = ref('')
+const familyType = ref('')       // 'separated' | 'together' | 'solo'
+const mode = ref('')             // 'co-parent' | 'solo' (derived)
 const partnerEmail = ref('')
 const parentRole = ref('')
 const children = ref([])
 const childDraft = ref(null)
-const homes = ref(1)
-const relationshipStatus = ref('')
+const challenges = ref([])
+const dashboardPrefs = ref({ finance: true, management: true, understandings: true })
+const homes = ref(2)
 const agreementType = ref('')
 const currency = ref('NIS')
 const selectedPlan = ref('free')
@@ -60,7 +62,40 @@ const inviteToken = ref(null)
 const linkCopied = ref(false)
 const isUserMenuOpen = ref(false)
 
-// Avatar: use Supabase avatar_url or fallback to default
+// Challenge options by family type
+const challengeOptions = computed(() => {
+  if (familyType.value === 'separated') {
+    return ['communication', 'scheduling', 'expenses', 'handoffs', 'consistency', 'medical', 'school']
+  }
+  if (familyType.value === 'together') {
+    return ['scheduling', 'expenses', 'medical', 'school', 'activities', 'responsibilities']
+  }
+  return ['scheduling', 'expenses', 'medical', 'school', 'support']
+})
+
+// Dashboard prefs to show (Understandings only for separated)
+const dashboardOptions = computed(() => {
+  const opts = [
+    { key: 'finance', challenge: 'expenses' },
+    { key: 'management', challenge: 'scheduling' }
+  ]
+  if (familyType.value === 'separated') {
+    opts.push({ key: 'understandings', challenge: 'consistency' })
+  }
+  return opts
+})
+
+// Dynamic step names based on family type
+const allSteps = computed(() => {
+  const base = ['type', 'profile', 'challenges', 'dashboard']
+  if (familyType.value === 'separated') base.push('situation')
+  base.push('currency', 'plan')
+  return base
+})
+const currentStepName = computed(() => allSteps.value[step.value - 1])
+const totalSteps = computed(() => allSteps.value.length)
+
+// Avatar
 const avatarUrl = computed(() => {
   if (!user.value) return '/assets/profile/king_profile.png'
   return user.value.user_metadata?.avatar_url
@@ -105,22 +140,21 @@ const inviteLink = computed(() => {
 const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share
 
 const canProceed = computed(() => {
-  if (step.value === 1) {
-    if (mode.value === '') return false
-    if (mode.value === 'co-parent' && !partnerEmail.value) return false
-    return true
-  }
-  if (step.value === 2) return displayName.value.trim() && parentRole.value && children.value.length > 0 && !childDraft.value
-  if (step.value === 3) return homes.value && relationshipStatus.value && agreementType.value
+  const s = currentStepName.value
+  if (s === 'type') return !!familyType.value
+  if (s === 'profile') return displayName.value.trim() && parentRole.value && children.value.length > 0 && !childDraft.value
+  if (s === 'challenges') return true // optional
+  if (s === 'dashboard') return true // toggles have defaults
+  if (s === 'situation') return homes.value && agreementType.value
+  if (s === 'currency') return true // currency has default
+  if (s === 'plan') return true
   return true
 })
-
-const relationshipOptions = ['together', 'apart', 'separated']
 
 // === NAVIGATION ===
 function nextStep() {
   direction.value = 'forward'
-  if (step.value < 4) step.value++
+  if (step.value < totalSteps.value) step.value++
 }
 
 function prevStep() {
@@ -130,6 +164,47 @@ function prevStep() {
     return
   }
   if (step.value > 1) step.value--
+}
+
+// === FAMILY TYPE SELECTION (Step 1) ===
+function selectFamilyType(type) {
+  familyType.value = type
+  if (type === 'solo') {
+    mode.value = 'solo'
+  } else {
+    mode.value = 'co-parent'
+  }
+  // Auto-fill defaults for non-separated types
+  if (type === 'together') {
+    homes.value = 1
+    dashboardPrefs.value = { finance: true, management: true, understandings: false }
+  } else if (type === 'solo') {
+    homes.value = 1
+    dashboardPrefs.value = { finance: true, management: true, understandings: false }
+  } else {
+    homes.value = 2
+    dashboardPrefs.value = { finance: true, management: true, understandings: true }
+  }
+}
+
+// === CHALLENGES (Step 3) ===
+function toggleChallenge(ch) {
+  const idx = challenges.value.indexOf(ch)
+  if (idx >= 0) {
+    challenges.value.splice(idx, 1)
+  } else {
+    challenges.value.push(ch)
+  }
+}
+
+function isChallengeRecommended(dashKey) {
+  const opt = dashboardOptions.value.find(o => o.key === dashKey)
+  return opt && challenges.value.includes(opt.challenge)
+}
+
+// === DASHBOARD PREFS (Step 4) ===
+function toggleDashPref(key) {
+  dashboardPrefs.value = { ...dashboardPrefs.value, [key]: !dashboardPrefs.value[key] }
 }
 
 // === CHILDREN ===
@@ -168,7 +243,7 @@ function removeChild(index) {
   children.value.splice(index, 1)
 }
 
-// === CREATE FAMILY (fires after step 3) ===
+// === CREATE FAMILY (fires after currency step) ===
 async function handleCreateFamily() {
   if (!user.value) {
     error.value = 'User not authenticated'
@@ -185,25 +260,31 @@ async function handleCreateFamily() {
 
     const result = await createFamily(user.value.id, {
       mode: mode.value,
+      familyType: familyType.value,
       parentRole: parentRole.value,
       partnerEmail: partnerEmail.value,
       children: children.value,
       homes: homes.value,
-      relationshipStatus: relationshipStatus.value,
+      relationshipStatus: familyType.value === 'together' ? 'together' : (familyType.value === 'separated' ? 'apart' : ''),
       agreementType: agreementType.value,
       currency: currency.value,
-      selectedPlan: 'free'
+      selectedPlan: 'free',
+      dashboardPrefs: dashboardPrefs.value,
+      challenges: challenges.value
     })
 
     familyStore.saveOnboarding({
       mode: mode.value,
+      familyType: familyType.value,
       partnerEmail: partnerEmail.value,
       children: children.value,
       homes: homes.value,
-      relationshipStatus: relationshipStatus.value,
+      relationshipStatus: familyType.value === 'together' ? 'together' : 'apart',
       agreementType: agreementType.value,
       currency: currency.value,
-      selectedPlan: 'free'
+      selectedPlan: 'free',
+      dashboardPrefs: dashboardPrefs.value,
+      challenges: challenges.value
     })
 
     if (mode.value === 'co-parent' && result._inviteToken) {
@@ -211,7 +292,7 @@ async function handleCreateFamily() {
       showShareScreen.value = true
     } else {
       direction.value = 'forward'
-      step.value = 4
+      step.value = totalSteps.value // go to plan step
     }
   } catch (err) {
     console.error('Error creating family:', err)
@@ -221,7 +302,7 @@ async function handleCreateFamily() {
   }
 }
 
-// === FINISH (fires after step 4) ===
+// === FINISH (fires after plan step) ===
 async function handleFinish() {
   saving.value = true
   error.value = ''
@@ -243,7 +324,7 @@ async function handleFinish() {
 function goToPlanStep() {
   showShareScreen.value = false
   direction.value = 'forward'
-  step.value = 4
+  step.value = totalSteps.value // plan is always last
 }
 
 function copyInviteLink() {
@@ -361,46 +442,38 @@ async function shareNative() {
 
             <p class="share-expires">{{ t('inviteExpires7Days') }}</p>
           </div>
-
         </div>
 
-        <!-- STEP 1: MODE SELECTION -->
-        <div v-else-if="step === 1" key="1" class="step-content">
+        <!-- STEP: TYPE SELECTION -->
+        <div v-else-if="currentStepName === 'type'" key="type" class="step-content">
           <div class="step-header">
-            <h2 class="step-title">{{ t('onb_step1Title') }}</h2>
+            <h2 class="step-title">{{ t('onb_whatBrings') }}</h2>
             <p class="step-subtitle">{{ t('onb_step1Sub') }}</p>
           </div>
 
-          <div class="mode-cards">
-            <div class="mode-card-image" :class="{ selected: mode === 'solo' }" @click="mode = 'solo'">
-              <img src="@/assets/button_soloparent.png" alt="Solo Parent" class="mode-img" />
-              <h3 class="mode-title-img">{{ t('onb_solo') }}</h3>
-              <p class="mode-desc">{{ t('onb_soloDesc') }}</p>
+          <div class="type-cards">
+            <div class="type-card" :class="{ selected: familyType === 'separated' }" @click="selectFamilyType('separated')">
+              <img src="@/assets/button_coparents.png" alt="Separated" class="type-img" />
+              <h3 class="type-title">{{ t('onb_separated') }}</h3>
+              <p class="type-desc">{{ t('onb_separatedDesc') }}</p>
             </div>
-            <div class="mode-card-image" :class="{ selected: mode === 'co-parent' }" @click="mode = 'co-parent'">
-              <img src="@/assets/button_coparents.png" alt="Co-Parents" class="mode-img" />
-              <h3 class="mode-title-img">{{ t('onb_coParents') }}</h3>
-              <p class="mode-desc">{{ t('onb_coParentsDesc') }}</p>
+            <div class="type-card" :class="{ selected: familyType === 'together' }" @click="selectFamilyType('together')">
+              <img src="@/assets/button_house1.png" alt="Together" class="type-img" />
+              <h3 class="type-title">{{ t('onb_together') }}</h3>
+              <p class="type-desc">{{ t('onb_togetherDesc') }}</p>
             </div>
-          </div>
-
-          <!-- Co-parent email -->
-          <div v-if="mode === 'co-parent'" class="email-section">
-            <label class="input-label">{{ t('partnerEmail') }}</label>
-            <input
-              v-model="partnerEmail"
-              type="email"
-              class="form-input"
-              placeholder="partner@example.com"
-              @keyup.enter="canProceed && nextStep()"
-            />
+            <div class="type-card" :class="{ selected: familyType === 'solo' }" @click="selectFamilyType('solo')">
+              <img src="@/assets/button_soloparent.png" alt="Solo" class="type-img" />
+              <h3 class="type-title">{{ t('onb_solo') }}</h3>
+              <p class="type-desc">{{ t('onb_soloDesc') }}</p>
+            </div>
           </div>
         </div>
 
-        <!-- STEP 2: FAMILY (name + role + kids) -->
-        <div v-else-if="step === 2" key="2" class="step-content">
+        <!-- STEP: PROFILE (name + role + kids) -->
+        <div v-else-if="currentStepName === 'profile'" key="profile" class="step-content">
           <div class="step-header">
-            <h2 class="step-title">{{ t('onb_step2Title') }}</h2>
+            <h2 class="step-title">{{ t('onb_aboutYou') }}</h2>
             <p class="step-subtitle">{{ t('onb_step2Sub') }}</p>
           </div>
 
@@ -512,10 +585,61 @@ async function shareNative() {
           </button>
         </div>
 
-        <!-- STEP 3: SITUATION -->
-        <div v-else-if="step === 3" key="3" class="step-content">
+        <!-- STEP: CHALLENGES -->
+        <div v-else-if="currentStepName === 'challenges'" key="challenges" class="step-content">
           <div class="step-header">
-            <h2 class="step-title">{{ t('onb_step3Title') }}</h2>
+            <h2 class="step-title">{{ t('onb_challenges') }}</h2>
+            <p class="step-subtitle">{{ t('onb_selectChallenges') }}</p>
+          </div>
+
+          <div class="challenge-grid">
+            <button
+              v-for="ch in challengeOptions"
+              :key="ch"
+              class="challenge-card"
+              :class="{ active: challenges.includes(ch) }"
+              @click="toggleChallenge(ch)"
+            >
+              {{ t('ch_' + ch) }}
+            </button>
+          </div>
+
+          <p class="step-hint">{{ t('onb_challengesSub') }}</p>
+        </div>
+
+        <!-- STEP: DASHBOARD PREFS -->
+        <div v-else-if="currentStepName === 'dashboard'" key="dashboard" class="step-content">
+          <div class="step-header">
+            <h2 class="step-title">{{ t('onb_dashboard') }}</h2>
+            <p class="step-subtitle">{{ t('onb_step1Sub') }}</p>
+          </div>
+
+          <div class="dash-cards">
+            <div
+              v-for="opt in dashboardOptions"
+              :key="opt.key"
+              class="dash-card"
+              :class="{ active: dashboardPrefs[opt.key] }"
+              @click="toggleDashPref(opt.key)"
+            >
+              <div class="dash-card-top">
+                <h3 class="dash-card-title">{{ t('dash_' + opt.key) }}</h3>
+                <div class="dash-toggle" :class="{ on: dashboardPrefs[opt.key] }">
+                  <div class="dash-toggle-knob"></div>
+                </div>
+              </div>
+              <p class="dash-card-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
+              <span v-if="isChallengeRecommended(opt.key)" class="dash-badge">{{ t('dash_recommended') }}</span>
+            </div>
+          </div>
+
+          <p class="dash-note">{{ t('dash_alwaysIncluded') }}</p>
+        </div>
+
+        <!-- STEP: SITUATION (Separated only) -->
+        <div v-else-if="currentStepName === 'situation'" key="situation" class="step-content">
+          <div class="step-header">
+            <h2 class="step-title">{{ t('onb_situation') }}</h2>
             <p class="step-subtitle">{{ t('onb_step3Sub') }}</p>
           </div>
 
@@ -542,20 +666,6 @@ async function shareNative() {
           </div>
 
           <div class="form-section">
-            <label class="section-label">{{ t('relLabel') }}</label>
-            <div class="select-buttons">
-              <button
-                v-for="status in relationshipOptions"
-                :key="status"
-                @click="relationshipStatus = status"
-                :class="['select-btn', { active: relationshipStatus === status }]"
-              >
-                {{ t(status) }}
-              </button>
-            </div>
-          </div>
-
-          <div class="form-section">
             <label class="section-label">{{ t('agreementLabel') }}</label>
             <div class="select-buttons">
               <button
@@ -567,6 +677,14 @@ async function shareNative() {
                 {{ t(agree) }}
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- STEP: CURRENCY + INVITE -->
+        <div v-else-if="currentStepName === 'currency'" key="currency" class="step-content">
+          <div class="step-header">
+            <h2 class="step-title">{{ t('onb_almostDone') }}</h2>
+            <p class="step-subtitle">{{ t('onb_step3Sub') }}</p>
           </div>
 
           <!-- Currency Selector -->
@@ -585,23 +703,37 @@ async function shareNative() {
             </div>
           </div>
 
+          <!-- Partner email (co-parent / together modes) -->
+          <div v-if="mode === 'co-parent'" class="form-section">
+            <label class="section-label">{{ t('onb_partnerEmail') }}</label>
+            <p class="section-hint">{{ t('onb_inviteDesc') }}</p>
+            <input
+              v-model="partnerEmail"
+              type="email"
+              class="form-input"
+              placeholder="partner@example.com"
+            />
+          </div>
+
+          <!-- Solo note -->
+          <p v-if="mode === 'solo'" class="solo-note">{{ t('onb_addContactsLater') }}</p>
+
           <!-- Error Message -->
           <div v-if="error" class="error-banner">
             {{ error }}
           </div>
         </div>
 
-        <!-- STEP 4: PLAN SELECTION -->
-        <div v-else-if="step === 4" key="4" class="step-content">
+        <!-- STEP: PLAN SELECTION -->
+        <div v-else-if="currentStepName === 'plan'" key="plan" class="step-content">
           <div class="step-header">
-            <h2 class="step-title">{{ t('onb_step4Title') }}</h2>
+            <h2 class="step-title">{{ t('onb_choosePlan') }}</h2>
             <p class="step-subtitle">{{ t('onb_step4Sub') }}</p>
           </div>
 
           <!-- Welcome banner -->
           <div class="welcome-banner">
             <img src="/assets/becket_logo.png" alt="Becket AI" class="welcome-logo" />
-            <p class="welcome-text">✨</p>
           </div>
 
           <div class="plans-duo">
@@ -651,7 +783,7 @@ async function shareNative() {
     <!-- Fixed Bottom Bar -->
     <div class="bottom-bar">
       <div class="progress-dots">
-        <span v-for="n in 4" :key="n" :class="['dot', { active: showShareScreen ? false : step === n, completed: showShareScreen ? n <= 3 : step > n }]"></span>
+        <span v-for="n in totalSteps" :key="n" :class="['dot', { active: !showShareScreen && step === n, completed: showShareScreen ? n <= totalSteps - 1 : step > n }]"></span>
       </div>
       <div class="bottom-actions" :class="{ 'single-btn': step === 1 || showShareScreen }">
         <button v-if="!showShareScreen && step > 1" @click="prevStep"
@@ -664,17 +796,17 @@ async function shareNative() {
           class="modal-primary-btn" style="background: #BD5B39">
           {{ t('onb_continue') }}
         </button>
-        <!-- Step 3: Create Family -->
-        <button v-else-if="step === 3" @click="handleCreateFamily" :disabled="!canProceed || saving"
+        <!-- Currency step: Create Family -->
+        <button v-else-if="currentStepName === 'currency'" @click="handleCreateFamily" :disabled="!canProceed || saving"
           class="modal-primary-btn" style="background: #BD5B39">
           {{ saving ? t('onb_saving') + '...' : t('onb_createFamily') }}
         </button>
-        <!-- Step 4: Let's Go -->
-        <button v-else-if="step === 4" @click="handleFinish" :disabled="saving"
+        <!-- Plan step: Let's Go -->
+        <button v-else-if="currentStepName === 'plan'" @click="handleFinish" :disabled="saving"
           class="modal-primary-btn" style="background: #BD5B39">
           {{ saving ? t('onb_saving') + '...' : t('onb_letsGo') }}
         </button>
-        <!-- Steps 1-2: Next -->
+        <!-- Other steps: Next -->
         <button v-else @click="nextStep" :disabled="!canProceed"
           class="modal-primary-btn" style="background: #BD5B39">
           {{ t('onb_next') }}
@@ -898,15 +1030,22 @@ async function shareNative() {
   line-height: 1.5;
 }
 
-/* === MODE SELECTION (Step 1) === */
-.mode-cards {
+.step-hint {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin-top: 1.25rem;
+}
+
+/* === TYPE SELECTION (Step 1 — 3 cards) === */
+.type-cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 }
 
-.mode-card-image {
+.type-card {
   text-align: center;
   cursor: pointer;
   transition: all 0.25s ease;
@@ -915,39 +1054,34 @@ async function shareNative() {
   border: 2px solid transparent;
 }
 
-.mode-card-image:hover {
+.type-card:hover {
   transform: translateY(-2px);
 }
 
-.mode-card-image.selected {
+.type-card.selected {
   border-color: #BD5B39;
   background: rgba(189, 91, 57, 0.04);
 }
 
-.mode-img {
+.type-img {
   width: 100%;
-  max-width: 140px;
+  max-width: 100px;
   height: auto;
   margin: 0 auto 0.75rem;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
-.mode-title-img {
-  font-size: 1.125rem;
+.type-title {
+  font-size: 0.9375rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
   color: #1A1C1E;
 }
 
-.mode-desc {
-  font-size: 0.8125rem;
+.type-desc {
+  font-size: 0.75rem;
   color: #64748b;
   line-height: 1.4;
-}
-
-.email-section {
-  max-width: 100%;
-  margin-top: 0.5rem;
 }
 
 /* === FORM ELEMENTS === */
@@ -997,6 +1131,142 @@ async function shareNative() {
 .currency-btn {
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.solo-note {
+  text-align: center;
+  font-size: 0.875rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 1rem;
+}
+
+/* === CHALLENGE CARDS (Step 3) === */
+.challenge-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  justify-content: center;
+}
+
+.challenge-card {
+  padding: 0.75rem 1.25rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 2rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.challenge-card:hover {
+  border-color: #BD5B39;
+}
+
+.challenge-card.active {
+  background: #BD5B39;
+  border-color: #BD5B39;
+  color: white;
+}
+
+/* === DASHBOARD PREF CARDS (Step 4) === */
+.dash-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dash-card {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  text-align: start;
+}
+
+.dash-card:hover {
+  border-color: #cbd5e1;
+}
+
+.dash-card.active {
+  border-color: #BD5B39;
+  background: rgba(189, 91, 57, 0.03);
+}
+
+.dash-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
+.dash-card-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: #1A1C1E;
+  margin: 0;
+}
+
+.dash-card-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.dash-toggle {
+  width: 2.75rem;
+  height: 1.5rem;
+  background: #e2e8f0;
+  border-radius: 1rem;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.dash-toggle.on {
+  background: #BD5B39;
+}
+
+.dash-toggle-knob {
+  width: 1.125rem;
+  height: 1.125rem;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.dash-toggle.on .dash-toggle-knob {
+  left: calc(100% - 1.3125rem);
+}
+
+.dash-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.1875rem 0.625rem;
+  background: #fff7ed;
+  color: #BD5B39;
+  border: 1px solid #fed7aa;
+  border-radius: 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.dash-note {
+  text-align: center;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
 }
 
 /* === ROLE PICKER === */
@@ -1265,7 +1535,7 @@ async function shareNative() {
   border-style: solid;
 }
 
-/* === HOUSE BUTTONS (Step 3) === */
+/* === HOUSE BUTTONS (Situation step) === */
 .house-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1350,7 +1620,7 @@ async function shareNative() {
   color: white;
 }
 
-/* === PLAN SELECTION (Step 4) === */
+/* === PLAN SELECTION === */
 .plans-duo {
   display: flex;
   flex-direction: column;
@@ -1474,7 +1744,7 @@ async function shareNative() {
 
 .ai-card:hover { opacity: 0.95; }
 
-/* === WELCOME BANNER (Step 4) === */
+/* === WELCOME BANNER === */
 .welcome-banner {
   text-align: center;
   margin-bottom: 1.5rem;
@@ -1485,11 +1755,6 @@ async function shareNative() {
   margin: 0 auto 0.5rem;
   display: block;
   opacity: 0.2;
-}
-
-.welcome-text {
-  font-size: 1.5rem;
-  margin: 0;
 }
 
 /* === ERROR BANNER === */
@@ -1629,7 +1894,7 @@ async function shareNative() {
   margin: 0;
 }
 
-/* === FIXED BOTTOM BAR (matches app footer style) === */
+/* === FIXED BOTTOM BAR === */
 .bottom-bar {
   position: fixed;
   bottom: 28px;
@@ -1693,12 +1958,10 @@ async function shareNative() {
   gap: 1rem;
 }
 
-/* Back button: smaller flex like modal-secondary-btn */
 .onb-back-btn {
   flex: 1 !important;
 }
 
-/* When only one button, limit its width so it doesn't stretch */
 .bottom-actions.single-btn :deep(.modal-primary-btn) {
   flex: none;
   width: 60%;
@@ -1745,16 +2008,20 @@ async function shareNative() {
     font-size: 1.5rem;
   }
 
-  .mode-cards {
-    gap: 0.75rem;
+  .type-cards {
+    gap: 0.5rem;
   }
 
-  .mode-img {
-    max-width: 110px;
+  .type-img {
+    max-width: 70px;
   }
 
-  .mode-title-img {
-    font-size: 1rem;
+  .type-title {
+    font-size: 0.8125rem;
+  }
+
+  .type-desc {
+    font-size: 0.6875rem;
   }
 
   .house-img {
@@ -1795,16 +2062,16 @@ async function shareNative() {
     max-width: 500px;
   }
 
-  .mode-img {
-    max-width: 180px;
+  .type-img {
+    max-width: 140px;
   }
 
-  .mode-title-img {
-    font-size: 1.25rem;
+  .type-title {
+    font-size: 1.125rem;
   }
 
-  .mode-desc {
-    font-size: 0.9375rem;
+  .type-desc {
+    font-size: 0.875rem;
   }
 
   .role-img {

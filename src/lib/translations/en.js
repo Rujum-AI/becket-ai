@@ -780,5 +780,51 @@ export default {
 
   // Onboarding — currency
   onb_currency: 'Family Currency',
-  onb_currencyDesc: 'Used for expense tracking'
+  onb_currencyDesc: 'Used for expense tracking',
+
+  // === NEW ONBOARDING FUNNEL ===
+  // Step titles
+  onb_whatBrings: 'What brings you to Becket?',
+  onb_aboutYou: 'About You & Your Kids',
+  onb_challenges: "What's Challenging?",
+  onb_dashboard: 'Set Up Your Dashboard',
+  onb_situation: 'Your Situation',
+  onb_almostDone: 'Almost Done!',
+  onb_choosePlan: 'Choose Your Plan',
+
+  // User type cards
+  onb_separated: 'We Parent Apart',
+  onb_separatedDesc: 'Live separately, manage kids together',
+  onb_together: 'We Parent Together',
+  onb_togetherDesc: 'Live together, need help managing',
+  // onb_solo / onb_soloDesc already exist above
+
+  // Challenge labels
+  ch_communication: 'Communication',
+  ch_scheduling: 'Scheduling',
+  ch_expenses: 'Splitting Expenses',
+  ch_handoffs: 'Pickup & Dropoff',
+  ch_consistency: 'Consistent Rules',
+  ch_medical: 'Medical Coordination',
+  ch_school: 'School Coordination',
+  ch_activities: 'Kids Activities',
+  ch_responsibilities: 'Dividing Tasks',
+  ch_support: 'Finding Support',
+
+  // Dashboard pref cards
+  dash_finance: 'Finance',
+  dash_financeDesc: 'Track expenses & costs',
+  dash_management: 'Management',
+  dash_managementDesc: 'Events, schedules & tasks',
+  dash_understandings: 'Understandings',
+  dash_understandingsDesc: 'Agreements, rules & custody',
+  dash_alwaysIncluded: 'Family & Trustees are always included',
+  dash_recommended: 'Recommended',
+
+  // Currency & invite step
+  onb_partnerEmail: "Partner's Email",
+  onb_inviteDesc: "We'll send them an invite to join",
+  onb_addContactsLater: 'You can add contacts later from Trustees',
+  onb_selectChallenges: 'Select what applies to you',
+  onb_challengesSub: 'This helps us personalize your experience'
 }

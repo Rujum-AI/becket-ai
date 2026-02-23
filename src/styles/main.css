@@ -56,6 +56,48 @@
         transform: translate(-50%, calc((var(--dist-y) * -1.3) - 50%)) scale(var(--fan-scale));
     }
 
+    /* 4-item narrow */
+    .app-footer.items-4.menu-open .sat-1 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * -1.3) - 50%), calc((var(--dist-y) * -0.3) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-4.menu-open .sat-2 {
+        z-index: 2603;
+        transform: translate(calc((var(--dist-x) * -0.45) - 50%), calc((var(--dist-y) * -1.1) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-4.menu-open .sat-3 {
+        z-index: 2603;
+        transform: translate(calc((var(--dist-x) * 0.45) - 50%), calc((var(--dist-y) * -1.1) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-4.menu-open .sat-4 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * 1.3) - 50%), calc((var(--dist-y) * -0.3) - 50%)) scale(var(--fan-scale));
+    }
+
+    /* 3-item narrow */
+    .app-footer.items-3.menu-open .sat-1 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * -1.1) - 50%), calc((var(--dist-y) * -0.5) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-3.menu-open .sat-2 {
+        z-index: 2603;
+        transform: translate(-50%, calc((var(--dist-y) * -1.2) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-3.menu-open .sat-3 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * 1.1) - 50%), calc((var(--dist-y) * -0.5) - 50%)) scale(var(--fan-scale));
+    }
+
+    /* 2-item narrow */
+    .app-footer.items-2.menu-open .sat-1 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * -0.9) - 50%), calc((var(--dist-y) * -0.8) - 50%)) scale(var(--fan-scale));
+    }
+    .app-footer.items-2.menu-open .sat-2 {
+        z-index: 2601;
+        transform: translate(calc((var(--dist-x) * 0.9) - 50%), calc((var(--dist-y) * -0.8) - 50%)) scale(var(--fan-scale));
+    }
+
 }
 
 /* === BASE STYLES === */
@@ -575,6 +617,48 @@ input, textarea, select { text-align: start; }
 .app-footer.menu-open .sat-5 {
     transform: translate(calc((var(--dist-x) * 1.5) - 50%), calc((var(--dist-y) * -0.1) - 50%)) scale(1);
     transition-delay: 0.25s;
+}
+
+/* 4-item wheel positions */
+.app-footer.items-4.menu-open .sat-1 {
+    transform: translate(calc((var(--dist-x) * -1.3) - 50%), calc((var(--dist-y) * -0.3) - 50%)) scale(1);
+    transition-delay: 0.05s;
+}
+.app-footer.items-4.menu-open .sat-2 {
+    transform: translate(calc((var(--dist-x) * -0.45) - 50%), calc((var(--dist-y) * -1.1) - 50%)) scale(1);
+    transition-delay: 0.1s;
+}
+.app-footer.items-4.menu-open .sat-3 {
+    transform: translate(calc((var(--dist-x) * 0.45) - 50%), calc((var(--dist-y) * -1.1) - 50%)) scale(1);
+    transition-delay: 0.15s;
+}
+.app-footer.items-4.menu-open .sat-4 {
+    transform: translate(calc((var(--dist-x) * 1.3) - 50%), calc((var(--dist-y) * -0.3) - 50%)) scale(1);
+    transition-delay: 0.2s;
+}
+
+/* 3-item wheel positions */
+.app-footer.items-3.menu-open .sat-1 {
+    transform: translate(calc((var(--dist-x) * -1.1) - 50%), calc((var(--dist-y) * -0.5) - 50%)) scale(1);
+    transition-delay: 0.05s;
+}
+.app-footer.items-3.menu-open .sat-2 {
+    transform: translate(-50%, calc((var(--dist-y) * -1.2) - 50%)) scale(1);
+    transition-delay: 0.1s;
+}
+.app-footer.items-3.menu-open .sat-3 {
+    transform: translate(calc((var(--dist-x) * 1.1) - 50%), calc((var(--dist-y) * -0.5) - 50%)) scale(1);
+    transition-delay: 0.15s;
+}
+
+/* 2-item wheel positions */
+.app-footer.items-2.menu-open .sat-1 {
+    transform: translate(calc((var(--dist-x) * -0.9) - 50%), calc((var(--dist-y) * -0.8) - 50%)) scale(1);
+    transition-delay: 0.05s;
+}
+.app-footer.items-2.menu-open .sat-2 {
+    transform: translate(calc((var(--dist-x) * 0.9) - 50%), calc((var(--dist-y) * -0.8) - 50%)) scale(1);
+    transition-delay: 0.1s;
 }
 
 .sat-btn-circle {

@@ -35,13 +35,13 @@ const router = createRouter({
       path: '/finance',
       name: 'finance',
       component: () => import('@/views/FinanceView.vue'),
-      meta: { requiresAuth: true, requiresFamily: true }
+      meta: { requiresAuth: true, requiresFamily: true, dashboardPref: 'finance' }
     },
     {
       path: '/management',
       name: 'management',
       component: () => import('@/views/ManagementView.vue'),
-      meta: { requiresAuth: true, requiresFamily: true }
+      meta: { requiresAuth: true, requiresFamily: true, dashboardPref: 'management' }
     },
     {
       path: '/trustees',
@@ -53,7 +53,7 @@ const router = createRouter({
       path: '/understandings',
       name: 'understandings',
       component: () => import('@/views/UnderstandingsView.vue'),
-      meta: { requiresAuth: true, requiresFamily: true }
+      meta: { requiresAuth: true, requiresFamily: true, dashboardPref: 'understandings' }
     },
     {
       path: '/updates',
@@ -129,6 +129,18 @@ router.beforeEach(async (to, from, next) => {
     if (requiresNoFamily && hasFamily) {
       next('/family')
       return
+    }
+
+    // Dashboard preference enforcement — block disabled dashboards
+    const dashPref = to.meta.dashboardPref
+    if (dashPref && hasFamily) {
+      const { family } = useFamily()
+      const prefs = family.value?.dashboard_prefs
+        || { finance: true, management: true, understandings: true }
+      if (!prefs[dashPref]) {
+        next('/family')
+        return
+      }
     }
   }
 

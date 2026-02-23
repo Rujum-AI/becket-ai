@@ -180,11 +180,14 @@ export function useFamily() {
       const familyRow = {
         id: familyId,
         mode: onboardingData.mode,
+        family_type: onboardingData.familyType || (onboardingData.mode === 'solo' ? 'solo' : 'separated'),
         home_count: onboardingData.homes,
-        relationship_status: relationshipStatusMap[onboardingData.relationshipStatus] || onboardingData.relationshipStatus,
-        agreement_basis: agreementBasisMap[onboardingData.agreementType] || onboardingData.agreementType,
+        relationship_status: relationshipStatusMap[onboardingData.relationshipStatus] || onboardingData.relationshipStatus || null,
+        agreement_basis: agreementBasisMap[onboardingData.agreementType] || onboardingData.agreementType || null,
         plan: planMap[onboardingData.selectedPlan] || 'essential',
-        currency: onboardingData.currency || 'NIS'
+        currency: onboardingData.currency || 'NIS',
+        dashboard_prefs: onboardingData.dashboardPrefs || { finance: true, management: true, understandings: true },
+        challenges: onboardingData.challenges || []
       }
       const { error: familyError } = await supabase
         .from('families')

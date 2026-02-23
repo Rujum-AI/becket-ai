@@ -1,8 +1,25 @@
 # Becket AI — Version History
 
-**Current Version: v1.10**
+**Current Version: v2.01**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
+
+---
+
+## v2 — Onboarding & Dashboard Personalization
+
+### v2.01 — Onboarding rebuild: family types, challenges, dashboard prefs
+`pending` — 2026-02-23
+- New 3-type funnel: Separated (7 steps), Together (6 steps), Solo (6 steps)
+- Challenges multi-select per family type (communication, scheduling, etc.)
+- Dashboard preference toggles: Finance, Management, Understandings (optional)
+- Three-layer enforcement: router guard + footer + family data
+- Direct URL to disabled dashboard → redirects to /family
+- Dynamic AppFooter: satellite positions for 2/3/4/5 items
+- New DB columns: family_type, dashboard_prefs (jsonb), challenges (jsonb)
+- Migration 030: backfills existing families (all dashboards ON, no breakage)
+- Null-safe nullable columns (relationship_status, agreement_basis)
+- 94 new translation keys (EN + HE)
 
 ---
 

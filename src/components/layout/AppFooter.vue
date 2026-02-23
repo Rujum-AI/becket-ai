@@ -1,17 +1,26 @@
 <script setup>
+import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useFooterMenu } from '@/composables/useFooterMenu'
+import { useFamily } from '@/composables/useFamily'
 
 const { t } = useI18n()
 const { isWheelOpen } = useFooterMenu()
+const { family } = useFamily()
 
-const menuLinks = [
-  { key: 'expenses', icon: 'finance.png', url: '/finance' },
-  { key: 'trustees', icon: 'trustees.png', url: '/trustees' },
-  { key: 'family', icon: 'family.png', url: '/family' },
-  { key: 'schedule', icon: 'management.png', url: '/management' },
-  { key: 'agreements', icon: 'understandings.png', url: '/understandings' }
+const allLinks = [
+  { key: 'expenses', icon: 'finance.png', url: '/finance', pref: 'finance' },
+  { key: 'trustees', icon: 'trustees.png', url: '/trustees', pref: null },
+  { key: 'family', icon: 'family.png', url: '/family', pref: null },
+  { key: 'schedule', icon: 'management.png', url: '/management', pref: 'management' },
+  { key: 'agreements', icon: 'understandings.png', url: '/understandings', pref: 'understandings' }
 ]
+
+const menuLinks = computed(() => {
+  const prefs = family.value?.dashboard_prefs
+    || { finance: true, management: true, understandings: true }
+  return allLinks.filter(l => !l.pref || prefs[l.pref])
+})
 
 function toggleWheel() {
   isWheelOpen.value = !isWheelOpen.value
@@ -19,7 +28,7 @@ function toggleWheel() {
 </script>
 
 <template>
-  <footer class="app-footer" :class="{'menu-open': isWheelOpen}">
+  <footer class="app-footer" :class="[{'menu-open': isWheelOpen}, `items-${menuLinks.length}`]">
     <div class="wheel-anchor">
       <div class="wheel-btn" :class="{'is-spinning': isWheelOpen}" @click="toggleWheel">
         <img src="/assets/wheel.png" alt="Menu Wheel">
