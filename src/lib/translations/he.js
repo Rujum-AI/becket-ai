@@ -468,6 +468,9 @@ export default {
 
   // === SHARED ===
   subscription: 'מנוי',
+  dashboardSetup: 'הגדרת לוח בקרה',
+  dashboardSetupDesc: 'בחרו אילו חלקים יופיעו באפליקציה',
+  saveDashPrefs: 'שמור',
   inviteCoParent: 'הזמן הורה שותף',
   inviteCoParentTitle: 'הזמן את ההורה השותף',
   inviteCoParentDesc: 'שלח הזמנה להורה השותף להצטרף למשפחה',

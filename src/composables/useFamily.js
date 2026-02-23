@@ -272,6 +272,16 @@ export function useFamily() {
     family.value = { ...family.value, plan: mapped }
   }
 
+  async function updateDashboardPrefs(prefs) {
+    if (!family.value?.id) return
+    const { error } = await supabase
+      .from('families')
+      .update({ dashboard_prefs: prefs })
+      .eq('id', family.value.id)
+    if (error) throw error
+    family.value = { ...family.value, dashboard_prefs: prefs }
+  }
+
   return {
     family,
     children,
@@ -281,6 +291,7 @@ export function useFamily() {
     checkUserFamily,
     createFamily,
     updateFamilyPlan,
+    updateDashboardPrefs,
     fetchChildren
   }
 }

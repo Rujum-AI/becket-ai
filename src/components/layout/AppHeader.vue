@@ -12,11 +12,14 @@ import InviteCoParentModal from '@/components/shared/InviteCoParentModal.vue'
 const router = useRouter()
 const { t, lang, toggleLang } = useI18n()
 const { user, signOut } = useAuth()
-const { family, userRole } = useFamily()
+const { family, userRole, updateDashboardPrefs } = useFamily()
 const updatesStore = useUpdatesStore()
 const dashboardStore = useSupabaseDashboardStore()
 const isUserMenuOpen = ref(false)
 const showInviteModal = ref(false)
+const showDashSetup = ref(false)
+const dashPrefsLocal = ref({ finance: true, management: true, understandings: true })
+const savingPrefs = ref(false)
 
 // Fetch updates on mount to get real-time count
 onMounted(() => {
@@ -77,6 +80,35 @@ function openInviteModal() {
   showInviteModal.value = true
 }
 
+function openDashSetup() {
+  closeUserMenu()
+  const prefs = family.value?.dashboard_prefs
+    || { finance: true, management: true, understandings: true }
+  dashPrefsLocal.value = { ...prefs }
+  showDashSetup.value = true
+}
+
+function toggleLocalPref(key) {
+  dashPrefsLocal.value = { ...dashPrefsLocal.value, [key]: !dashPrefsLocal.value[key] }
+}
+
+async function saveDashPrefs() {
+  savingPrefs.value = true
+  try {
+    await updateDashboardPrefs(dashPrefsLocal.value)
+    showDashSetup.value = false
+    // If current route is now disabled, redirect to /family
+    const dashPref = router.currentRoute.value.meta?.dashboardPref
+    if (dashPref && !dashPrefsLocal.value[dashPref]) {
+      router.push('/family')
+    }
+  } catch (err) {
+    console.error('Error saving dashboard prefs:', err)
+  } finally {
+    savingPrefs.value = false
+  }
+}
+
 // Close dropdown when clicking outside
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
@@ -124,6 +156,11 @@ if (typeof document !== 'undefined') {
               <span v-if="dashboardStore.pendingInvite" class="invite-pending-dot"></span>
             </div>
 
+            <div class="dropdown-item" @click="openDashSetup">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              {{ t('dashboardSetup') }}
+            </div>
+
             <div class="dropdown-item" @click="closeUserMenu(); router.push('/subscription')">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
               {{ t('subscription') }}
@@ -158,6 +195,54 @@ if (typeof document !== 'undefined') {
 
   <!-- Invite Co-Parent Modal -->
   <InviteCoParentModal :show="showInviteModal" @close="showInviteModal = false" />
+
+  <!-- Dashboard Setup Modal -->
+  <Teleport to="body">
+    <Transition name="pop">
+      <div v-if="showDashSetup" class="dash-setup-overlay" @click.self="showDashSetup = false">
+        <div class="dash-setup-modal">
+          <h3 class="dash-setup-title">{{ t('dashboardSetup') }}</h3>
+          <p class="dash-setup-desc">{{ t('dashboardSetupDesc') }}</p>
+
+          <div class="dash-setup-list">
+            <div class="dash-setup-row" @click="toggleLocalPref('finance')">
+              <div class="dash-setup-info">
+                <span class="dash-setup-label">{{ t('dash_finance') }}</span>
+                <span class="dash-setup-sub">{{ t('dash_financeDesc') }}</span>
+              </div>
+              <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.finance }">
+                <div class="dash-setup-knob"></div>
+              </div>
+            </div>
+            <div class="dash-setup-row" @click="toggleLocalPref('management')">
+              <div class="dash-setup-info">
+                <span class="dash-setup-label">{{ t('dash_management') }}</span>
+                <span class="dash-setup-sub">{{ t('dash_managementDesc') }}</span>
+              </div>
+              <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.management }">
+                <div class="dash-setup-knob"></div>
+              </div>
+            </div>
+            <div class="dash-setup-row" @click="toggleLocalPref('understandings')">
+              <div class="dash-setup-info">
+                <span class="dash-setup-label">{{ t('dash_understandings') }}</span>
+                <span class="dash-setup-sub">{{ t('dash_understandingsDesc') }}</span>
+              </div>
+              <div class="dash-setup-toggle" :class="{ on: dashPrefsLocal.understandings }">
+                <div class="dash-setup-knob"></div>
+              </div>
+            </div>
+          </div>
+
+          <p class="dash-setup-note">{{ t('dash_alwaysIncluded') }}</p>
+
+          <button class="dash-setup-save" :disabled="savingPrefs" @click="saveDashPrefs">
+            {{ savingPrefs ? '...' : t('saveDashPrefs') }}
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -173,5 +258,139 @@ if (typeof document !== 'undefined') {
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* Dashboard Setup Modal */
+.dash-setup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dash-setup-modal {
+  background: white;
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.dash-setup-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: #1A1C1E;
+  margin: 0 0 0.25rem;
+}
+
+.dash-setup-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0 0 1.25rem;
+}
+
+.dash-setup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.dash-setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dash-setup-row:hover {
+  border-color: #cbd5e1;
+}
+
+.dash-setup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.dash-setup-label {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1A1C1E;
+}
+
+.dash-setup-sub {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.dash-setup-toggle {
+  width: 2.75rem;
+  height: 1.5rem;
+  background: #e2e8f0;
+  border-radius: 1rem;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.dash-setup-toggle.on {
+  background: #BD5B39;
+}
+
+.dash-setup-knob {
+  width: 1.125rem;
+  height: 1.125rem;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  transition: left 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.dash-setup-toggle.on .dash-setup-knob {
+  left: calc(100% - 1.3125rem);
+}
+
+.dash-setup-note {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0 0 1rem;
+}
+
+.dash-setup-save {
+  width: 100%;
+  padding: 0.75rem;
+  background: #BD5B39;
+  border: none;
+  border-radius: 0.75rem;
+  color: white;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dash-setup-save:hover:not(:disabled) {
+  background: #a34e31;
+}
+
+.dash-setup-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

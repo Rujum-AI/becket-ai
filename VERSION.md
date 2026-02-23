@@ -1,12 +1,19 @@
 # Becket AI — Version History
 
-**Current Version: v2.01**
+**Current Version: v2.02**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.02 — Dashboard Setup in profile menu
+`pending` — 2026-02-23
+- New "Dashboard Setup" item in profile dropdown menu
+- Toggle modal: enable/disable Finance, Management, Understandings
+- Saves to Supabase instantly, footer + router update in real-time
+- Auto-redirects to /family if current route becomes disabled
 
 ### v2.01 — Onboarding rebuild: family types, challenges, dashboard prefs
 `pending` — 2026-02-23

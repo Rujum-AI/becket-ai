@@ -468,6 +468,9 @@ export default {
 
   // === SHARED ===
   subscription: 'Subscription',
+  dashboardSetup: 'Dashboard Setup',
+  dashboardSetupDesc: 'Choose which sections appear in your app',
+  saveDashPrefs: 'Save',
   inviteCoParent: 'Invite Co-Parent',
   inviteCoParentTitle: 'Invite Your Co-Parent',
   inviteCoParentDesc: 'Send an invitation to your co-parent to join the family',
