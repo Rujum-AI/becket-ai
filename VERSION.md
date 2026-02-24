@@ -1,12 +1,18 @@
 # Becket AI — Version History
 
-**Current Version: v2.04**
+**Current Version: v2.05**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.05 — Usage step card layout matches type step
+`pending` — 2026-02-24
+- Usage cards now vertical grid (same as type selection cards)
+- Image on top, title, description, toggle underneath each card
+- 3-column for separated, 2-column centered for together/solo
 
 ### v2.04 — Usage step icons, profile menu label, separated image
 `pending` — 2026-02-24

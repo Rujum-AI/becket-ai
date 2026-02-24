@@ -575,21 +575,19 @@ async function shareNative() {
             <p class="step-subtitle">{{ t('onb_usageSub') }}</p>
           </div>
 
-          <div class="dash-cards">
+          <div class="usage-cards">
             <div
               v-for="opt in dashboardOptions"
               :key="opt.key"
-              class="dash-card"
-              :class="{ active: dashboardPrefs[opt.key] }"
+              class="usage-card"
+              :class="{ selected: dashboardPrefs[opt.key] }"
               @click="toggleDashPref(opt.key)"
             >
-              <img :src="`/assets/${opt.key}.png`" alt="" class="dash-card-icon" />
-              <div class="dash-card-body">
-                <h3 class="dash-card-title">{{ t('dash_' + opt.key) }}</h3>
-                <p class="dash-card-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
-              </div>
-              <div class="dash-toggle" :class="{ on: dashboardPrefs[opt.key] }">
-                <div class="dash-toggle-knob"></div>
+              <img :src="`/assets/${opt.key}.png`" alt="" class="type-img" />
+              <h3 class="type-title">{{ t('dash_' + opt.key) }}</h3>
+              <p class="type-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
+              <div class="usage-toggle" :class="{ on: dashboardPrefs[opt.key] }">
+                <div class="usage-toggle-knob"></div>
               </div>
             </div>
           </div>
@@ -1092,81 +1090,57 @@ async function shareNative() {
   color: white;
 }
 
-/* === DASHBOARD PREF CARDS (Step 4) === */
-.dash-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  margin-bottom: 1rem;
+/* === USAGE CARDS (same layout as type cards + toggle) === */
+.usage-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
-.dash-card {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 1rem;
-  padding: 1rem;
+.usage-cards:has(> :nth-child(3)) {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.usage-cards:not(:has(> :nth-child(3))) {
+  grid-template-columns: 1fr 1fr;
+  max-width: 360px;
+  margin-inline: auto;
+}
+
+.usage-card {
+  text-align: center;
   cursor: pointer;
-  transition: all 0.2s;
-  text-align: start;
+  transition: all 0.25s ease;
+  padding: 1rem 0.5rem 0.75rem;
+  border-radius: 1.25rem;
+  border: 2px solid transparent;
 }
 
-.dash-card:hover {
-  border-color: #cbd5e1;
+.usage-card:hover {
+  transform: translateY(-2px);
 }
 
-.dash-card.active {
+.usage-card.selected {
   border-color: #BD5B39;
-  background: rgba(189, 91, 57, 0.03);
+  background: rgba(189, 91, 57, 0.04);
 }
 
-.dash-card-icon {
-  width: 2.75rem;
-  height: 2.75rem;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
-}
-
-.dash-card-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.dash-card-title {
-  font-size: 0.9375rem;
-  font-weight: 700;
-  color: #1A1C1E;
-  margin: 0;
-}
-
-.dash-card-desc {
-  font-size: 0.75rem;
-  color: #94a3b8;
-  margin: 0;
-  line-height: 1.3;
-}
-
-.dash-toggle {
+.usage-toggle {
   width: 2.75rem;
   height: 1.5rem;
   background: #e2e8f0;
   border-radius: 1rem;
   position: relative;
   transition: background 0.2s;
-  flex-shrink: 0;
+  margin: 0.75rem auto 0;
 }
 
-.dash-toggle.on {
+.usage-toggle.on {
   background: #BD5B39;
 }
 
-.dash-toggle-knob {
+.usage-toggle-knob {
   width: 1.125rem;
   height: 1.125rem;
   background: white;
@@ -1178,28 +1152,10 @@ async function shareNative() {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-.dash-toggle.on .dash-toggle-knob {
+.usage-toggle.on .usage-toggle-knob {
   left: calc(100% - 1.3125rem);
 }
 
-.dash-badge {
-  display: inline-block;
-  margin-top: 0.5rem;
-  padding: 0.1875rem 0.625rem;
-  background: #fff7ed;
-  color: #BD5B39;
-  border: 1px solid #fed7aa;
-  border-radius: 1rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
-.dash-note {
-  text-align: center;
-  font-size: 0.8125rem;
-  color: #94a3b8;
-  margin-top: 0.5rem;
-}
 
 /* === ROLE PICKER === */
 .role-section {
