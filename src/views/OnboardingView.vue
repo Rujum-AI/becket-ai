@@ -1115,6 +1115,9 @@ async function shareNative() {
   padding: 1rem 0.5rem 0.75rem;
   border-radius: 1.25rem;
   border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .usage-card:hover {
@@ -1133,7 +1136,8 @@ async function shareNative() {
   border-radius: 1rem;
   position: relative;
   transition: background 0.2s;
-  margin: 0.75rem auto 0;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .usage-toggle.on {
