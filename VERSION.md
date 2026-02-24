@@ -1,12 +1,19 @@
 # Becket AI — Version History
 
-**Current Version: v2.03**
+**Current Version: v2.04**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.04 — Usage step icons, profile menu label, separated image
+`pending` — 2026-02-24
+- Add section icons (finance/management/understandings) to onboarding usage cards
+- Match AppHeader modal layout: icon + body + toggle
+- Shorten profile dropdown label to "My Setup" / "ההגדרות שלי"
+- Change separated type card image to two-homes (button_house2.png)
 
 ### v2.03 — Onboarding polish: merge steps, human-focused copy
 `pending` — 2026-02-23

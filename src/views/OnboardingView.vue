@@ -421,7 +421,7 @@ async function shareNative() {
 
           <div class="type-cards">
             <div class="type-card" :class="{ selected: familyType === 'separated' }" @click="selectFamilyType('separated')">
-              <img src="@/assets/button_coparents.png" alt="Separated" class="type-img" />
+              <img src="@/assets/button_house2.png" alt="Separated" class="type-img" />
               <h3 class="type-title">{{ t('onb_separated') }}</h3>
               <p class="type-desc">{{ t('onb_separatedDesc') }}</p>
             </div>
@@ -583,13 +583,14 @@ async function shareNative() {
               :class="{ active: dashboardPrefs[opt.key] }"
               @click="toggleDashPref(opt.key)"
             >
-              <div class="dash-card-top">
+              <img :src="`/assets/${opt.key}.png`" alt="" class="dash-card-icon" />
+              <div class="dash-card-body">
                 <h3 class="dash-card-title">{{ t('dash_' + opt.key) }}</h3>
-                <div class="dash-toggle" :class="{ on: dashboardPrefs[opt.key] }">
-                  <div class="dash-toggle-knob"></div>
-                </div>
+                <p class="dash-card-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
               </div>
-              <p class="dash-card-desc">{{ t('dash_' + opt.key + 'Desc') }}</p>
+              <div class="dash-toggle" :class="{ on: dashboardPrefs[opt.key] }">
+                <div class="dash-toggle-knob"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -1095,18 +1096,20 @@ async function shareNative() {
 .dash-cards {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.625rem;
   margin-bottom: 1rem;
 }
 
 .dash-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
   background: white;
   border: 2px solid #e2e8f0;
   border-radius: 1rem;
-  padding: 1.25rem;
+  padding: 1rem;
   cursor: pointer;
   transition: all 0.2s;
-  position: relative;
   text-align: start;
 }
 
@@ -1119,25 +1122,34 @@ async function shareNative() {
   background: rgba(189, 91, 57, 0.03);
 }
 
-.dash-card-top {
+.dash-card-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.dash-card-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.375rem;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .dash-card-title {
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: #1A1C1E;
   margin: 0;
 }
 
 .dash-card-desc {
-  font-size: 0.8125rem;
-  color: #64748b;
+  font-size: 0.75rem;
+  color: #94a3b8;
   margin: 0;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .dash-toggle {

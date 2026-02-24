@@ -468,6 +468,7 @@ export default {
 
   // === SHARED ===
   subscription: 'מנוי',
+  dashboardSetupShort: 'ההגדרות שלי',
   dashboardSetup: 'למה אני משתמש בבקט',
   dashboardSetupDesc: 'הפעילו את הכלים שאתם צריכים — אפשר לשנות בכל עת',
   saveDashPrefs: 'שמור',

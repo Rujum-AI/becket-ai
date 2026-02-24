@@ -468,6 +468,7 @@ export default {
 
   // === SHARED ===
   subscription: 'Subscription',
+  dashboardSetupShort: 'My Setup',
   dashboardSetup: 'What I Use Becket For',
   dashboardSetupDesc: 'Toggle the tools you need — you can always change this later',
   saveDashPrefs: 'Save',
