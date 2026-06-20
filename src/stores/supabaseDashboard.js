@@ -15,7 +15,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const partnerCallingName = ref(null) // co-parent's first name
   const labelToProfileId = ref({}) // { 'dad': uuid, 'mom': uuid } — resolved at load
   const events = ref([])
-  const custodySchedule = ref({})
+  const cycleConfig = ref(null) // { cycleEpoch: Date, cycleLength: number, cycleData: array }
   const custodyOverrides = ref([])
   const pendingOverrides = ref([])
   const pendingInvite = ref(null) // { email, token } if co-parent not yet joined
@@ -735,63 +735,74 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   function resolveCustodyLabel(val) {
     if (!val) return null
     if (val === 'dad' || val === 'mom' || val === 'split') return val
-    if (val === user.value?.id) return parentLabel.value || 'dad'
-    if (val === partnerId.value) return partnerLabel.value || 'mom'
-    return val
+    if (val === user.value?.id) return parentLabel.value || null
+    if (val === partnerId.value) return partnerLabel.value || null
+    return null
   }
 
-  // Helper: Build custody schedule from cycle data
+  // Store the cycle config; the actual per-day lookup is computed lazily via
+  // the custodySchedule Proxy below. The cycle is periodic, so there's no
+  // window — any date past, present, or future resolves on access.
   function buildCustodySchedule(custodyData) {
     if (!custodyData.cycle_data) return
 
-    const cycleLength = custodyData.cycle_length || 14
-    const cycleData = custodyData.cycle_data
     const startDate = new Date(custodyData.valid_from || Date.now())
-
-    // cycle_data is always indexed so that index % 7 = day-of-week (0=Sun, 6=Sat)
-    // Align to the Sunday of the valid_from week so getDay() maps correctly
-    const startDow = startDate.getDay() // 0=Sun, 6=Sat
+    // cycle_data is always indexed so that index % 7 = day-of-week (0=Sun, 6=Sat).
+    // Align to the Sunday of the valid_from week so cycleDay maps correctly.
     const cycleEpoch = new Date(startDate)
-    cycleEpoch.setDate(cycleEpoch.getDate() - startDow) // Back to Sunday
+    cycleEpoch.setDate(cycleEpoch.getDate() - startDate.getDay()) // Back to Sunday
+    cycleEpoch.setHours(0, 0, 0, 0)
 
-    const schedule = {}
-    for (let i = -14; i < 100; i++) {
-      const date = new Date(cycleEpoch)
-      date.setDate(cycleEpoch.getDate() + i)
-      // Use local timezone (NOT toISOString which converts to UTC)
-      const y = date.getFullYear()
-      const m = String(date.getMonth() + 1).padStart(2, '0')
-      const d = String(date.getDate()).padStart(2, '0')
-      const dateKey = `${y}-${m}-${d}`
-      // Days since cycle epoch (a Sunday), so i % 7 == date.getDay()
-      const daysSinceEpoch = Math.floor((date - cycleEpoch) / (24 * 60 * 60 * 1000))
-      const cycleDay = ((daysSinceEpoch % cycleLength) + cycleLength) % cycleLength
-      const dayData = cycleData[cycleDay]
-      const label = dayData?.parent_label
-      // Resolve label → profile_id; fall back to raw label if no mapping
-      if (label === 'split') {
-        schedule[dateKey] = 'split'
-      } else {
-        schedule[dateKey] = labelToProfileId.value[label] || label || null
-      }
+    cycleConfig.value = {
+      cycleEpoch,
+      cycleLength: custodyData.cycle_length || 14,
+      cycleData: custodyData.cycle_data
     }
+  }
 
-    // Layer APPROVED overrides on top of cycle schedule
-    const approvedOverrides = custodyOverrides.value.filter(o => o.status === 'approved')
-    for (const override of approvedOverrides) {
+  // Map of dateKey → resolved schedule value for APPROVED overrides only.
+  // Layered on top of the cycle inside the custodySchedule Proxy.
+  const approvedOverridesByDate = computed(() => {
+    const map = {}
+    const approved = custodyOverrides.value.filter(o => o.status === 'approved')
+    const ltp = labelToProfileId.value
+    for (const override of approved) {
       const start = new Date(override.from_date + 'T00:00:00')
       const end = new Date(override.to_date + 'T00:00:00')
+      const resolved = ltp[override.override_parent] || override.override_parent
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const oy = d.getFullYear()
-        const om = String(d.getMonth() + 1).padStart(2, '0')
-        const od = String(d.getDate()).padStart(2, '0')
-        // Resolve override label → profile_id too
-        schedule[`${oy}-${om}-${od}`] = labelToProfileId.value[override.override_parent] || override.override_parent
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const dd = String(d.getDate()).padStart(2, '0')
+        map[`${y}-${m}-${dd}`] = resolved
       }
     }
+    return map
+  })
 
-    custodySchedule.value = schedule
-  }
+  // Computed Proxy: any custodySchedule[dateKey] lookup resolves on the fly.
+  // Returns the schedule value (profile_id, 'split', or null) for a YYYY-MM-DD key.
+  const MS_PER_DAY = 24 * 60 * 60 * 1000
+  const custodySchedule = computed(() => {
+    const cfg = cycleConfig.value
+    const overrides = approvedOverridesByDate.value
+    const ltp = labelToProfileId.value
+    return new Proxy({}, {
+      get(_, key) {
+        if (typeof key !== 'string') return undefined
+        if (key in overrides) return overrides[key]
+        if (!cfg) return undefined
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key)
+        if (!m) return undefined
+        const date = new Date(+m[1], +m[2] - 1, +m[3])
+        const daysSinceEpoch = Math.round((date - cfg.cycleEpoch) / MS_PER_DAY)
+        const cycleDay = ((daysSinceEpoch % cfg.cycleLength) + cfg.cycleLength) % cfg.cycleLength
+        const label = cfg.cycleData[cycleDay]?.parent_label
+        if (label === 'split') return 'split'
+        return ltp[label] || label || null
+      }
+    })
+  })
 
   // Helper: Get events for a specific child
   function getChildEvents(childId) {

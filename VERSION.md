@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v2.05**
+**Current Version: v2.07**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.07 — Calendar parenting-time: lazy cycle resolution + correct fallbacks
+`pending` — 2026-06-20
+- Custody schedule now computes lazily via a Proxy from the cycle config (epoch + length + per-day labels); no pre-filled window, so navigating to any past or future month always shows parenting time
+- Removed the 100-day window that silently capped coloring once a cycle aged past three months
+- `getCustodyForDate` no longer defaults missing schedule entries to 'mom' (which made every cell look orange when data was absent); returns 'no-custody' instead
+- `resolveCustodyLabel` returns null for unrecognized values instead of leaking a raw profile_id UUID as a CSS class
+- Added `.split` and `.no-custody` styling across month / week / day views; day-view banner now hides on non-custody days instead of falsely showing "mom Home"
 
 ### v2.05 — Usage step card layout matches type step
 `pending` — 2026-02-24
