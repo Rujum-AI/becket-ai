@@ -27,7 +27,14 @@ function resolvePendingExpense(action) {
 }
 
 function fmtAmount(amount) {
-  return amount?.toLocaleString('en-US') || '0'
+  if (amount == null) return '0'
+  return Number(amount).toLocaleString('en-US')
+}
+
+function getCategoryIcon(categoryId) {
+  if (!categoryId) return 'finance.png'
+  const cat = financeStore.categories.find(c => c.id === categoryId)
+  return cat ? cat.icon : 'finance.png'
 }
 
 const showAddExpenseModal = ref(false)
@@ -126,22 +133,22 @@ function getChildImg(child) {
     <PendingSection
       v-if="requiresApproval"
       target-type="expense"
-      :title="t('pendingApprovals') || 'Pending approvals'"
     >
-      <template #default="{ action }">
-        <div class="pending-expense">
-          <div class="pending-expense-title">
-            {{ resolvePendingExpense(action)?.title || '—' }}
+      <template #default="{ action, reasonText }">
+        <div class="pending-expense-row">
+          <div class="pending-expense-icon">
+            <img
+              :src="`/assets/${getCategoryIcon(resolvePendingExpense(action)?.category)}`"
+              :alt="resolvePendingExpense(action)?.category"
+            />
           </div>
-          <div class="pending-expense-meta">
-            <span class="pending-expense-amount">
-              ₪{{ fmtAmount(resolvePendingExpense(action)?.amount) }}
+          <div class="pending-expense-details">
+            <span class="pending-expense-title">
+              {{ resolvePendingExpense(action)?.title || t('newExpense') }}
             </span>
-            <span v-if="resolvePendingExpense(action)?.category" class="pending-expense-cat">
-              · {{ t(resolvePendingExpense(action).category) }}
-            </span>
-            <span v-if="action.reason" class="pending-expense-reason">
-              · {{ t(action.reason) || action.reason }}
+            <span class="pending-expense-meta">
+              <span class="bidi-isolate">{{ fmtAmount(resolvePendingExpense(action)?.amount) }} ₪</span>
+              <span v-if="reasonText" class="pending-expense-reason"> · {{ reasonText }}</span>
             </span>
           </div>
         </div>
@@ -215,26 +222,67 @@ function getChildImg(child) {
   letter-spacing: 0.03em;
 }
 
-.pending-expense {
+.pending-expense-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+}
+
+.pending-expense-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: white;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.pending-expense-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pending-expense-details {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .pending-expense-title {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  font-weight: 700;
   color: #1e293b;
+  line-height: 1.1;
 }
 
 .pending-expense-meta {
-  font-size: 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pending-expense-reason {
+  text-transform: none;
+  letter-spacing: 0;
   color: #64748b;
 }
 
-.pending-expense-amount {
-  font-weight: 700;
-  color: #0f172a;
+@media (max-width: 479px) {
+  .pending-expense-icon { width: 2.5rem; height: 2.5rem; }
+  .pending-expense-row { gap: 0.75rem; }
 }
 
 </style>

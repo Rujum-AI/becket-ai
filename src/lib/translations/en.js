@@ -294,6 +294,12 @@ export default {
   removeItemLimit: 'Remove Limit',
   expenseOverBudgetReason: 'This category is over its agreed budget for the period.',
   expenseOverItemLimitReason: 'This category reached its agreed item limit for the period.',
+
+  // Pending Approvals section (universal — used by PendingSection across types)
+  pendingApprovals: 'Pending Approvals',
+  pendingApprovalsCount: '{count} waiting for your decision',
+  reasonCrossDayEvent: 'Added on your co-parent’s custody day.',
+  reasonLegacy: 'Carried over from before approvals were tracked.',
   expenseDate: 'Date',
   recurring: 'Recurring',
   yearly: 'Yearly',

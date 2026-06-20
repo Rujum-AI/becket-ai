@@ -294,6 +294,12 @@ export default {
   removeItemLimit: 'הסר מגבלה',
   expenseOverBudgetReason: 'הקטגוריה חצתה את התקציב המוסכם לתקופה.',
   expenseOverItemLimitReason: 'הקטגוריה הגיעה למגבלת הפריטים המוסכמת לתקופה.',
+
+  // Pending Approvals section (universal — used by PendingSection across types)
+  pendingApprovals: 'ממתינים לאישור',
+  pendingApprovalsCount: '{count} פריטים ממתינים להחלטה שלך',
+  reasonCrossDayEvent: 'נוסף ביום שבו ההורה השני בעמדת המשמורת.',
+  reasonLegacy: 'הועבר ממערכת קודמת שלא ניהלה אישורים.',
   expenseDate: 'תאריך',
   recurring: 'הוצאה חוזרת',
   yearly: 'שנתי',
