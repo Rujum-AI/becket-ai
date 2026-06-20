@@ -2,14 +2,16 @@
 import { computed, ref, onBeforeUnmount } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import {
-  CircleArrowDown,
+  CircleArrowRight,
   CircleArrowUp,
   ArrowLeftRight,
   Heart,
   FileText,
   FolderOpen,
   AlertTriangle,
+  Clock,
   Check
 } from 'lucide-vue-next'
 
@@ -18,6 +20,7 @@ const props = defineProps({
   expectedParentLabel: { type: String, default: null },
   canNudge: { type: Boolean, default: false },
   nudgeSending: { type: Boolean, default: false },
+  nudgePending: { type: Boolean, default: false },
   colorIndex: { type: Number, default: 0 }
 })
 
@@ -49,9 +52,101 @@ const cardColorVars = computed(() => ({
   '--card-glow': cardTheme.value.glow
 }))
 
-const isPickup = computed(() => props.child.nextAction === 'pick')
-const actionLabel = computed(() => isPickup.value ? t('pickup') : t('dropoff'))
-const actionEvent = computed(() => isPickup.value ? 'open-pickup' : 'open-dropoff')
+// Handoff actions are available all day on the day they're scheduled for.
+// Parents may legitimately confirm earlier than the scheduled time — when
+// they do, we route them through an "early pickup" confirmation popup so
+// the action is intentional, then proceed normally (notify the co-parent).
+function nextHandoffMoment() {
+  const h = nextHandoff.value
+  if (!h?.time || !h?.date) return null
+  const [hh, mm] = h.time.split(':').map(Number)
+  const moment = new Date(h.date)
+  moment.setHours(hh, mm, 0, 0)
+  return moment
+}
+
+function isSameLocalDay(a, b) {
+  if (!a || !b) return false
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate()
+}
+
+// VISUAL state — drives the tint, icon, and text container styling.
+// Reflects what KIND of interaction is next (pickup / dropoff / event /
+// nothing). Always set, regardless of whether action is currently due.
+const cardState = computed(() => {
+  const c = conflict.value
+  if (c?.type === 'dropoff_overdue' || c?.type === 'dropoff_needed') return 'dropoff'
+  if (c?.type === 'pickup_needed') return 'pickup'
+  // `handoff_pending` from the store is *informational* — it fires on every
+  // transition day regardless of clock. Do NOT use it to drive the action
+  // affordance; nextHandoff already tells us the right scheduled time.
+  const h = nextHandoff.value
+  if (!h) return 'idle'
+  if (h.type === 'pickup') return 'pickup'
+  if (h.type === 'dropoff') return 'dropoff'
+  if (h.type === 'takeToEvent') return 'event'
+  return 'idle'
+})
+
+// ACTION state — set whenever the parent CAN take an action.
+// Available all day on the day-of (no time-gating). Urgent conflicts
+// (overdue / needed) always fire. null = just show text, no affordance.
+const actionState = computed(() => {
+  const c = conflict.value
+  if (c?.type === 'dropoff_overdue' || c?.type === 'dropoff_needed') return 'eventDropoff'
+  if (c?.type === 'pickup_needed') return 'pickup'
+
+  const moment = nextHandoffMoment()
+  if (!moment) return null
+  // Only surface the slide on the day the handoff is scheduled. Tomorrow's
+  // pickup waits until tomorrow.
+  if (!isSameLocalDay(moment, new Date())) return null
+
+  const h = nextHandoff.value
+  if (h?.type === 'pickup') return 'pickup'
+  if (h?.type === 'dropoff') return 'dropoff'
+  return null
+})
+
+// True when the parent slides to confirm before the scheduled time. Drives
+// the "you're confirming early" popup. Re-reads the moment so it stays
+// reactive to nowTick.
+function isBeforeScheduled() {
+  const moment = nextHandoffMoment()
+  if (!moment) return false
+  return Date.now() < moment.getTime()
+}
+
+const isUrgent = computed(() => conflict.value?.type === 'dropoff_overdue')
+
+// Early-pickup confirmation modal state. Set when the swipe completes
+// before the scheduled time. Confirming fires the same emit a normal
+// on-time swipe would — the partner notification follows the existing flow.
+const showEarlyConfirm = ref(false)
+const earlyConfirmType = ref(null) // 'pickup' | 'dropoff'
+const earlyConfirmAction = ref(null) // function to run on confirm
+
+function promptEarlyConfirm(type, action) {
+  earlyConfirmType.value = type
+  earlyConfirmAction.value = action
+  showEarlyConfirm.value = true
+}
+
+function onEarlyConfirm() {
+  showEarlyConfirm.value = false
+  if (earlyConfirmAction.value) earlyConfirmAction.value()
+  earlyConfirmAction.value = null
+}
+
+function onEarlyCancel() {
+  showEarlyConfirm.value = false
+  earlyConfirmAction.value = null
+  // Roll the slide back so the user can try again or change their mind.
+  swipeOffset.value = 0
+  swipeConfirmed.value = false
+}
 
 // Dynamic status dot color class
 const statusDotClass = computed(() => {
@@ -121,14 +216,20 @@ const swipeProgress = computed(() => {
 })
 
 const swipeStyle = computed(() => ({
-  transform: `translateX(${swipeOffset.value}px)`,
+  // Combine horizontal drag with the CSS vertical centering — a single
+  // inline transform overrides the stylesheet's translateY otherwise.
+  transform: `translate(${swipeOffset.value}px, -50%)`,
   transition: swipeDragging.value ? 'none' : 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
 }))
 
+// Thumb is 3rem ≈ 48px — slightly larger than the 2.75rem track so it
+// reads as a knob protruding above and below the rail. Track width minus
+// the thumb is the available travel distance for the drag.
+const SWIPE_THUMB_PX = 48
+
 function trackInnerWidth() {
   if (!swipeTrack.value) return 0
-  // thumb is 2.25rem ≈ 36px; subtract so the thumb stops flush with the right edge
-  return swipeTrack.value.clientWidth - 36
+  return swipeTrack.value.clientWidth - SWIPE_THUMB_PX
 }
 
 function onSwipeStart(e) {
@@ -156,14 +257,25 @@ function onSwipeEnd(e) {
   if (max && swipeOffset.value / max >= SWIPE_COMPLETE_RATIO) {
     swipeOffset.value = max
     swipeConfirmed.value = true
-    // Brief affirmation, then fire the same event the legacy button used.
-    setTimeout(() => {
+
+    const fire = () => {
+      // Reset the slide UI after the pickup modal opens so the next pickup
+      // starts fresh. Existing notification flow handles partner alert.
       emit('open-pickup', props.child)
-      // Reset after the modal opens so the next pickup starts fresh.
       setTimeout(() => {
         swipeConfirmed.value = false
         swipeOffset.value = 0
       }, 350)
+    }
+
+    setTimeout(() => {
+      if (isBeforeScheduled()) {
+        // Picking up earlier than the scheduled time — gate behind a
+        // confirmation popup so the parent acknowledges the early action.
+        promptEarlyConfirm('pickup', fire)
+      } else {
+        fire()
+      }
     }, 280)
   } else {
     swipeOffset.value = 0
@@ -175,27 +287,64 @@ onBeforeUnmount(() => {
   activePointerId = null
 })
 
+function interp(template, params) {
+  return template.replace(/\{(\w+)\}/g, (_, k) => (params[k] ?? ''))
+}
+
 const nextInteractionText = computed(() => {
   const h = nextHandoff.value
   if (!h?.time) return null
   const { type, time, location: loc, date } = h
+  const when = getRelativeDay(date) || ''
+  const childName = props.child.name || ''
 
-  let text
-  if (type === 'takeToEvent') {
-    text = `${t('takeToEvent')} ${loc || ''}`
-  } else {
-    text = t(type)
-    if (loc) {
-      text += ` ${t('fromPlace')} ${loc}`
+  let key
+  if (type === 'pickup') key = loc ? 'nextPickupAt' : 'nextPickupAtNoLoc'
+  else if (type === 'dropoff') key = loc ? 'nextDropoffAt' : 'nextDropoffAtNoLoc'
+  else if (type === 'takeToEvent') key = loc ? 'nextTakeToAt' : 'nextTakeToAtNoLoc'
+  else return null
+
+  return interp(t(key), { child: childName, location: loc || '', when, time })
+    .replace(/\s+/g, ' ')
+    .trim()
+})
+
+// Active conflicts describe an *immediate* state ("did you drop off Kai at
+// swimming?") that overrides the scheduled handoff text. Otherwise show
+// the next-handoff text. Falls back to the muted "nothing upcoming" line.
+const nextDisplayText = computed(() => {
+  if (conflict.value && (
+    conflict.value.type === 'dropoff_needed' ||
+    conflict.value.type === 'dropoff_overdue' ||
+    conflict.value.type === 'pickup_needed'
+  )) {
+    return conflictText.value
+  }
+  return nextInteractionText.value
+    || interp(t('noUpcomingHandoff'), { child: props.child.name || '' })
+})
+
+function handleDropoffAction() {
+  const fire = () => {
+    if (cardState.value === 'eventDropoff' && conflict.value) {
+      emit('confirm-event-dropoff', {
+        child: props.child,
+        eventTitle: conflict.value.eventTitle,
+        eventType: conflict.value.eventType
+      })
+    } else {
+      emit('open-dropoff', props.child)
     }
   }
-  const relDay = getRelativeDay(date)
-  if (relDay) {
-    text += ` ${relDay}`
+  // eventDropoff is by definition due now (the active-event conflict
+  // fired) — never gate that behind "are you early". Only gate the
+  // scheduled handoff dropoff when before its time.
+  if (cardState.value !== 'eventDropoff' && isBeforeScheduled()) {
+    promptEarlyConfirm('dropoff', fire)
+  } else {
+    fire()
   }
-  text += ` ${t('atTime')} ${time}`
-  return text
-})
+}
 </script>
 
 <template>
@@ -221,30 +370,57 @@ const nextInteractionText = computed(() => {
       </div>
     </div>
 
-    <!-- ACTION ROW: Check-in + Smart Button -->
+    <!-- ACTION ROW: CHECK-IN nudge pill (alone — pickup/dropoff action moved
+         into the unified Next-Interaction container below). -->
     <div class="action-row">
       <button
-        :class="['checkin-btn', { sending: nudgeSending, inactive: !canNudge }]"
-        :disabled="!canNudge"
-        @click.stop="canNudge && $emit('send-nudge', child)"
+        :class="['checkin-btn', { sending: nudgeSending, pending: nudgePending, inactive: !canNudge }]"
+        :disabled="!canNudge || nudgePending"
+        @click.stop="canNudge && !nudgePending && $emit('send-nudge', child)"
       >
         <Heart :size="15" />
-        <span>{{ t('nudge') }}</span>
+        <span>{{ nudgePending ? t('nudgePending') : t('nudge') }}</span>
       </button>
-      <!-- Pickup: slide-to-confirm track (avoids accidental taps). -->
+    </div>
+
+    <!-- NEXT-INTERACTION TEXT CONTAINER
+         One stylized box per child showing THIS parent's next to-do.
+         Always present (text only) — the action affordance lives in a
+         separate container below and only appears when actually due. -->
+    <div
+      class="next-interaction"
+      :class="[`state-${cardState}`, { urgent: isUrgent, idle: cardState === 'idle' }]"
+    >
+      <div class="next-text-row">
+        <div :class="['next-icon', { 'icon-urgent': isUrgent }]">
+          <AlertTriangle v-if="isUrgent" :size="14" />
+          <ArrowLeftRight v-else :size="14" />
+        </div>
+        <div class="next-text bidi-isolate">{{ nextDisplayText }}</div>
+      </div>
+    </div>
+
+    <!-- ACTION AFFORDANCE (separate box, only when an action is due).
+         Renders only when actionState is set — i.e. urgent conflict, or
+         the scheduled handoff time is within the action window. -->
+    <div v-if="actionState" class="next-action">
       <div
-        v-if="isPickup"
+        v-if="actionState === 'pickup'"
         ref="swipeTrack"
         :class="['swipe-track', { confirmed: swipeConfirmed }]"
         :style="{ '--swipe-progress': swipeProgress }"
       >
-        <div class="swipe-fill" :style="{ width: `calc(${swipeProgress * 100}% + 36px)` }"></div>
-        <span class="swipe-label" :style="{ opacity: 1 - swipeProgress }">
-          {{ t('swipeToConfirmPickup') }}
-        </span>
-        <span class="swipe-label swipe-label-done" :style="{ opacity: swipeConfirmed ? 1 : 0 }">
-          {{ t('pickedUp') }}
-        </span>
+        <!-- Inner clip layer: keeps the fill + labels inside the pill while
+             letting the larger thumb knob protrude above and below the track. -->
+        <div class="swipe-rail">
+          <div class="swipe-fill" :style="{ width: `calc(${swipeProgress * 100}% + 48px)` }"></div>
+          <span class="swipe-label" :style="{ opacity: 1 - swipeProgress }">
+            {{ t('swipeToConfirmPickup') }}
+          </span>
+          <span class="swipe-label swipe-label-done" :style="{ opacity: swipeConfirmed ? 1 : 0 }">
+            {{ t('pickedUp') }}
+          </span>
+        </div>
         <div
           class="swipe-thumb"
           :style="swipeStyle"
@@ -253,70 +429,21 @@ const nextInteractionText = computed(() => {
           @pointerup="onSwipeEnd"
           @pointercancel="onSwipeEnd"
         >
-          <Check v-if="swipeConfirmed" :size="18" />
-          <CircleArrowDown v-else :size="18" />
+          <Check v-if="swipeConfirmed" :size="20" />
+          <CircleArrowRight v-else :size="20" />
         </div>
       </div>
 
-      <!-- Dropoff: still a tap target. -->
       <button
-        v-else
-        class="action-btn action-dropoff"
-        @click.stop="$emit(actionEvent, child)"
+        v-else-if="actionState === 'dropoff' || actionState === 'eventDropoff'"
+        :class="['next-action-btn', { urgent: isUrgent }]"
+        @click.stop="handleDropoffAction"
       >
-        <span class="action-icon-wrap">
-          <CircleArrowUp :size="20" />
+        <span class="next-action-icon-wrap">
+          <CircleArrowUp :size="18" />
         </span>
-        <span class="action-label">{{ actionLabel }}</span>
+        <span class="next-action-label">{{ t('confirmDropoff') }}</span>
       </button>
-    </div>
-
-    <!-- CONFLICT BANNER: status vs expected mismatch -->
-    <div v-if="conflict" :class="['conflict-banner', conflict.type === 'dropoff_overdue' ? 'conflict-urgent' : conflict.type === 'handoff_pending' ? 'conflict-handoff' : 'conflict-warn']">
-      <div class="conflict-row">
-        <AlertTriangle :size="14" class="conflict-icon" />
-        <span class="conflict-text">{{ conflictText }}</span>
-      </div>
-      <button
-        v-if="conflict.type === 'handoff_pending' && conflict.isMyPickup"
-        class="conflict-action-btn"
-        @click.stop="$emit('open-pickup', child)"
-      >
-        {{ t('confirmPickup') }}
-      </button>
-      <button
-        v-else-if="conflict.type === 'handoff_pending' && !conflict.isMyPickup"
-        class="conflict-action-btn"
-        @click.stop="$emit('open-dropoff', child)"
-      >
-        {{ t('confirmDropoff') }}
-      </button>
-      <button
-        v-else-if="conflict.type === 'dropoff_needed' || conflict.type === 'dropoff_overdue'"
-        class="conflict-action-btn"
-        @click.stop="$emit('confirm-event-dropoff', { child, eventTitle: conflict.eventTitle, eventType: conflict.eventType })"
-      >
-        {{ t('confirmDropoff') }}
-      </button>
-      <button
-        v-else-if="conflict.type === 'pickup_needed'"
-        class="conflict-action-btn"
-        @click.stop="$emit('open-pickup', child)"
-      >
-        {{ t('pickup') }}
-      </button>
-    </div>
-
-    <!-- NEXT INTERACTION -->
-    <div class="schedule-section" :class="{ inactive: !nextInteractionText }">
-      <div class="schedule-row">
-        <div class="schedule-icon icon-amber">
-          <ArrowLeftRight :size="13" />
-        </div>
-        <div class="schedule-text bidi-isolate">
-          {{ nextInteractionText || t('noUpcomingHandoff') }}
-        </div>
-      </div>
     </div>
 
     <!-- QUICK ACTIONS -->
@@ -330,6 +457,21 @@ const nextInteractionText = computed(() => {
         <span>{{ t('documents') }}</span>
       </button>
     </div>
+
+    <!-- Early-handoff confirmation. Fires when the parent confirms
+         pickup/dropoff before the scheduled time. Confirming proceeds to
+         the normal flow (modal + partner notification). -->
+    <ConfirmModal
+      :show="showEarlyConfirm"
+      :icon="Clock"
+      :title="earlyConfirmType === 'pickup' ? t('earlyPickupTitle') : t('earlyDropoffTitle')"
+      :message="earlyConfirmType === 'pickup' ? t('earlyPickupMessage') : t('earlyDropoffMessage')"
+      :confirm-text="t('continueAnyway')"
+      :cancel-text="t('cancel')"
+      confirm-color="bg-slate-900"
+      @confirm="onEarlyConfirm"
+      @close="onEarlyCancel"
+    />
   </div>
 </template>
 
@@ -473,113 +615,32 @@ const nextInteractionText = computed(() => {
   white-space: nowrap;
 }
 
-/* ===== Action Row ===== */
+/* ===== Action Row (CHECK-IN only) ===== */
 .action-row {
   position: relative;
   z-index: 1;
-  padding: 0.125rem 0.75rem 0.75rem;
+  padding: 0.125rem 0.75rem 0.5rem;
   display: flex;
-  gap: 0.5rem;
-  align-items: center;
+  justify-content: flex-end;
 }
 
-.action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1rem;
-  border-radius: 9999px;
-  border: 2px solid;
-  font-size: 0.75rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 2.75rem;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  overflow: hidden;
-}
-
-.action-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 2px,
-    rgba(255, 255, 255, 0.12) 2px,
-    rgba(255, 255, 255, 0.12) 4px
-  );
-  pointer-events: none;
-}
-
-.action-btn:hover {
-  transform: translateY(-2px);
-}
-
-.action-btn:active {
-  transform: scale(0.97);
-}
-
-.action-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* Pickup: teal theme */
-.action-pickup {
-  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-  border-color: #0f766e;
-  color: white;
-  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.action-pickup:hover {
-  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* Dropoff: warm orange theme */
-.action-dropoff {
-  background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
-  border-color: #ea580c;
-  color: white;
-  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.action-dropoff:hover {
-  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-.action-label {
-  position: relative;
-  z-index: 1;
-}
-
-/* ===== Swipe-to-confirm pickup (matches .action-pickup palette) ===== */
+/* ===== Swipe-to-confirm pickup (lives inside .next-interaction now,
+   takes the full container width — no min-width / flex contention).
+   The track itself does NOT clip — that way the thumb knob can sit
+   proud of the rail above and below. The inner .swipe-rail handles
+   fill + label clipping so those stay inside the pill. ===== */
 .swipe-track {
-  flex: 1;
+  width: 100%;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 2.75rem;
-  min-width: 8rem;
   padding: 0 0.25rem;
   border-radius: 9999px;
   border: 2px solid #0f766e;
   background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
   color: white;
-  overflow: hidden;
   box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   user-select: none;
   -webkit-user-select: none;
@@ -591,6 +652,7 @@ const nextInteractionText = computed(() => {
   content: '';
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: repeating-linear-gradient(
     45deg,
     transparent,
@@ -599,6 +661,19 @@ const nextInteractionText = computed(() => {
     rgba(255, 255, 255, 0.12) 4px
   );
   pointer-events: none;
+}
+
+/* Inner clipping layer — keeps the growing teal fill and the labels
+   inside the rounded pill while the thumb above is free to overflow. */
+.swipe-rail {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 0;
 }
 
 .swipe-fill {
@@ -622,7 +697,7 @@ const nextInteractionText = computed(() => {
   pointer-events: none;
   transition: opacity 0.15s ease;
   white-space: nowrap;
-  padding-inline-start: 2.25rem; /* keep label clear of the thumb */
+  padding-inline-start: 3rem; /* keep label clear of the larger thumb */
 }
 
 .swipe-label-done {
@@ -636,17 +711,23 @@ const nextInteractionText = computed(() => {
 
 .swipe-thumb {
   position: absolute;
-  inset-block: 0.2rem;
-  inset-inline-start: 0.2rem;
-  width: 2.25rem;
-  height: 2.25rem;
+  /* Vertically protruding: 3rem thumb in a 2.75rem track sits 0.125rem
+     proud above and below the rail. Makes the knob feel grabbable. */
+  top: 50%;
+  inset-inline-start: 0.125rem;
+  width: 3rem;
+  height: 3rem;
+  box-sizing: border-box;
+  transform: translateY(-50%);
   border-radius: 50%;
   background: white;
+  /* Frame: matches the track's deep-teal border for visual continuity. */
+  border: 2px solid #0f766e;
   color: #0d9488;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.12);
   cursor: grab;
   z-index: 2;
   touch-action: none;
@@ -740,138 +821,196 @@ const nextInteractionText = computed(() => {
   animation: nudgePulse 0.6s ease-in-out infinite;
 }
 
-/* ===== Conflict Banner ===== */
-.conflict-banner {
+/* Sent + still waiting on the partner — calmer slate pill so the user
+   knows the nudge is in-flight without re-triggering the urgent red glow. */
+.checkin-btn.pending {
+  background: linear-gradient(135deg, #475569, #64748b);
+  border-color: #334155;
+  animation: none;
+  cursor: default;
+  opacity: 0.85;
+}
+
+.checkin-btn.pending:hover {
+  transform: none;
+  box-shadow: 0 4px 14px rgba(71, 85, 105, 0.25);
+}
+
+/* ===== Unified Next-Interaction Container =====
+   Shows ONE thing per child: this parent's next to-do regarding the kid.
+   Either an actionable pickup/dropoff with affordance, or a passive
+   upcoming-event line. The action lives inside the container at full
+   width so the slide-to-confirm thumb is always visible. */
+.next-interaction {
   position: relative;
   z-index: 1;
   margin: 0 0.75rem 0.5rem;
-  padding: 0.5rem 0.625rem;
-  border-radius: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.conflict-warn {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1.5px solid rgba(245, 158, 11, 0.3);
-}
-
-.conflict-handoff {
-  background: rgba(59, 130, 246, 0.12);
-  border: 1.5px solid rgba(59, 130, 246, 0.4);
-  animation: conflictPulse 2s ease-in-out infinite;
-}
-
-.conflict-urgent {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1.5px solid rgba(239, 68, 68, 0.3);
-  animation: conflictPulse 2s ease-in-out infinite;
-}
-
-@keyframes conflictPulse {
-  0%, 100% { border-color: rgba(239, 68, 68, 0.3); }
-  50% { border-color: rgba(239, 68, 68, 0.6); }
-}
-
-.conflict-row {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.conflict-icon {
-  flex-shrink: 0;
-}
-
-.conflict-warn .conflict-icon { color: #f59e0b; }
-.conflict-urgent .conflict-icon { color: #ef4444; }
-
-.conflict-text {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-.conflict-warn .conflict-text { color: #92400e; }
-.conflict-urgent .conflict-text { color: #991b1b; }
-
-.conflict-action-btn {
-  align-self: flex-end;
-  padding: 0.3rem 0.75rem;
-  border-radius: 9999px;
-  border: none;
-  font-size: 0.625rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.conflict-warn .conflict-action-btn {
-  background: #f59e0b;
-  color: white;
-}
-
-.conflict-warn .conflict-action-btn:hover {
-  background: #d97706;
-}
-
-.conflict-urgent .conflict-action-btn {
-  background: #ef4444;
-  color: white;
-}
-
-.conflict-urgent .conflict-action-btn:hover {
-  background: #dc2626;
-}
-
-/* ===== Schedule Section ===== */
-.schedule-section {
-  position: relative;
-  z-index: 1;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 1rem;
-  padding: 0.125rem 0;
-  margin: 0 0.75rem 0.5rem;
+  padding: 0.625rem 0.75rem 0.75rem;
   border: 1.5px solid rgba(0, 0, 0, 0.05);
   backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  transition: background 0.25s ease, border-color 0.25s ease;
 }
 
-.schedule-section.inactive {
-  opacity: 0.45;
+.next-interaction.idle {
+  opacity: 0.55;
 }
 
-.schedule-row {
+/* Action affordance — separate sibling container.
+   Sits below the text container with breathing room on both sides so the
+   protruding thumb knob has clear air above and below it. */
+.next-action {
+  position: relative;
+  z-index: 1;
+  margin: 0.5rem 0.75rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Pickup state: subtle teal tint to foreshadow the slide action below. */
+.next-interaction.state-pickup {
+  background: rgba(204, 251, 241, 0.45);
+  border-color: rgba(20, 184, 166, 0.35);
+}
+
+/* Dropoff state: warm-orange tint, matches the tap CTA. */
+.next-interaction.state-dropoff,
+.next-interaction.state-eventDropoff {
+  background: rgba(255, 237, 213, 0.55);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+/* Urgent (overdue) state: red, pulsing border. */
+.next-interaction.urgent {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  animation: nextUrgentPulse 2s ease-in-out infinite;
+}
+
+@keyframes nextUrgentPulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.35); }
+  50% { border-color: rgba(239, 68, 68, 0.65); }
+}
+
+.next-text-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.625rem;
+  gap: 0.5rem;
 }
 
-.schedule-icon {
+.next-icon {
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
-  background: rgba(13, 148, 136, 0.12);
-  color: #0D9488;
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.schedule-icon.icon-amber {
-  background: rgba(245, 158, 11, 0.12);
-  color: #f59e0b;
+.next-interaction.state-pickup .next-icon {
+  background: rgba(13, 148, 136, 0.15);
+  color: #0d9488;
 }
 
-.schedule-text {
+.next-interaction.state-dropoff .next-icon,
+.next-interaction.state-eventDropoff .next-icon {
+  background: rgba(249, 115, 22, 0.15);
+  color: #ea580c;
+}
+
+.next-icon.icon-urgent {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+
+.next-text {
   flex: 1;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: #1e293b;
+  line-height: 1.3;
+}
+
+.next-interaction.urgent .next-text {
+  color: #991b1b;
+}
+
+/* Tap CTA (dropoff / event-dropoff). Sits inside the container at full
+   width — same orange palette as the legacy .action-dropoff button. */
+.next-action-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-radius: 9999px;
+  border: 2px solid #ea580c;
+  background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 2.75rem;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.next-action-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.12) 2px,
+    rgba(255, 255, 255, 0.12) 4px
+  );
+  pointer-events: none;
+}
+
+.next-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.next-action-btn:active {
+  transform: scale(0.97);
+}
+
+.next-action-btn.urgent {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  border-color: #b91c1c;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.next-action-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.next-action-label {
+  position: relative;
+  z-index: 1;
 }
 
 /* ===== Quick Actions ===== */
@@ -963,24 +1102,14 @@ const nextInteractionText = computed(() => {
     font-size: 0.6875rem;
   }
 
-  /* Action buttons occupy right side of first row, stacked vertically */
+  /* CHECK-IN pill occupies right side of first row */
   .action-row {
     grid-column: 2;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
+    align-items: center;
+    justify-content: flex-end;
     padding: 0.75rem 0 0.5rem;
     padding-inline-end: 1rem;
     padding-inline-start: 0.25rem;
-    gap: 0.375rem;
-  }
-
-  .action-btn {
-    flex: none;
-    padding: 0.55rem 1rem;
-    font-size: 0.6875rem;
-    min-height: 2.5rem;
-    gap: 0.4rem;
   }
 
   .checkin-btn {
@@ -989,24 +1118,18 @@ const nextInteractionText = computed(() => {
     min-height: 2.5rem;
   }
 
-  /* Conflict banner spans full width */
-  .conflict-banner {
+  /* Text container + action container both span full width below header */
+  .next-interaction {
     grid-column: 1 / -1;
     margin: 0 0.875rem 0.5rem;
   }
 
-  /* Schedule spans full width */
-  .schedule-section {
+  .next-action {
     grid-column: 1 / -1;
-    margin: 0 0.875rem 0.5rem;
+    margin: 0.5rem 0.875rem 0.75rem;
   }
 
-  .schedule-row {
-    padding: 0.5rem 0.75rem;
-    gap: 0.5rem;
-  }
-
-  .schedule-text {
+  .next-text {
     font-size: 0.8125rem;
   }
 

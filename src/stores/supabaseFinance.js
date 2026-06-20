@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
 import { useFamilyMode } from '@/composables/useFamilyMode'
+import { showToast } from '@/composables/useToast'
 
 export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   const { user } = useAuth()
@@ -237,6 +238,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       // Reload expenses to refresh UI (notification created by DB trigger)
       await loadExpenses()
 
+      showToast(data.status === 'pending_approval' ? 'toastExpensePending' : 'toastExpenseAdded')
       return data
     } catch (err) {
       console.error('Error adding expense:', err)
@@ -261,6 +263,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       if (deleteError) throw deleteError
 
       expenses.value = expenses.value.filter(e => e.id !== expenseId)
+      showToast('toastExpenseDeleted')
     } catch (err) {
       console.error('Error deleting expense:', err)
       error.value = err.message
@@ -423,46 +426,6 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     await loadCategoryBudgets()
   }
 
-  // Mirror of supabaseUnderstandings.syncCategoryBudgetsFromRule — kept
-  // local so saveExpenseRules can call it without a circular store import.
-  // Replace-all-in-scope semantics: every budget for this rule's scope
-  // (family-wide vs child-specific) is rebuilt from the rule's JSONB.
-  async function syncCategoryBudgetsFromRule(rule) {
-    if (!family.value?.id || !rule?.expense_rules) return
-    const childId = rule.child_id || null
-
-    let delQuery = supabase
-      .from('category_budgets')
-      .delete()
-      .eq('family_id', family.value.id)
-    delQuery = childId === null
-      ? delQuery.is('child_id', null)
-      : delQuery.eq('child_id', childId)
-    await delQuery
-
-    const cats = rule.expense_rules.categories || []
-    const rows = cats
-      .filter(c => c?.budget_limit?.amount && Number(c.budget_limit.amount) > 0)
-      .map(c => ({
-        family_id: family.value.id,
-        child_id: childId,
-        category: c.name,
-        period: c.budget_limit.period || 'monthly',
-        limit_amount: Number(c.budget_limit.amount),
-        created_by: user.value.id
-      }))
-
-    if (rows.length > 0) {
-      const { error: insErr } = await supabase
-        .from('category_budgets')
-        .insert(rows)
-      if (insErr) {
-        console.warn('category_budgets sync insert failed:', insErr.message)
-      }
-    }
-    await loadCategoryBudgets()
-  }
-
   // Load expense rules (active understanding with category='expenses')
   async function loadExpenseRules() {
     if (!family.value) return
@@ -575,16 +538,10 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
 
       if (upsertError) throw upsertError
 
-      // If the rule went straight to active (admin path), sync the
-      // normalized budget table to match. Pending rules sync on approve
-      // via supabaseUnderstandings.syncCategoryBudgetsFromRule.
-      if (data?.status === 'active') {
-        await syncCategoryBudgetsFromRule(data)
-      }
-
       // Reload rules
       await loadExpenseRules()
 
+      showToast(status === 'active' ? 'toastExpenseRulesSaved' : 'toastExpenseRulesProposed')
       return data
     } catch (err) {
       console.error('Error saving expense rules:', err)

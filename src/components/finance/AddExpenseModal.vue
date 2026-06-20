@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import CategoryBadge from '@/components/shared/CategoryBadge.vue'
 import { SECTION_COLORS } from '@/lib/modalColors'
 import { AlertCircle, Repeat } from 'lucide-vue-next'
 
@@ -134,12 +135,13 @@ function cancelConfirm() {
           v-for="cat in financeStore.categories"
           :key="cat.id"
           @click="expenseData.category = cat.id"
-          :class="['modal-icon-btn', { selected: expenseData.category === cat.id }]"
+          class="category-pick-btn"
         >
-          <div class="icon-circle">
-            <img :src="`/assets/${cat.icon}`" />
-          </div>
-          <span class="icon-label">{{ t(cat.name) }}</span>
+          <CategoryBadge
+            :category="cat.id"
+            size="lg"
+            :selected="expenseData.category === cat.id"
+          />
         </button>
       </div>
     </div>
@@ -234,6 +236,20 @@ function cancelConfirm() {
 </template>
 
 <style scoped>
+.category-pick-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+}
+
+.category-pick-btn:hover :deep(.circle) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .amount-input-wrapper {
   position: relative;
 }

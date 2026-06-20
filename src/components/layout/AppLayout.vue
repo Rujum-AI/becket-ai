@@ -12,11 +12,13 @@ import { useCamera } from '@/composables/useCamera'
 import { useI18n } from '@/composables/useI18n'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
 import { useFooterMenu } from '@/composables/useFooterMenu'
+import { useToast } from '@/composables/useToast'
 
 const { capturePhoto } = useCamera()
 const { t } = useI18n()
 const updatesStore = useUpdatesStore()
 const { isWheelOpen } = useFooterMenu()
+const { toastState, hideToast, showToast } = useToast()
 
 // Start realtime subscription
 onMounted(() => {
@@ -48,7 +50,6 @@ function closePhotoModal() {
 
 // Check-in system (formerly "nudge")
 const nudgeToRespond = ref(null)
-const showNudgeToast = ref(false)
 const checkInNotification = ref(null)
 
 function openNudgeResponse(nudge) {
@@ -61,11 +62,7 @@ function closeNudgeResponse() {
 
 function onNudgeSent() {
   nudgeToRespond.value = null
-  showNudgeToast.value = true
-}
-
-function onToastDone() {
-  showNudgeToast.value = false
+  showToast('nudgeSentSuccess')
 }
 
 function openCheckInDetail(notification) {
@@ -124,9 +121,9 @@ function closeCheckInDetail() {
     />
 
     <SuccessToast
-      :show="showNudgeToast"
-      :message="t('nudgeSentSuccess')"
-      @done="onToastDone"
+      :show="toastState.visible"
+      :message="toastState.message"
+      @done="hideToast"
     />
 
     <!-- Copyright bar — always visible -->

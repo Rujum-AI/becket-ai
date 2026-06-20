@@ -3,7 +3,12 @@ import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useUnderstandingsStore } from '@/stores/supabaseUnderstandings'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
-import { Plus, X, Check, AlertCircle, Edit3 } from 'lucide-vue-next'
+import { Plus, Edit3 } from 'lucide-vue-next'
+import CategoryBadge from '@/components/shared/CategoryBadge.vue'
+import CategoryEditorList from '@/components/shared/CategoryEditorList.vue'
+import SplitSlider from '@/components/shared/SplitSlider.vue'
+import FixedTransferForm from '@/components/shared/FixedTransferForm.vue'
+import PendingApprovalBanner from '@/components/shared/PendingApprovalBanner.vue'
 
 const { t } = useI18n()
 const store = useUnderstandingsStore()
@@ -20,7 +25,6 @@ const categoryOverrides = ref([])
 const includedCategories = ref(null)
 
 const allCategoryMeta = computed(() => financeStore.categories)
-const allCategoryIds = computed(() => allCategoryMeta.value.map(c => c.id))
 
 // Computed: current active rules
 const activeRules = computed(() => store.expenseRules)
@@ -34,34 +38,16 @@ function startEditing() {
   dadPercent.value = rules.default_split?.dad_percent || 50
   momPercent.value = rules.default_split?.mom_percent || 50
   fixedTransfers.value = rules.fixed_transfers ? JSON.parse(JSON.stringify(rules.fixed_transfers)) : []
-  categoryOverrides.value = rules.categories ? JSON.parse(JSON.stringify(rules.categories)) : []
+  // Strip legacy budget_limit on read — category_budgets table is the
+  // sole source of truth (migration 039+); the JSONB field is dead weight.
+  categoryOverrides.value = rules.categories
+    ? rules.categories.map(({ budget_limit, ...rest }) => JSON.parse(JSON.stringify(rest)))
+    : []
   includedCategories.value = Array.isArray(rules.included_categories)
     ? [...rules.included_categories]
     : null
   isEditing.value = true
 }
-
-// ===== Included / excluded helpers (mirror FinanceSetup) =====
-function isIncluded(catId) {
-  if (includedCategories.value === null) return true
-  return includedCategories.value.includes(catId)
-}
-function materializeIncluded() {
-  if (includedCategories.value === null) {
-    includedCategories.value = [...allCategoryIds.value]
-  }
-}
-function excludeCategory(catId) {
-  materializeIncluded()
-  includedCategories.value = includedCategories.value.filter(c => c !== catId)
-  categoryOverrides.value = categoryOverrides.value.filter(o => o.name !== catId)
-}
-function includeCategory(catId) {
-  materializeIncluded()
-  if (!includedCategories.value.includes(catId)) includedCategories.value.push(catId)
-}
-const includedList = computed(() => allCategoryMeta.value.filter(c => isIncluded(c.id)))
-const excludedList = computed(() => allCategoryMeta.value.filter(c => !isIncluded(c.id)))
 
 // Read-mode view of included/excluded for active rules
 const activeIncluded = computed(() => {
@@ -79,23 +65,6 @@ function discardEditing() {
   isEditing.value = false
 }
 
-// Slider snaps to nearest 10%
-function onSliderInput() {
-  dadPercent.value = Math.round(dadPercent.value / 10) * 10
-  momPercent.value = 100 - dadPercent.value
-}
-
-// Typed inputs allow any value 0-100
-function onDadTyped() {
-  dadPercent.value = Math.max(0, Math.min(100, dadPercent.value))
-  momPercent.value = 100 - dadPercent.value
-}
-
-function onMomTyped() {
-  momPercent.value = Math.max(0, Math.min(100, momPercent.value))
-  dadPercent.value = 100 - momPercent.value
-}
-
 function addFixedTransfer() {
   fixedTransfers.value.push({
     from: 'dad', to: 'mom', amount: 0, label: '', period: 'monthly', due_day: 1, expires: ''
@@ -106,29 +75,6 @@ function removeFixedTransfer(index) {
   fixedTransfers.value.splice(index, 1)
 }
 
-function addCategoryOverride() {
-  const unused = includedList.value
-    .map(c => c.id)
-    .find(id => !categoryOverrides.value.some(o => o.name === id))
-  if (unused) {
-    categoryOverrides.value.push({
-      name: unused,
-      dad_percent: dadPercent.value,
-      mom_percent: momPercent.value,
-      budget_limit: null
-    })
-  }
-}
-
-function removeCategoryOverride(index) {
-  categoryOverrides.value.splice(index, 1)
-}
-
-// Category slider also snaps to 10%
-function onCategorySliderInput(override) {
-  override.dad_percent = Math.round(override.dad_percent / 10) * 10
-  override.mom_percent = 100 - override.dad_percent
-}
 
 function saveRules() {
   const rules = {
@@ -158,51 +104,12 @@ function rejectRules() {
 <template>
   <div class="rules-panel">
     <!-- Pending Banner -->
-    <div v-if="hasPending && !isEditing" class="pending-banner">
-      <div class="pending-content">
-        <div class="pending-icon">
-          <AlertCircle class="w-4 h-4" />
-        </div>
-        <div class="pending-info">
-          <span class="pending-label">{{ t('pendingExpenseRules') }}</span>
-          <span class="pending-creator">{{ t('proposedBy') }}: {{ pendingRules.creator }}</span>
-        </div>
-      </div>
-
-      <!-- Show proposed changes summary -->
-      <div class="pending-summary">
-        <div class="summary-item">
-          <span class="summary-label">{{ t('baseSplit') }}:</span>
-          <span class="summary-value bidi-isolate">
-            {{ t('dad') }} {{ pendingRules.rules.default_split?.dad_percent || 50 }}% /
-            {{ t('mom') }} {{ pendingRules.rules.default_split?.mom_percent || 50 }}%
-          </span>
-        </div>
-        <div v-if="pendingRules.rules.fixed_transfers?.length" class="summary-item">
-          <span class="summary-label">{{ t('fixedPayments') }}:</span>
-          <span class="summary-value bidi-isolate" v-for="(ft, i) in pendingRules.rules.fixed_transfers" :key="i">
-            {{ ft.label || t('fixedPayment') }}: {{ ft.amount }} ₪/{{ t(ft.period) }}
-          </span>
-        </div>
-        <div v-if="pendingRules.rules.categories?.length" class="summary-item">
-          <span class="summary-label">{{ t('categoryOverrides') }}:</span>
-          <span class="summary-value bidi-isolate" v-for="(cat, i) in pendingRules.rules.categories" :key="i">
-            {{ t(cat.name) }}: {{ cat.dad_percent }}/{{ cat.mom_percent }}
-          </span>
-        </div>
-      </div>
-
-      <div class="pending-actions">
-        <button @click="approveRules" class="approve-btn">
-          <Check class="w-4 h-4" />
-          {{ t('approve') }}
-        </button>
-        <button @click="rejectRules" class="reject-btn">
-          <X class="w-4 h-4" />
-          {{ t('reject') }}
-        </button>
-      </div>
-    </div>
+    <PendingApprovalBanner
+      v-if="hasPending && !isEditing"
+      :pending="pendingRules"
+      @approve="approveRules"
+      @reject="rejectRules"
+    />
 
     <!-- Read Mode: Show current rules summary -->
     <div v-if="!isEditing" class="rules-summary">
@@ -250,17 +157,25 @@ function rejectRules() {
         <!-- Included / Excluded categories -->
         <div class="rule-row">
           <span class="rule-label">{{ t('includedCategories') }}</span>
-          <div class="overrides-grid">
-            <div v-for="cat in activeIncluded" :key="`in-${cat.id}`" class="override-chip override-in">
-              <img :src="`/assets/${cat.icon}`" class="chip-icon" />
-              <span class="override-name">{{ t(cat.name) }}</span>
-            </div>
-            <div v-if="activeExcluded.length" class="excluded-divider">
-              <span class="rule-label">{{ t('excludedCategories') }}</span>
-            </div>
-            <div v-for="cat in activeExcluded" :key="`ex-${cat.id}`" class="override-chip override-out">
-              <img :src="`/assets/${cat.icon}`" class="chip-icon" />
-              <span class="override-name">{{ t(cat.name) }}</span>
+          <div class="cat-badge-grid">
+            <CategoryBadge
+              v-for="cat in activeIncluded"
+              :key="`in-${cat.id}`"
+              :category="cat.id"
+              size="sm"
+              state="included"
+            />
+          </div>
+          <div v-if="activeExcluded.length" class="excluded-tray">
+            <span class="rule-label">{{ t('excludedCategories') }}</span>
+            <div class="cat-badge-grid">
+              <CategoryBadge
+                v-for="cat in activeExcluded"
+                :key="`ex-${cat.id}`"
+                :category="cat.id"
+                size="sm"
+                state="excluded"
+              />
             </div>
           </div>
         </div>
@@ -272,9 +187,6 @@ function rejectRules() {
             <div v-for="(cat, i) in activeRules.rules.categories" :key="i" class="override-chip">
               <span class="override-name">{{ t(cat.name) }}</span>
               <span class="override-split bidi-isolate">{{ cat.dad_percent }}/{{ cat.mom_percent }}</span>
-              <span v-if="cat.budget_limit" class="override-budget bidi-isolate">
-                ({{ t('budgetLimit') }}: {{ cat.budget_limit.amount }} ₪)
-              </span>
             </div>
           </div>
         </div>
@@ -304,42 +216,10 @@ function rejectRules() {
       <div class="editor-section">
         <label class="editor-label">{{ t('baseSplit') }}</label>
         <p class="editor-desc">{{ t('baseSplitDesc') }}</p>
-
-        <div class="split-control">
-          <div class="split-typed-row">
-            <div class="typed-input-group dad-input-group">
-              <span class="typed-label">{{ t('dad') }}</span>
-              <div class="typed-field">
-                <input type="number" v-model.number="dadPercent" @input="onDadTyped" min="0" max="100" class="percent-input" />
-                <span class="percent-sign">%</span>
-              </div>
-            </div>
-            <div class="typed-input-group mom-input-group">
-              <span class="typed-label">{{ t('mom') }}</span>
-              <div class="typed-field">
-                <input type="number" v-model.number="momPercent" @input="onMomTyped" min="0" max="100" class="percent-input" />
-                <span class="percent-sign">%</span>
-              </div>
-            </div>
-          </div>
-          <div class="slider-wrapper">
-            <div class="tick-marks">
-              <div v-for="i in 11" :key="i" class="tick" :style="{ left: ((i - 1) * 10) + '%' }">
-                <div class="tick-line"></div>
-                <span v-if="(i - 1) % 2 === 0" class="tick-label">{{ (i - 1) * 10 }}</span>
-              </div>
-            </div>
-            <input
-              type="range"
-              v-model.number="dadPercent"
-              @input="onSliderInput"
-              min="0"
-              max="100"
-              step="1"
-              class="split-slider"
-            />
-          </div>
-        </div>
+        <SplitSlider
+          v-model:dadPercent="dadPercent"
+          v-model:momPercent="momPercent"
+        />
       </div>
 
       <!-- Section B: Recurring Payments (inline "+" — no drawer) -->
@@ -352,123 +232,27 @@ function rejectRules() {
         </div>
 
         <div v-if="fixedTransfers.length" class="section-content">
-          <div v-for="(transfer, idx) in fixedTransfers" :key="idx" class="transfer-form">
-            <button @click="removeFixedTransfer(idx)" class="remove-btn remove-btn-corner">
-              <X :size="14" />
-            </button>
-            <div class="transfer-top-row">
-              <div class="direction-flow">
-                <select v-model="transfer.from" class="form-select">
-                  <option value="dad">{{ t('dad') }}</option>
-                  <option value="mom">{{ t('mom') }}</option>
-                </select>
-                <span class="arrow">→</span>
-                <select v-model="transfer.to" class="form-select">
-                  <option value="dad">{{ t('dad') }}</option>
-                  <option value="mom">{{ t('mom') }}</option>
-                </select>
-              </div>
-              <input v-model.number="transfer.amount" type="number" class="form-input amount-input" placeholder="0" />
-              <span class="currency">₪</span>
-            </div>
-            <div class="transfer-bottom-row">
-              <input v-model="transfer.label" type="text" class="form-input label-input" :placeholder="t('labelPlaceholder')" />
-              <div class="due-day-group">
-                <label class="due-day-label">{{ t('paymentDueDay') }}</label>
-                <input v-model.number="transfer.due_day" type="number" min="1" max="31" class="form-input due-day-input" />
-              </div>
-              <div class="expiry-group">
-                <label class="expiry-label">{{ t('paymentExpiry') }}</label>
-                <input v-model="transfer.expires" type="date" class="form-input expiry-input" />
-              </div>
-            </div>
-          </div>
-
+          <FixedTransferForm
+            v-for="(transfer, idx) in fixedTransfers"
+            :key="idx"
+            v-model="fixedTransfers[idx]"
+            @remove="removeFixedTransfer(idx)"
+          />
         </div>
       </div>
 
-      <!-- Section C: Included / excluded categories (B) -->
+      <!-- Categories & Budgets: tap a thumbnail to edit budget / split / exclude.
+           Replaces the old Included/Excluded grid + Category Overrides section. -->
       <div class="editor-section">
-        <label class="editor-label">{{ t('includedCategories') }}</label>
-        <p class="editor-desc">{{ t('includedCategoriesDesc') }}</p>
+        <label class="editor-label">{{ t('categoriesAndBudgets') }}</label>
+        <p class="editor-desc">{{ t('categoriesAndBudgetsDesc') }}</p>
 
-        <div class="cat-chip-grid">
-          <button
-            v-for="cat in includedList"
-            :key="`in-${cat.id}`"
-            class="cat-chip cat-chip-in"
-            @click="excludeCategory(cat.id)"
-          >
-            <img :src="`/assets/${cat.icon}`" class="cat-chip-icon" />
-            <span>{{ t(cat.name) }}</span>
-            <X :size="12" />
-          </button>
-        </div>
-        <div v-if="excludedList.length" class="excluded-tray">
-          <span class="rule-label">{{ t('excludedCategories') }}</span>
-          <button
-            v-for="cat in excludedList"
-            :key="`ex-${cat.id}`"
-            class="cat-chip cat-chip-out"
-            @click="includeCategory(cat.id)"
-          >
-            <img :src="`/assets/${cat.icon}`" class="cat-chip-icon" />
-            <span>{{ t(cat.name) }}</span>
-            <span class="cat-chip-add"><Plus :size="12" /> {{ t('pushToInclude') }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Section D: Category Overrides (BB) -->
-      <div class="editor-section">
-        <div class="section-row-inline">
-          <label class="editor-label">{{ t('categoryOverrides') }}</label>
-          <button
-            @click="addCategoryOverride"
-            class="add-icon-btn-sm"
-            :disabled="categoryOverrides.length >= includedList.length"
-            :title="t('addCategoryOverride')"
-          >
-            <Plus :size="16" />
-          </button>
-        </div>
-        <p class="editor-desc">{{ t('categoryOverridesDesc') }}</p>
-
-        <div v-if="categoryOverrides.length" class="section-content">
-          <div v-for="(override, idx) in categoryOverrides" :key="idx" class="category-form">
-            <select v-model="override.name" class="form-select">
-              <option v-for="cat in includedList" :key="cat.id" :value="cat.id">{{ t(cat.name) }}</option>
-            </select>
-
-            <div class="split-control-small">
-              <span class="split-label-sm bidi-isolate dad-color">{{ t('dad') }}: {{ override.dad_percent }}%</span>
-              <input
-                type="range"
-                v-model.number="override.dad_percent"
-                @input="onCategorySliderInput(override)"
-                min="0" max="100" step="1"
-                class="split-slider-sm"
-              />
-              <span class="split-label-sm bidi-isolate mom-color">{{ t('mom') }}: {{ override.mom_percent }}%</span>
-            </div>
-
-            <div class="budget-control">
-              <template v-if="override.budget_limit">
-                <input v-model.number="override.budget_limit.amount" type="number" class="form-input budget-input" :placeholder="t('budgetLimit')" />
-              </template>
-              <button
-                @click="override.budget_limit = override.budget_limit ? null : { amount: 0, period: 'monthly' }"
-                class="budget-toggle"
-              >
-                {{ override.budget_limit ? t('removeBudget') : t('addBudget') }}
-              </button>
-            </div>
-
-            <button @click="removeCategoryOverride(idx)" class="remove-btn">
-              <X :size="16" />
-            </button>
-          </div>
-        </div>
+        <CategoryEditorList
+          :dad-percent="dadPercent"
+          :mom-percent="momPercent"
+          v-model:overrides="categoryOverrides"
+          v-model:included="includedCategories"
+        />
       </div>
 
       <!-- Editor Actions -->
@@ -487,105 +271,6 @@ function rejectRules() {
   border: 2px solid #e2e8f0;
   overflow: hidden;
   margin-bottom: 1rem;
-}
-
-/* Pending Banner */
-.pending-banner {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  padding: 1.25rem;
-  border-bottom: 2px solid #fbbf24;
-}
-
-.pending-content {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.pending-icon {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: rgba(245, 158, 11, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #d97706;
-  flex-shrink: 0;
-}
-
-.pending-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.pending-label {
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #92400e;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.pending-creator {
-  font-size: 0.7rem;
-  color: #a16207;
-  font-weight: 600;
-}
-
-.pending-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.5);
-  border-radius: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.pending-actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.approve-btn,
-.reject-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s;
-}
-
-.approve-btn {
-  background: #0f172a;
-  color: white;
-  flex: 1;
-}
-
-.approve-btn:hover {
-  background: #1e293b;
-  transform: translateY(-1px);
-}
-
-.reject-btn {
-  background: white;
-  color: #64748b;
-  border: 2px solid #e2e8f0;
-  flex: 1;
-}
-
-.reject-btn:hover {
-  border-color: #dc2626;
-  color: #dc2626;
 }
 
 /* Summary View */
@@ -717,20 +402,6 @@ function rejectRules() {
   border-radius: 0.25rem;
 }
 
-/* Direction flow — always LTR so From → To reads correctly */
-.direction-flow {
-  direction: ltr;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.arrow {
-  font-size: 0.8rem;
-  color: #64748b;
-  font-weight: 700;
-}
-
 .overrides-grid {
   display: flex;
   flex-wrap: wrap;
@@ -755,11 +426,6 @@ function rejectRules() {
 .override-split {
   font-weight: 800;
   color: #0f172a;
-}
-
-.override-budget {
-  color: #d97706;
-  font-size: 0.65rem;
 }
 
 .rule-meta {
@@ -841,177 +507,6 @@ function rejectRules() {
   margin: 0;
 }
 
-/* Split Control with typed inputs + snapping slider */
-.split-control {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.split-typed-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.typed-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dad-input-group .typed-label {
-  color: #0f766e;
-  background: #CCFBF1;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.5rem;
-}
-
-.mom-input-group .typed-label {
-  color: #9a3412;
-  background: #FFEDD5;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.5rem;
-}
-
-.typed-label {
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-}
-
-.typed-field {
-  display: flex;
-  align-items: center;
-  gap: 0.125rem;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 0.25rem 0.5rem;
-}
-
-.percent-input {
-  width: 3rem;
-  border: none;
-  background: transparent;
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: #0f172a;
-  text-align: center;
-  outline: none;
-  -moz-appearance: textfield;
-}
-
-.percent-input::-webkit-inner-spin-button,
-.percent-input::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.percent-sign {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-/* Slider with tick marks */
-.slider-wrapper {
-  position: relative;
-  padding: 0.5rem 0 1.75rem 0;
-  direction: ltr;
-}
-
-.tick-marks {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-.tick {
-  position: absolute;
-  top: 0.25rem;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.tick-line {
-  width: 2px;
-  height: 0.75rem;
-  background: #cbd5e1;
-  border-radius: 1px;
-}
-
-.tick-label {
-  font-size: 0.55rem;
-  font-weight: 700;
-  color: #94a3b8;
-  margin-top: 0.75rem;
-}
-
-.split-slider {
-  width: 100%;
-  height: 0.75rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(to right, #CCFBF1 0%, #FFEDD5 100%);
-  outline: none;
-  cursor: pointer;
-  -webkit-appearance: none;
-  position: relative;
-  z-index: 1;
-  margin: 0;
-}
-
-.split-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: #0f172a;
-  cursor: pointer;
-  border: 3px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-}
-
-.split-slider::-moz-range-thumb {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: #0f172a;
-  cursor: pointer;
-  border: 3px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-}
-
-/* Section Toggle */
-.section-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.75rem;
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #1e293b;
-  text-transform: uppercase;
-  transition: all 0.2s;
-  width: 100%;
-}
-
-.section-toggle:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
 .section-content {
   display: flex;
   flex-direction: column;
@@ -1019,255 +514,6 @@ function rejectRules() {
   padding: 0.75rem;
   background: #f8fafc;
   border-radius: 0.75rem;
-}
-
-/* Transfer / Category Forms */
-.transfer-form {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  padding-inline-end: 2.5rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
-}
-
-.remove-btn-corner {
-  position: absolute;
-  top: 0.4rem;
-  inset-inline-end: 0.4rem;
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.transfer-top-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.transfer-bottom-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.category-form {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
-  flex-wrap: wrap;
-}
-
-.form-select,
-.form-input {
-  padding: 0.5rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #1e293b;
-  background: white;
-}
-
-.form-select { min-width: 80px; }
-.amount-input { width: 80px; }
-.label-input { flex: 1; min-width: 100px; }
-.budget-input { width: 100px; }
-
-.due-day-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  min-width: 60px;
-}
-
-.due-day-label {
-  font-size: 0.55rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-.due-day-input {
-  width: 60px;
-  text-align: center;
-}
-
-.expiry-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.expiry-label {
-  font-size: 0.55rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #d97706;
-}
-
-.expiry-input {
-  min-width: 120px;
-  font-size: 0.75rem;
-}
-
-.currency {
-  font-size: 0.8rem;
-  color: #64748b;
-  font-weight: 700;
-}
-
-/* Category override split control */
-.split-control-small {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-width: 180px;
-  direction: ltr;
-}
-
-.split-label-sm {
-  font-size: 0.65rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.split-label-sm.dad-color {
-  color: #0f766e;
-}
-
-.split-label-sm.mom-color {
-  color: #9a3412;
-}
-
-.split-slider-sm {
-  flex: 1;
-  height: 0.5rem;
-  border-radius: 0.25rem;
-  background: linear-gradient(to right, #CCFBF1 0%, #FFEDD5 100%);
-  outline: none;
-  cursor: pointer;
-  -webkit-appearance: none;
-}
-
-.split-slider-sm::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background: #0f172a;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.split-slider-sm::-moz-range-thumb {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  background: #0f172a;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.budget-control {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.budget-toggle {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #64748b;
-  background: white;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.budget-toggle:hover {
-  border-color: #cbd5e1;
-}
-
-.remove-btn {
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.remove-btn:hover {
-  background: #fecaca;
-  transform: scale(1.1);
-}
-
-.add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  padding: 0.625rem 1rem;
-  border: 2px dashed #cbd5e1;
-  border-radius: 0.75rem;
-  background: white;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.add-btn:hover:not(:disabled) {
-  border-color: #94a3b8;
-  color: #1e293b;
-}
-
-.add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Summary item */
-.summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.summary-label {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #78350f;
-  letter-spacing: 0.03em;
-}
-
-.summary-value {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #451a03;
 }
 
 /* Editor Actions */
@@ -1346,87 +592,21 @@ function rejectRules() {
   cursor: not-allowed;
 }
 
-/* Category chips (edit mode) */
-.cat-chip-grid {
+/* Category badges (read-mode included / excluded grids) */
+.cat-badge-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-}
-.cat-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.3rem 0.6rem;
-  border-radius: 9999px;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  font-size: 0.7rem;
-  font-weight: 700;
-  background: white;
-  transition: all 0.2s;
-}
-.cat-chip-icon {
-  width: 1rem;
-  height: 1rem;
-  object-fit: contain;
-}
-.cat-chip-in {
-  background: #ecfdf5;
-  border-color: #6ee7b7;
-  color: #065f46;
-}
-.cat-chip-in:hover { background: #d1fae5; }
-.cat-chip-out {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-  color: #94a3b8;
-  filter: grayscale(60%);
-}
-.cat-chip-out:hover {
-  background: white;
-  filter: grayscale(0);
-  color: #0f172a;
-  border-color: #0f172a;
-}
-.cat-chip-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  font-size: 0.6rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #0f766e;
-  margin-inline-start: 0.2rem;
+  justify-content: center;
+  gap: 0.6rem;
 }
 .excluded-tray {
   margin-top: 0.5rem;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.4rem;
-  align-items: center;
   padding: 0.5rem 0.75rem;
   background: #f8fafc;
   border-radius: 0.75rem;
   border: 1px dashed #cbd5e1;
-}
-
-/* Read-mode included/excluded chips */
-.chip-icon {
-  width: 0.95rem;
-  height: 0.95rem;
-  object-fit: contain;
-}
-.override-in {
-  background: #ecfdf5;
-  color: #065f46;
-}
-.override-out {
-  background: #f8fafc;
-  color: #94a3b8;
-  filter: grayscale(60%);
-}
-.excluded-divider {
-  width: 100%;
-  padding-top: 0.25rem;
 }
 </style>

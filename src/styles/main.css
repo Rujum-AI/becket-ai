@@ -156,6 +156,112 @@ input, textarea, select { text-align: start; }
     margin-right: auto;
 }
 
+/* === PAGE HEADER ===
+   Title block that every top-level view opens with. Title in serif, optional
+   subtitle in muted slate, optional inline badges/actions on the end. Sits in
+   the normal flow (not sticky) — the title just takes its space and scrolls
+   away. Wraps on narrow viewports so trailing action buttons drop below the
+   title instead of overflowing the viewport. */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding: 1rem 0 0.5rem;
+}
+
+.page-title {
+    font-size: 2.25rem;
+    font-family: 'Fraunces', serif;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+}
+
+.lang-he .page-title {
+    font-family: 'Assistant', sans-serif;
+    font-weight: 800;
+}
+
+.page-subtitle {
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 700;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.page-subtitle .subtitle-dot {
+    margin: 0 0.25rem;
+}
+
+@media (max-width: 640px) {
+    .page-title {
+        font-size: 1.75rem;
+    }
+}
+
+/* === MODULE DASHBOARD SUMMARY ROW ===
+   Small metadata text + status pills used by Understandings / Trustees /
+   Children inside the ModuleDashboard wrapper. */
+.module-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.module-summary-text {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    line-height: 1.4;
+}
+
+.module-summary-sep {
+    color: #cbd5e1;
+    font-weight: 700;
+}
+
+.module-summary-warn {
+    color: #BD5B39;
+    font-weight: 700;
+}
+
+.module-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    background: #0f172a;
+    color: white;
+    padding: 0.35rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.18);
+    flex-shrink: 0;
+}
+
+.module-summary-pill.is-soft {
+    background: #f1f5f9;
+    color: #1e293b;
+    box-shadow: none;
+}
+
+@media (max-width: 479px) {
+    .module-summary-text { font-size: 0.75rem; }
+    .module-summary-pill { font-size: 0.625rem; padding: 0.3rem 0.625rem; }
+}
+
 /* === HEADER === */
 .app-header {
     position: fixed;

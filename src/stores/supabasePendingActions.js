@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
+import { showToast } from '@/composables/useToast'
 
 // Single source of truth for items awaiting the OTHER parent's decision.
 // Backed by the pending_actions table; the decide-side DB trigger
@@ -68,6 +69,7 @@ export const useSupabasePendingActionsStore = defineStore('supabasePendingAction
       .eq('id', actionId)
     if (updateError) throw updateError
     await load()
+    showToast(decision === 'approved' ? 'toastPendingApproved' : 'toastPendingRejected')
   }
 
   // === Realtime ===

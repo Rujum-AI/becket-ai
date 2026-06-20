@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabase'
+import { showToast } from '@/composables/useToast'
 
 // Singleton pattern - shared state across all useFamily() calls
 const family = ref(null)
@@ -314,6 +315,7 @@ export function useFamily() {
       .eq('family_id', family.value.id)
     if (error) throw error
     await fetchChildren()
+    showToast('toastChildRemoved')
   }
 
   async function addChild({ name, gender, date_of_birth, medical_notes = null }) {

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useUnderstandingsStore } from '@/stores/supabaseUnderstandings'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -10,7 +10,9 @@ import CustodyAssignModal from '@/components/understandings/CustodyAssignModal.v
 import UnderstandingFormModal from '@/components/understandings/UnderstandingFormModal.vue'
 import ExpenseRulesPanel from '@/components/understandings/ExpenseRulesPanel.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
-import { Upload, Plus, AlertCircle, ChevronUp, ChevronDown } from 'lucide-vue-next'
+import EmptyState from '@/components/shared/EmptyState.vue'
+import ModuleDashboard from '@/components/shared/ModuleDashboard.vue'
+import { Upload, Plus, AlertCircle, ChevronUp, ChevronDown, Handshake } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const understandingsStore = useUnderstandingsStore()
@@ -23,6 +25,27 @@ const preselectedSubject = ref(null)
 const activeDayIndex = ref(null)
 const isCustodySaveModalOpen = ref(false)
 const confirmModal = ref({ isOpen: false, title: '', message: '', action: null })
+
+// True when at least one non-rejected text understanding exists across any
+// subject. Expense rules render via ExpenseRulesPanel and don't count here —
+// the empty state is about the free-text understanding list.
+const hasTextUnderstandings = computed(() => {
+  return Object.entries(understandingsStore.groupedUnderstandings)
+    .some(([, items]) => items.length > 0)
+})
+
+function interp(template, params) {
+  return template.replace(/\{(\w+)\}/g, (_, k) => (params[k] ?? ''))
+}
+
+// Module dashboard summary counts
+const activeUnderstandingsCount = computed(() => {
+  return understandingsStore.understandings.filter(u => u.status !== 'rejected').length
+})
+
+const awaitingApprovalCount = computed(() => {
+  return understandingsStore.understandings.filter(u => u.status === 'pending').length
+})
 
 onMounted(() => {
   understandingsStore.init()
@@ -188,18 +211,36 @@ function executeConfirmAction() {
 
 <template>
   <AppLayout>
-    <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div class="page-header">
       <div>
-        <h1 class="text-4xl font-serif text-slate-900 mb-2">{{ t('understandings') }}</h1>
-        <p class="text-slate-400 font-bold text-sm">{{ t('pageSubtitle') }}</p>
+        <h1 class="page-title">{{ t('understandings') }}</h1>
+        <p class="page-subtitle">{{ t('pageSubtitle') }}</p>
       </div>
 
-      <button @click="triggerUpload" class="bg-white border border-slate-200 shadow-sm text-slate-700 px-5 py-3 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-transform">
+      <button @click="triggerUpload" class="upload-agreement-btn">
         <Upload class="w-4 h-4" />
-        {{ t('uploadAgreement') }}
+        <span>{{ t('uploadAgreement') }}</span>
       </button>
       <input type="file" ref="fileInput" class="hidden" @change="handleFileUpload">
     </div>
+
+    <!-- Module summary: counts + custody cycle pill -->
+    <ModuleDashboard>
+      <template #summary>
+        <div class="module-summary-row">
+          <span class="module-summary-text">
+            <span class="bidi-isolate">{{ interp(t('summaryUnderstandings'), { count: activeUnderstandingsCount }) }}</span>
+            <template v-if="awaitingApprovalCount > 0">
+              <span class="module-summary-sep">·</span>
+              <span class="module-summary-warn bidi-isolate">{{ interp(t('summaryAwaitingApproval'), { count: awaitingApprovalCount }) }}</span>
+            </template>
+          </span>
+          <span v-if="understandingsStore.cycleLength" class="module-summary-pill bidi-isolate">
+            {{ interp(t('summaryCycleDays'), { count: understandingsStore.cycleLength }) }}
+          </span>
+        </div>
+      </template>
+    </ModuleDashboard>
 
     <!-- Custody Cycle Section -->
     <div class="mb-12">
@@ -250,6 +291,13 @@ function executeConfirmAction() {
         />
       </div>
     </div>
+
+    <!-- Empty State (no text understandings recorded yet) -->
+    <EmptyState
+      v-if="!hasTextUnderstandings"
+      :icon="Handshake"
+      :title="t('noUnderstandings')"
+    />
 
     <!-- Central Add Button -->
     <div class="add-center-btn" @click="openCreateModal(null)">
@@ -330,3 +378,36 @@ function executeConfirmAction() {
     />
   </AppLayout>
 </template>
+
+<style scoped>
+.upload-agreement-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  color: #334155;
+  padding: 0.625rem 1.125rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.upload-agreement-btn:active {
+  transform: scale(0.96);
+}
+
+@media (max-width: 479px) {
+  .upload-agreement-btn {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.04em;
+    gap: 0.4rem;
+  }
+}
+</style>

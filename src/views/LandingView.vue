@@ -4,7 +4,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useI18n } from '@/composables/useI18n'
 
 const { signInWithGoogle } = useAuth()
-const { t } = useI18n()
+const { t, isRTL } = useI18n()
 const loading = ref(false)
 const error = ref('')
 
@@ -37,12 +37,9 @@ async function handleGoogleSignIn() {
 
     <!-- Content overlay -->
     <div class="landing-overlay">
-      <div class="landing-card">
-        <h1 class="landing-heading">Welcome to Becket!</h1>
-        <h2 class="landing-tagline">Parenting continuity across distance, change, and busy reality.</h2>
-        <p class="landing-text">
-          A collaborative operating system for parents to stay coordinated, present and aligned in their child's life.
-        </p>
+      <div class="landing-card" :dir="isRTL ? 'rtl' : 'ltr'">
+        <h1 class="landing-heading">{{ t('landing_heading') }}</h1>
+        <h2 class="landing-tagline">{{ t('landing_subheading') }}</h2>
         <button class="landing-cta" :disabled="loading" @click="handleGoogleSignIn">
           <svg class="google-icon" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -149,16 +146,6 @@ async function handleGoogleSignIn() {
   position: relative;
 }
 
-.landing-text {
-  max-width: 340px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #64748b;
-  line-height: 1.6;
-  margin: 1rem 0 0;
-  position: relative;
-}
-
 .landing-cta {
   margin-top: 1.75rem;
   padding: 1.2rem 2.5rem;
@@ -249,11 +236,6 @@ async function handleGoogleSignIn() {
     font-size: 0.85rem;
   }
 
-  .landing-text {
-    font-size: 0.8rem;
-    margin: 0.5rem 0 0;
-  }
-
   .landing-cta {
     margin-top: 1rem;
     padding: 0.8rem 2rem;
@@ -281,11 +263,6 @@ async function handleGoogleSignIn() {
     font-size: 0.75rem;
   }
 
-  .landing-text {
-    font-size: 0.75rem;
-    margin: 0.4rem 0 0;
-  }
-
   .landing-cta {
     margin-top: 0.75rem;
     padding: 0.6rem 1.5rem;
@@ -301,11 +278,6 @@ async function handleGoogleSignIn() {
 
   .landing-tagline {
     font-size: 1.6rem;
-  }
-
-  .landing-text {
-    font-size: 1.05rem;
-    max-width: 400px;
   }
 }
 

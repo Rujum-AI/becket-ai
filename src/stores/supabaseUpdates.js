@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useLanguageStore } from '@/stores/language'
+import { showToast } from '@/composables/useToast'
 
 export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   const { user } = useAuth()
@@ -275,6 +276,7 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         .eq('read', false)
 
       if (updateError) throw updateError
+      showToast('toastAllUpdatesRead')
     } catch (err) {
       console.error('Error marking all as read:', err)
       await fetchUpdates()

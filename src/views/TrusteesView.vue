@@ -8,7 +8,13 @@ import SectionHeader from '@/components/layout/SectionHeader.vue'
 import EntityCard from '@/components/trustees/EntityCard.vue'
 import EntityFormModal from '@/components/trustees/EntityFormModal.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
-import { AlertTriangle } from 'lucide-vue-next'
+import EmptyState from '@/components/shared/EmptyState.vue'
+import ModuleDashboard from '@/components/shared/ModuleDashboard.vue'
+import { AlertTriangle, School, Sparkles, Users } from 'lucide-vue-next'
+
+function interp(template, params) {
+  return template.replace(/\{(\w+)\}/g, (_, k) => (params[k] ?? ''))
+}
 
 const { t } = useI18n()
 const trusteesStore = useTrusteesStore()
@@ -66,6 +72,29 @@ async function executeDelete() {
 
 <template>
   <AppLayout>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">{{ t('trustees') }}</h1>
+        <p class="page-subtitle">{{ t('trusteesSubtitle') }}</p>
+      </div>
+    </div>
+
+    <!-- Module summary: counts across all three trustee categories -->
+    <ModuleDashboard>
+      <template #summary>
+        <div class="module-summary-row">
+          <span class="module-summary-text">
+            <span class="bidi-isolate">{{ interp(t('summarySchools'), { count: trusteesStore.schools.length }) }}</span>
+            <span class="module-summary-sep">·</span>
+            <span class="bidi-isolate">{{ interp(t('summaryActivities'), { count: trusteesStore.activities.length }) }}</span>
+            <span class="module-summary-sep">·</span>
+            <span class="bidi-isolate">{{ interp(t('summaryPeople'), { count: trusteesStore.people.length }) }}</span>
+          </span>
+        </div>
+      </template>
+    </ModuleDashboard>
+
     <!-- Schools Section -->
     <div class="mb-10">
       <SectionHeader
@@ -74,9 +103,11 @@ async function executeDelete() {
         :hasAction="true"
         @action="openAddModal('school')"
       />
-      <div v-if="trusteesStore.schools.length === 0" class="empty-state">
-        {{ t('noSchools') }}
-      </div>
+      <EmptyState
+        v-if="trusteesStore.schools.length === 0"
+        :icon="School"
+        :title="t('noSchools')"
+      />
       <div v-else class="entities-grid">
         <EntityCard
           v-for="school in trusteesStore.schools"
@@ -97,9 +128,11 @@ async function executeDelete() {
         :hasAction="true"
         @action="openAddModal('activity')"
       />
-      <div v-if="trusteesStore.activities.length === 0" class="empty-state">
-        {{ t('noActivities') }}
-      </div>
+      <EmptyState
+        v-if="trusteesStore.activities.length === 0"
+        :icon="Sparkles"
+        :title="t('noActivities')"
+      />
       <div v-else class="entities-grid">
         <EntityCard
           v-for="activity in trusteesStore.activities"
@@ -120,9 +153,11 @@ async function executeDelete() {
         :hasAction="true"
         @action="openAddModal('person')"
       />
-      <div v-if="trusteesStore.people.length === 0" class="empty-state">
-        {{ t('noPeople') }}
-      </div>
+      <EmptyState
+        v-if="trusteesStore.people.length === 0"
+        :icon="Users"
+        :title="t('noPeople')"
+      />
       <div v-else class="entities-grid">
         <EntityCard
           v-for="person in trusteesStore.people"
@@ -169,14 +204,4 @@ async function executeDelete() {
   }
 }
 
-.empty-state {
-  text-align: center;
-  padding: 3rem 1rem;
-  color: #cbd5e1;
-  font-weight: 700;
-  font-style: italic;
-  background: white;
-  border-radius: 1.5rem;
-  border: 2px dashed #e2e8f0;
-}
 </style>

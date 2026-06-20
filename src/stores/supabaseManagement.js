@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/composables/useFamily'
 import { useAuth } from '@/composables/useAuth'
+import { showToast } from '@/composables/useToast'
 
 export const useManagementStore = defineStore('supabaseManagement', () => {
   const { family } = useFamily()
@@ -461,6 +462,7 @@ export const useManagementStore = defineStore('supabaseManagement', () => {
         })
 
       await fetchAll()
+      showToast('toastTaskAssigned')
     } catch (err) {
       error.value = err.message
       throw err

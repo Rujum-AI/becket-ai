@@ -7,6 +7,7 @@ import { useAuth } from '@/composables/useAuth'
 import { AlertTriangle } from 'lucide-vue-next'
 import BaseModal from '@/components/shared/BaseModal.vue'
 import { ITEM_TYPE_COLORS } from '@/lib/modalColors'
+import { useToast } from '@/composables/useToast'
 
 const props = defineProps({
   initialType: {
@@ -19,7 +20,9 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'created'])
+const { showToast } = useToast()
+const submitting = ref(false)
 
 const { t } = useI18n()
 const managementStore = useManagementStore()
@@ -97,18 +100,32 @@ const coParentName = computed(() => {
   return t('partner')
 })
 
-function confirmCreate() {
-  if (createType.value === 'switch') {
-    if (!switchForm.value.switchFromDate) return
-    managementStore.createSwitchDaysAsk(switchForm.value)
-  } else if (createType.value === 'task') {
-    if (!newItem.value.name) return
-    managementStore.createTask(newItem.value)
-  } else {
-    if (!newItem.value.name) return
-    managementStore.createAsk(newItem.value)
+async function confirmCreate() {
+  if (submitting.value) return
+  let toastKey = null
+  try {
+    submitting.value = true
+    if (createType.value === 'switch') {
+      if (!switchForm.value.switchFromDate) return
+      await managementStore.createSwitchDaysAsk(switchForm.value)
+      toastKey = 'toastSwitchRequestCreated'
+    } else if (createType.value === 'task') {
+      if (!newItem.value.name) return
+      await managementStore.createTask(newItem.value)
+      toastKey = 'toastTaskCreated'
+    } else {
+      if (!newItem.value.name) return
+      await managementStore.createAsk(newItem.value)
+      toastKey = 'toastAskCreated'
+    }
+    if (toastKey) showToast(toastKey)
+    emit('created')
+    emit('close')
+  } catch (err) {
+    console.error('Failed to create item:', err)
+  } finally {
+    submitting.value = false
   }
-  emit('close')
 }
 </script>
 

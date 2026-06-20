@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
+import { showToast } from '@/composables/useToast'
 
 export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => {
   const { user } = useAuth()
@@ -1065,9 +1066,24 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
-  // Helper: Get next interaction for a child
-  // Priority: 1) Non-school/non-other event on my custody day → "take to event"
-  //           2) Custody transition → pickup/dropoff (with school time or default)
+  // Helper: Get next interaction for a child.
+  //
+  // School events are AUTHORITATIVE for who drops off and who picks up
+  // (v2.08+ added `dropoff_by` / `pickup_by` slots on the event itself —
+  // resolved from `trustee_schedules.dropoff_owner` / `pickup_owner`).
+  // Whoever owns the slot is the one responsible regardless of whose
+  // custody day it is — this is the only way the school-bridged handoff
+  // (kid sleeps with outgoing parent, school is the handover point) works.
+  //
+  // Resolution per day:
+  //   1) For each event on this day, build a candidate for me iff:
+  //      - school + I'm dropoff_by → "take to event" at event start
+  //      - school + I'm pickup_by but NOT dropoff_by → "pickup" at event end
+  //      - non-school + it's my custody day → "take to event" at event start
+  //   2) Return the earliest candidate.
+  //   3) If no event-based candidate today AND tomorrow's custody changes,
+  //      fall back to the default-handoff-time pickup/dropoff (only when
+  //      no school event exists on the incoming day — school supersedes).
   function getNextHandoff(childId) {
     // Take a dep on the time tick so anywhere this is called inside a
     // Vue computed re-evaluates as the clock moves and as `nowTick` is
@@ -1078,12 +1094,16 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     const myLabel = parentLabel.value // fallback for unresolved labels
     if (!myId) return null
 
-    // Check if a schedule value matches the current user (handles both profile_id and raw label)
+    // Check if a schedule/event slot matches the current user (handles both
+    // profile_id and raw 'dad'/'mom' label values).
     function isMe(val) { return val === myId || val === myLabel }
 
     // Helper to format date as YYYY-MM-DD in local timezone
     function fmtDate(d) {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    function fmtTime(d) {
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
     }
 
     const childEvents = getChildEvents(childId)
@@ -1097,40 +1117,74 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       const dayParent = custodySchedule.value[dateStr]
       if (!dayParent) continue
 
-      // --- Check 1: Event on MY custody day → "take to event" (school included) ---
-      if (isMe(dayParent) || dayParent === 'split') {
-        // Find earliest upcoming event on this day (skip 'other' type only)
-        const dayEvent = childEvents
-          .filter(e => {
-            if (e.type === 'other') return false
-            if (!e.start_time) return false
-            const eStart = new Date(e.start_time)
-            if (fmtDate(eStart) !== dateStr) return false
-            // If today, skip events that already started
-            if (i === 0 && now >= eStart) return false
-            // Ensure event ends within custody range (if end_time exists)
-            if (e.end_time) {
-              const eEnd = new Date(e.end_time)
-              const endParent = custodySchedule.value[fmtDate(eEnd)]
-              if (endParent && !isMe(endParent) && endParent !== 'split') return false
-            }
-            return true
-          })
-          .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))[0]
+      const dayEvents = childEvents.filter(e => {
+        if (e.status === 'cancelled') return false
+        if (!e.start_time) return false
+        return fmtDate(new Date(e.start_time)) === dateStr
+      })
 
-        if (dayEvent) {
-          const eStart = new Date(dayEvent.start_time)
-          const eventTime = `${String(eStart.getHours()).padStart(2, '0')}:${String(eStart.getMinutes()).padStart(2, '0')}`
-          return {
-            type: 'takeToEvent',
-            time: eventTime,
-            location: dayEvent.title || dayEvent.type,
-            date: date
+      // Collect every candidate "next thing" for me on this day. Each gets a
+      // sortTime so we can pick the earliest at the end.
+      const candidates = []
+
+      for (const ev of dayEvents) {
+        const start = new Date(ev.start_time)
+        const end = ev.end_time ? new Date(ev.end_time) : null
+
+        if (ev.type === 'school') {
+          // Drop-off slot: I take the kid to school at event start.
+          if (isMe(ev.dropoff_by) && (i > 0 || now < start)) {
+            candidates.push({
+              type: 'takeToEvent',
+              time: fmtTime(start),
+              location: ev.title || 'School',
+              date,
+              sortTime: start.getTime()
+            })
           }
+          // Pickup slot: I collect the kid at school end. Skip if I'm also
+          // the dropoff_by (same parent dropping & picking — the morning
+          // dropoff is the headline "to-do", not a fictional later pickup).
+          if (isMe(ev.pickup_by) && !isMe(ev.dropoff_by) && end && (i > 0 || now < end)) {
+            candidates.push({
+              type: 'pickup',
+              time: fmtTime(end),
+              location: ev.title || 'School',
+              date,
+              sortTime: end.getTime()
+            })
+          }
+          continue
         }
+
+        // Non-school event: fall back to the custody rule. Only mine if I'm
+        // today's custody parent (or split). Skip 'other' type — too generic
+        // to surface as a to-do.
+        if (ev.type === 'other') continue
+        if (!isMe(dayParent) && dayParent !== 'split') continue
+        if (i === 0 && now >= start) continue
+        if (end) {
+          // Event must end within my custody window — otherwise it spans a
+          // handoff and the other parent is responsible at the end.
+          const endParent = custodySchedule.value[fmtDate(end)]
+          if (endParent && !isMe(endParent) && endParent !== 'split') continue
+        }
+        candidates.push({
+          type: 'takeToEvent',
+          time: fmtTime(start),
+          location: ev.title || ev.type,
+          date,
+          sortTime: start.getTime()
+        })
       }
 
-      // --- Check 2: Custody transition → pickup/dropoff ---
+      if (candidates.length) {
+        candidates.sort((a, b) => a.sortTime - b.sortTime)
+        const c = candidates[0]
+        return { type: c.type, time: c.time, location: c.location, date: c.date }
+      }
+
+      // ---- No event-based candidate today. Try a custody transition. ----
       const nextDay = new Date(date)
       nextDay.setDate(nextDay.getDate() + 1)
       const nextDateStr = fmtDate(nextDay)
@@ -1139,36 +1193,23 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       if (!tomorrowParent) continue
       if (dayParent === tomorrowParent) continue
 
-      // Transition found: custody changes from dayParent → tomorrowParent.
-      // Per the v2.08+ school model the kid sleeps with the outgoing parent
-      // and goes to school the next morning — so the school event lives on
-      // the INCOMING day. The outgoing parent drops off; the incoming parent
-      // picks up after school. Look for school on the incoming day.
-      const schoolEvent = childEvents.find(e => {
+      // School on the incoming day supersedes the custody handoff (per
+      // migration 046). When it exists, the school event for the incoming
+      // day will be surfaced as a candidate on the NEXT loop iteration via
+      // its dropoff_by / pickup_by slots — let it handle the handoff.
+      const schoolOnIncoming = childEvents.some(e => {
+        if (e.status === 'cancelled') return false
         if (e.type !== 'school') return false
-        const eDate = new Date(e.start_time)
-        return fmtDate(eDate) === nextDateStr
+        return fmtDate(new Date(e.start_time)) === nextDateStr
       })
+      if (schoolOnIncoming) continue
 
-      let handoffTime
-      let location = null
-      let handoffDate = nextDay // handoff lives on the incoming day either way
-
-      if (schoolEvent && schoolEvent.end_time) {
-        // School-bridged handoff: incoming parent picks up at school end.
-        const endDate = new Date(schoolEvent.end_time)
-        handoffTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
-        location = schoolEvent.title || 'School'
-      } else {
-        // No school on the incoming day → fall back to the family's
-        // default morning handoff time on the incoming day.
-        handoffTime = defaultHandoffTime.value || null
-      }
-
-      // No time available (no school event and user hasn't set default) — skip
+      // Plain custody transition (no school owning the handoff). Use the
+      // family's default handoff time on the incoming day.
+      const handoffTime = defaultHandoffTime.value || null
       if (!handoffTime) continue
 
-      // If handoff date is today and time already passed, skip
+      const handoffDate = nextDay
       const handoffDateStr = fmtDate(handoffDate)
       const todayStr = fmtDate(now)
       if (handoffDateStr === todayStr) {
@@ -1178,12 +1219,8 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         if (now > handoffMoment) continue
       }
 
-      // Type depends on custody direction:
-      //   tomorrowParent is me → I'm picking up (child comes to me)
-      //   tomorrowParent is partner → I'm dropping off (child goes to them)
       const type = isMe(tomorrowParent) ? 'pickup' : 'dropoff'
-
-      return { type, time: handoffTime, location, date: handoffDate }
+      return { type, time: handoffTime, location: null, date: handoffDate }
     }
 
     return null
@@ -1274,7 +1311,13 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       if (updateError) throw updateError
 
+      // Bump the time tick so any custody-derived computeds (next handoff,
+      // child status) re-evaluate immediately instead of waiting on the
+      // 60s interval, then reload to pick up the now-approved override.
+      nowTick.value = Date.now()
       await loadFamilyData()
+
+      showToast(action === 'approve' ? 'toastOverrideApproved' : 'toastOverrideRejected')
     } catch (err) {
       console.error('Error responding to custody override:', err)
       error.value = err.message

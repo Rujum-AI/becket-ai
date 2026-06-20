@@ -16,11 +16,13 @@ import { useUpdatesStore } from '@/stores/supabaseUpdates'
 import { useAuth } from '@/composables/useAuth'
 import { AlertTriangle, Clock, Send } from 'lucide-vue-next'
 import InviteCoParentModal from '@/components/shared/InviteCoParentModal.vue'
+import { useToast } from '@/composables/useToast'
 
 const { t } = useI18n()
 const dashboardStore = useSupabaseDashboardStore()
 const updatesStore = useUpdatesStore()
 const { user } = useAuth()
+const { showToast } = useToast()
 
 const children = computed(() => dashboardStore.children)
 const hasChildren = computed(() => children.value.length > 0)
@@ -48,16 +50,33 @@ const unexpectedPickupChildId = ref(null)
 
 // Check-in
 const nudgeSending = ref(null)
+// Children with a nudge that's been sent but not yet responded to. Clears
+// after a short fade so the card stays honest if the partner never replies.
+const nudgePending = ref(new Set())
+const NUDGE_PENDING_MS = 30000
 
 function canNudge(child) {
   return dashboardStore.partnerId && child.currentParentId && child.currentParentId !== user.value?.id
 }
 
+function isNudgePending(childId) {
+  return nudgePending.value.has(childId)
+}
+
 async function sendNudge(child) {
   if (nudgeSending.value) return
   nudgeSending.value = child.id
-  await updatesStore.sendNudge(child.id, child.name)
+  const result = await updatesStore.sendNudge(child.id, child.name)
   nudgeSending.value = null
+  if (result !== null) {
+    showToast('nudgeSentSuccess')
+    nudgePending.value = new Set([...nudgePending.value, child.id])
+    setTimeout(() => {
+      const next = new Set(nudgePending.value)
+      next.delete(child.id)
+      nudgePending.value = next
+    }, NUDGE_PENDING_MS)
+  }
 }
 
 // Expected custody parent label for today
@@ -150,6 +169,13 @@ async function handleDeleteAllSimilar(event) {
 
 <template>
   <AppLayout>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">{{ t('family') }}</h1>
+      </div>
+    </div>
+
     <!-- Pending Invite Banner -->
     <div v-if="pendingInvite" class="invite-banner" @click="showInviteModal = true">
       <div class="invite-banner-content">
@@ -187,6 +213,7 @@ async function handleDeleteAllSimilar(event) {
           :expectedParentLabel="expectedParentLabel"
           :canNudge="canNudge(child)"
           :nudgeSending="nudgeSending === child.id"
+          :nudgePending="isNudgePending(child.id)"
           @open-pickup="c => openModal(c, 'pickup')"
           @open-dropoff="c => openModal(c, 'dropoff')"
           @open-brief="c => openModal(c, 'brief')"

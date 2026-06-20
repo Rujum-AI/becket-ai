@@ -155,6 +155,7 @@ function closeDetailModal() {
     <CreateItemModal
       v-if="showCreateModal"
       :initialType="createModalType"
+      @created="managementStore.fetchAll()"
       @close="showCreateModal = false"
     />
 
@@ -169,50 +170,10 @@ function closeDetailModal() {
 </template>
 
 <style scoped>
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 2rem;
-  position: sticky;
-  top: calc(clamp(44px, 12vw, 56px) + 8px);
-  z-index: 30;
-  background: rgba(253, 251, 247, 0.95);
-  backdrop-filter: blur(8px);
-  padding: 1rem 0;
-}
-
-.page-title {
-  font-size: 2.25rem;
-  font-family: 'Fraunces', serif;
-  color: #0f172a;
-  margin-bottom: 0.25rem;
-  line-height: 1.2;
-}
-
-.page-subtitle {
-  color: #94a3b8;
-  font-size: 0.875rem;
-  font-weight: 700;
-  display: flex;
-  gap: 0.25rem;
-}
-
-.subtitle-dot {
-  margin: 0 0.25rem;
-}
-
 .overrides-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   margin-bottom: 1rem;
-}
-
-/* FAB: visible only on mobile */
-@media (max-width: 640px) {
-  .page-title {
-    font-size: 1.75rem;
-  }
 }
 </style>

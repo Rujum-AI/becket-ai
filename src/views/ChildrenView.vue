@@ -3,12 +3,52 @@ import { ref, computed, onMounted } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
+import ModuleDashboard from '@/components/shared/ModuleDashboard.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useFamily } from '@/composables/useFamily'
-import { Trash2, Plus } from 'lucide-vue-next'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import { Trash2, Plus, Baby } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const { children, fetchChildren, updateChild, deleteChild, addChild } = useFamily()
+const dashboardStore = useSupabaseDashboardStore()
+
+function interp(template, params) {
+  return template.replace(/\{(\w+)\}/g, (_, k) => (params[k] ?? ''))
+}
+
+// Status hint: derive "all home" / "X with [parent]" / "X at school" from
+// dashboardStore.children when available. Falls back gracefully to null when
+// dashboard data hasn't loaded yet (e.g., very first paint).
+const statusHint = computed(() => {
+  const dashKids = dashboardStore.children || []
+  if (!dashKids.length) return null
+
+  const counts = { home: 0, withDad: 0, withMom: 0, school: 0, transit: 0 }
+  for (const k of dashKids) {
+    const s = k.status || ''
+    if (s === 'home') counts.home++
+    else if (s === 'with_dad') counts.withDad++
+    else if (s === 'with_mom') counts.withMom++
+    else if (s === 'at_school' || s === 'school') counts.school++
+    else counts.transit++
+  }
+
+  if (counts.home === dashKids.length) return t('summaryAllHome')
+
+  // Build a single best-effort status phrase: pick the largest non-home group.
+  const groups = [
+    { count: counts.withDad, key: 'summaryWithParent', parent: dashboardStore.parentLabel === 'dad' ? t('me') : t('dad') },
+    { count: counts.withMom, key: 'summaryWithParent', parent: dashboardStore.parentLabel === 'mom' ? t('me') : t('mom') },
+    { count: counts.school, key: 'summaryAtSchool', parent: null },
+    { count: counts.transit, key: 'summaryOnTheirWay', parent: null }
+  ].filter(g => g.count > 0).sort((a, b) => b.count - a.count)
+
+  if (!groups.length) return null
+  const top = groups[0]
+  return interp(t(top.key), { count: top.count, parent: top.parent || '' })
+})
 
 const drafts = ref({})        // childId → { name, gender, date_of_birth, medical_notes }
 const saving = ref({})        // childId → bool, locks Save button mid-call
@@ -18,7 +58,11 @@ const showAddForm = ref(false)
 const newChild = ref({ name: '', gender: 'boy', date_of_birth: '', medical_notes: '' })
 const addingChild = ref(false)
 
-onMounted(() => { fetchChildren() })
+onMounted(() => {
+  fetchChildren()
+  // Load dashboard data so the summary chip can show a status hint (best-effort).
+  dashboardStore.loadFamilyData()
+})
 
 function thumbnail(child) {
   return child.gender === 'girl' ? '/assets/thumbnail_girl.png' : '/assets/thumbnail_boy.png'
@@ -107,6 +151,28 @@ const pendingSaveChild = computed(() =>
 
 <template>
   <AppLayout>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">{{ t('childrenScreenTitle') }}</h1>
+        <p class="page-subtitle">{{ t('childrenScreenSubtitle') }}</p>
+      </div>
+    </div>
+
+    <!-- Module summary: child count + best-effort status hint -->
+    <ModuleDashboard>
+      <template #summary>
+        <div class="module-summary-row">
+          <span class="module-summary-text">
+            <span class="bidi-isolate">{{ interp(t('summaryChildren'), { count: children.length }) }}</span>
+          </span>
+          <span v-if="statusHint" class="module-summary-pill is-soft">
+            {{ statusHint }}
+          </span>
+        </div>
+      </template>
+    </ModuleDashboard>
+
     <div class="mb-12">
       <SectionHeader
         :title="t('childrenScreenTitle')"
@@ -115,7 +181,6 @@ const pendingSaveChild = computed(() =>
         :actionLabel="t('addChild')"
         @action="openAddForm"
       />
-      <p class="children-subtitle">{{ t('childrenScreenSubtitle') }}</p>
 
       <!-- Add child form (appears at the top when toggled) -->
       <div v-if="showAddForm" class="child-card add-card">
@@ -174,6 +239,14 @@ const pendingSaveChild = computed(() =>
           </div>
         </div>
       </div>
+
+      <!-- Empty state when no children exist -->
+      <EmptyState
+        v-if="!showAddForm && children.length === 0"
+        :icon="Baby"
+        :title="t('noChildren')"
+        :cta="{ label: t('addChild'), action: openAddForm }"
+      />
 
       <!-- Children list -->
       <div class="children-list">
@@ -266,14 +339,6 @@ const pendingSaveChild = computed(() =>
 </template>
 
 <style scoped>
-.children-subtitle {
-  font-size: 0.875rem;
-  color: #64748b;
-  margin: 0.5rem 0 1.25rem;
-  line-height: 1.4;
-  text-align: start;
-}
-
 .children-list {
   display: flex;
   flex-direction: column;

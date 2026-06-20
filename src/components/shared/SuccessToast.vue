@@ -9,9 +9,17 @@ const props = defineProps({
 
 const emit = defineEmits(['done'])
 
-watch(() => props.show, (val) => {
-  if (val) {
-    setTimeout(() => emit('done'), props.duration)
+let pending = null
+watch([() => props.show, () => props.message], ([visible]) => {
+  if (pending) {
+    clearTimeout(pending)
+    pending = null
+  }
+  if (visible) {
+    pending = setTimeout(() => {
+      pending = null
+      emit('done')
+    }, props.duration)
   }
 })
 </script>

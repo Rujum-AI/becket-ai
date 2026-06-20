@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useFamily } from '@/composables/useFamily'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import { showToast } from '@/composables/useToast'
 
 export const useTrusteesStore = defineStore('supabaseTrustees', () => {
   const { family } = useFamily()
@@ -383,6 +384,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
 
       // Refresh dashboard to reflect removed events
       await dashboardStore.loadFamilyData()
+      showToast('toastSchoolDeleted')
     } catch (err) {
       error.value = err.message
       await fetchSchools() // Revert on error
@@ -557,6 +559,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
 
       // Refresh dashboard to reflect removed events
       await dashboardStore.loadFamilyData()
+      showToast('toastActivityDeleted')
     } catch (err) {
       error.value = err.message
       await fetchActivities() // Revert on error
@@ -623,6 +626,7 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
 
       // Refresh dashboard to reflect removed events
       await dashboardStore.loadFamilyData()
+      showToast('toastTrusteeDeleted')
     } catch (err) {
       error.value = err.message
       await fetchPeople() // Revert on error

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import CategoryBadge from '@/components/shared/CategoryBadge.vue'
 
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
@@ -43,13 +44,8 @@ function formatAmount(amount) {
       <!-- Left Categories -->
       <div class="side-categories left-categories">
         <div v-for="cat in leftCategories" :key="cat.id" class="side-category-item">
-          <div class="side-category-icon">
-            <img :src="`/assets/${cat.icon}`" :alt="t(cat.name)" />
-          </div>
-          <div class="side-category-info">
-            <span class="side-category-name">{{ t(cat.name) }}</span>
-            <span class="side-category-stats bidi-isolate">{{ cat.percent }}%</span>
-          </div>
+          <CategoryBadge :category="cat.id" size="lg" />
+          <span class="side-category-stats bidi-isolate">{{ cat.percent }}%</span>
         </div>
       </div>
 
@@ -66,13 +62,8 @@ function formatAmount(amount) {
       <!-- Right Categories -->
       <div class="side-categories right-categories">
         <div v-for="cat in rightCategories" :key="cat.id" class="side-category-item">
-          <div class="side-category-icon">
-            <img :src="`/assets/${cat.icon}`" :alt="t(cat.name)" />
-          </div>
-          <div class="side-category-info">
-            <span class="side-category-name">{{ t(cat.name) }}</span>
-            <span class="side-category-stats bidi-isolate">{{ cat.percent }}%</span>
-          </div>
+          <CategoryBadge :category="cat.id" size="lg" />
+          <span class="side-category-stats bidi-isolate">{{ cat.percent }}%</span>
         </div>
       </div>
     </div>
@@ -155,40 +146,8 @@ function formatAmount(amount) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.375rem;
+  gap: 0.25rem;
   text-align: center;
-}
-
-.side-category-icon {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  background: white;
-  flex-shrink: 0;
-  overflow: hidden;
-  padding: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.side-category-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.side-category-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  text-align: center;
-  line-height: 1;
-}
-
-.side-category-name {
-  font-size: 0.6875rem;
-  font-weight: 800;
-  color: #1e293b;
 }
 
 .side-category-stats {
@@ -264,13 +223,49 @@ function formatAmount(amount) {
   color: #94a3b8;
 }
 
+/* Narrow viewports: stop trying to fit categories on either side of the
+   donut — at 360–480px the side columns clip the labels. Reflow to a
+   single column with the chart centered and all categories in a wrap-grid
+   underneath. This is the layout that survives the smallest phones. */
+@media (max-width: 540px) {
+  .chart-with-categories {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 1.25rem;
+  }
+
+  .side-categories {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem 1.25rem;
+    width: 100%;
+    max-width: 22rem;
+  }
+
+  .left-categories,
+  .right-categories {
+    justify-self: center;
+  }
+
+  /* Render the two halves in correct visual order: left col first, then
+     pie, then right col — pie sits in the middle via order. */
+  .left-categories  { order: 2; }
+  .chart-wrapper    { order: 1; }
+  .right-categories { order: 3; }
+
+  /* Once the two halves stack underneath the chart, merge them visually
+     into one continuous grid by removing the vertical gap between them. */
+  .right-categories { margin-top: -1rem; }
+}
+
 @media (max-width: 420px) {
   .chart-wrapper {
     width: 160px;
     height: 160px;
   }
 
-  .side-category-icon {
+  .side-category-item :deep(.circle) {
     width: 2.75rem;
     height: 2.75rem;
   }

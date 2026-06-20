@@ -1,11 +1,13 @@
 <script setup>
 import { ref } from 'vue'
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2, Receipt } from 'lucide-vue-next'
 import { useI18n } from '@/composables/useI18n'
 import { useAuth } from '@/composables/useAuth'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 import { useFamilyMode } from '@/composables/useFamilyMode'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
+import CategoryBadge from '@/components/shared/CategoryBadge.vue'
+import EmptyState from '@/components/shared/EmptyState.vue'
 
 const { t } = useI18n()
 const { user } = useAuth()
@@ -25,11 +27,6 @@ const deleting = ref(false)
 function payerLabel(expense) {
   if (!user.value) return ''
   return expense.payer_id === user.value.id ? t('me') : t('partner')
-}
-
-function getCategoryIcon(category) {
-  const cat = financeStore.categories.find(c => c.id === category)
-  return cat ? cat.icon : 'finance.png'
 }
 
 function formatDate(dateString) {
@@ -60,7 +57,12 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="expense-list">
+  <EmptyState
+    v-if="financeStore.filteredExpenses.length === 0"
+    :icon="Receipt"
+    :title="t('noExpenses')"
+  />
+  <div v-else class="expense-list">
     <div
       v-for="expense in financeStore.filteredExpenses"
       :key="expense.id"
@@ -71,9 +73,12 @@ async function confirmDelete() {
       }"
     >
       <div class="expense-left">
-        <div class="expense-icon">
-          <img :src="`/assets/${getCategoryIcon(expense.category)}`" :alt="expense.category" />
-        </div>
+        <CategoryBadge
+          :category="expense.category"
+          size="md"
+          :show-label="false"
+          class="expense-icon"
+        />
         <div class="expense-details">
           <span class="expense-title">
             {{ expense.title }}
@@ -155,23 +160,7 @@ async function confirmDelete() {
 }
 
 .expense-icon {
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  background: white;
   flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
-}
-
-.expense-icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .expense-details {

@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
+import ModuleDashboard from '@/components/shared/ModuleDashboard.vue'
 import ExpenseChart from '@/components/finance/ExpenseChart.vue'
 import ExpenseList from '@/components/finance/ExpenseList.vue'
 import BalanceBar from '@/components/finance/BalanceBar.vue'
@@ -95,6 +96,13 @@ function getChildImg(child) {
 
 <template>
   <AppLayout>
+    <!-- Page Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">{{ t('expenses') }}</h1>
+      </div>
+    </div>
+
     <!-- Overview Section -->
     <div class="mb-12">
       <SectionHeader
@@ -131,12 +139,16 @@ function getChildImg(child) {
       <!-- Setup Panel (Collapsible) -->
       <FinanceSetup v-if="showSetupPanel" @close="closeSetup" />
 
-      <ExpenseChart />
-
-      <!-- Balance Bar — separated families only (solo/together = tracking, no balance) -->
-      <div v-if="showBalance" class="mt-6">
-        <BalanceBar />
-      </div>
+      <!-- Chart + Balance Bar wrapped for parity with other module dashboards.
+           noSummaryCard: chart and balance bar already have their own card chrome. -->
+      <ModuleDashboard :no-summary-card="true">
+        <template #summary>
+          <ExpenseChart />
+          <div v-if="showBalance" class="mt-6">
+            <BalanceBar />
+          </div>
+        </template>
+      </ModuleDashboard>
     </div>
 
     <!-- Pending Approvals — separated families only, shows up only when there's something to decide -->

@@ -1,7 +1,8 @@
 <script setup>
 import { useI18n } from '@/composables/useI18n'
 import { useManagementStore } from '@/stores/supabaseManagement'
-import { ChevronDown, ChevronUp, Plus, ArrowLeftRight, MessageSquare } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Plus, ArrowLeftRight, MessageSquare, Inbox } from 'lucide-vue-next'
+import EmptyState from '@/components/shared/EmptyState.vue'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -225,7 +226,12 @@ function getCardVars(item) {
         </div>
 
         <!-- Empty state -->
-        <div v-if="items.length === 0 && emptyText" class="ub-empty">{{ emptyText }}</div>
+        <EmptyState
+          v-if="items.length === 0 && emptyText"
+          :icon="Inbox"
+          :title="emptyText"
+          class="ub-empty-state"
+        />
 
         <!-- Add row -->
         <div v-if="showAddRow" class="ub-add-row" @click="$emit('addNew')">
@@ -270,7 +276,12 @@ function getCardVars(item) {
         </div>
 
         <!-- Empty state -->
-        <div v-if="items.length === 0 && emptyText" class="ub-empty">{{ emptyText }}</div>
+        <EmptyState
+          v-if="items.length === 0 && emptyText"
+          :icon="Inbox"
+          :title="emptyText"
+          class="ub-empty-state"
+        />
       </div>
 
     </div>
@@ -622,13 +633,12 @@ function getCardVars(item) {
   color: #94a3b8;
 }
 
-/* Empty state */
-.ub-empty {
-  text-align: center;
-  padding: 2rem 1.5rem;
-  color: #cbd5e1;
-  font-weight: 700;
-  font-style: italic;
+/* Empty state — strip the card chrome since EmptyState renders inside the
+   board's own white container; keep just the icon + title hierarchy. */
+.ub-empty-state {
+  background: transparent;
+  border: none;
+  padding: 1.75rem 1rem;
 }
 
 /* Add row */
