@@ -1,12 +1,17 @@
 # Becket AI — Version History
 
-**Current Version: v3.02**
+**Current Version: v3.03**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v3 — Custody Cycle Correctness
+
+### v3.03 — Next handoff respects school model; stale status falls back to cycle
+`pending` — 2026-06-20
+- **getNextHandoff school-day model fixed.** Under the v2.08+ model the school event lives on the INCOMING custody day (kid sleeps with outgoing parent, drops at school next morning, incoming parent picks up after school). The handoff scanner was still looking at the OUTGOING day for school — so transitions with school on the next day fell back to "pickup at default morning time" instead of "pickup at school end". Now scans on the incoming day; handoff date is always the incoming day either way
+- **getEffectiveStatus staleness.** DB `current_status` overrode the cycle indefinitely — a confirm action months ago kept the child stuck `with_dad` even as the cycle rolled to mom. Now if `status_changed_at` is on an earlier calendar day than today (or null), the DB status is treated as stale and the cycle takes over. Same-day explicit actions still win (e.g., a pickup confirmed this morning legitimately overrides the cycle until tomorrow)
 
 ### v3.02 — Child card "next interaction" reads live from store
 `pending` — 2026-06-20
