@@ -301,6 +301,26 @@ export default {
   reasonCrossDayEvent: 'Added on your co-parent’s custody day.',
   reasonLegacy: 'Carried over from before approvals were tracked.',
 
+  // Children management screen (accessible from user menu)
+  manageChildren: 'Children',
+  childrenScreenTitle: 'Children',
+  childrenScreenSubtitle: 'Edit names, dates of birth, and notes. Changes apply to both parents.',
+  editChildTitle: 'Save changes?',
+  editChildMsg: 'Both parents will see the updated info.',
+  removeChildTitle: 'Remove this child?',
+  removeChildMsg: 'They’ll be removed from the family. Tasks, expenses, and events linked to them will keep their references but can’t be reassigned.',
+  childName: 'Name',
+  childGender: 'Gender',
+  childDob: 'Date of birth',
+  childMedical: 'Medical notes',
+  childGenderBoy: 'Boy',
+  childGenderGirl: 'Girl',
+  addChild: 'Add child',
+  saveChild: 'Save',
+  childAdded: 'Child added',
+  childUpdated: 'Updated',
+  childRemoved: 'Removed',
+
   // Pending-action notifications (popup + updates feed)
   notif_title_pending_action_created: 'Approval needed',
   notif_title_pending_action_approved: 'Approved',

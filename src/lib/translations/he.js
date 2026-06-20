@@ -301,6 +301,26 @@ export default {
   reasonCrossDayEvent: 'נוסף ביום שבו ההורה השני בעמדת המשמורת.',
   reasonLegacy: 'הועבר ממערכת קודמת שלא ניהלה אישורים.',
 
+  // Children management screen (accessible from user menu)
+  manageChildren: 'ילדים',
+  childrenScreenTitle: 'ילדים',
+  childrenScreenSubtitle: 'ערכו שמות, תאריכי לידה והערות. השינויים מוצגים לשני ההורים.',
+  editChildTitle: 'לשמור את השינויים?',
+  editChildMsg: 'שני ההורים יראו את הפרטים המעודכנים.',
+  removeChildTitle: 'להסיר את הילד?',
+  removeChildMsg: 'הילד יוסר מהמשפחה. משימות, הוצאות ואירועים שקושרו אליו יישארו אך לא יוכלו להיות מוקצים מחדש.',
+  childName: 'שם',
+  childGender: 'מין',
+  childDob: 'תאריך לידה',
+  childMedical: 'הערות רפואיות',
+  childGenderBoy: 'בן',
+  childGenderGirl: 'בת',
+  addChild: 'הוסף ילד',
+  saveChild: 'שמור',
+  childAdded: 'הילד נוסף',
+  childUpdated: 'עודכן',
+  childRemoved: 'הוסר',
+
   // Pending-action notifications (popup + updates feed)
   notif_title_pending_action_created: 'נדרש אישור',
   notif_title_pending_action_approved: 'אושר',

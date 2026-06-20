@@ -288,6 +288,49 @@ export function useFamily() {
     family.value = { ...family.value, dashboard_prefs: prefs }
   }
 
+  // Update an existing child's editable fields. Caller is responsible for
+  // any "are you sure?" prompt — this just persists.
+  async function updateChild(childId, updates) {
+    if (!family.value?.id || !childId) return
+    const allowed = {}
+    for (const key of ['name', 'gender', 'date_of_birth', 'medical_notes', 'avatar_url']) {
+      if (key in updates) allowed[key] = updates[key]
+    }
+    const { error } = await supabase
+      .from('children')
+      .update(allowed)
+      .eq('id', childId)
+      .eq('family_id', family.value.id)
+    if (error) throw error
+    await fetchChildren()
+  }
+
+  async function deleteChild(childId) {
+    if (!family.value?.id || !childId) return
+    const { error } = await supabase
+      .from('children')
+      .delete()
+      .eq('id', childId)
+      .eq('family_id', family.value.id)
+    if (error) throw error
+    await fetchChildren()
+  }
+
+  async function addChild({ name, gender, date_of_birth, medical_notes = null }) {
+    if (!family.value?.id) return
+    const { error } = await supabase
+      .from('children')
+      .insert({
+        family_id: family.value.id,
+        name,
+        gender,
+        date_of_birth,
+        medical_notes
+      })
+    if (error) throw error
+    await fetchChildren()
+  }
+
   return {
     family,
     children,
@@ -298,6 +341,9 @@ export function useFamily() {
     createFamily,
     updateFamilyPlan,
     updateDashboardPrefs,
-    fetchChildren
+    fetchChildren,
+    updateChild,
+    deleteChild,
+    addChild
   }
 }
