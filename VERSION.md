@@ -1,8 +1,19 @@
 # Becket AI — Version History
 
-**Current Version: v2.10**
+**Current Version: v3.01**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
+
+---
+
+## v3 — Custody Cycle Correctness
+
+### v3.01 — Sunday-aligned SQL helper + school-first generation order
+`pending` — 2026-06-20
+- SQL custody helpers (`get_custody_parent_id`, `get_custody_parent`) treated cycle_data[0] as the parent on valid_from's actual weekday. The UI editor and calendar treat cycle_data[i] with i%7=day_of_week (0=Sun..6=Sat). Mismatch by `valid_from.dow` days — cron-generated handoffs and trustee-generated school events landed on the wrong custody days; calendar showed transitions the JS view said weren't transitions
+- Migration 047 rewrites both helpers to shift epoch to the Sunday on/before valid_from, then wipes + regenerates all future custody_cycle / trustee_schedule events with the corrected helper
+- Migration 048 swaps the order inside `generate_recurring_events` (trustee first, custody second) so the school-supersession guard in `generate_custody_events` actually sees school events when it runs. Plus a re-run of the same supersession cleanup
+- Verified live: every upcoming school event's `dropoff_by` / `pickup_by` matches the JS calendar's per-day custody; zero custody handoffs remain on days with an active school event
 
 ---
 
