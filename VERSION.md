@@ -1,12 +1,46 @@
 # Becket AI — Version History
 
-**Current Version: v2.07**
+**Current Version: v3.01**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
+## v3 — Custody Cycle Correctness
+
+### v3.01 — Sunday-aligned SQL helper + school-first generation order
+`pending` — 2026-06-20
+- SQL custody helpers (`get_custody_parent_id`, `get_custody_parent`) treated cycle_data[0] as the parent on valid_from's actual weekday. The UI editor and calendar treat cycle_data[i] with i%7=day_of_week (0=Sun..6=Sat). Mismatch by `valid_from.dow` days — cron-generated handoffs and trustee-generated school events landed on the wrong custody days; calendar showed transitions the JS view said weren't transitions
+- Migration 047 rewrites both helpers to shift epoch to the Sunday on/before valid_from, then wipes + regenerates all future custody_cycle / trustee_schedule events with the corrected helper
+- Migration 048 swaps the order inside `generate_recurring_events` (trustee first, custody second) so the school-supersession guard in `generate_custody_events` actually sees school events when it runs. Plus a re-run of the same supersession cleanup
+- Verified live: every upcoming school event's `dropoff_by` / `pickup_by` matches the JS calendar's per-day custody; zero custody handoffs remain on days with an active school event
+
+---
+
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.10 — School supersedes custody handoff (no more duplicate events)
+`pending` — 2026-06-20
+- Before: the daily cron's `generate_custody_events` created an evening dropoff (18:00) and a morning pickup (08:00) on every custody transition — regardless of whether school existed. Once schools were added, the calendar showed BOTH the school event AND a redundant pair of handoffs for the same day; parents got asked to confirm a handoff that doesn't actually happen
+- `generate_custody_events` now checks per-child: if the INCOMING custody day already has a school event for that child, both the outgoing-evening dropoff and the incoming-morning pickup are skipped. School owns the handoff
+- Migration 046 also cleans up FUTURE custody_cycle pickup/dropoff events that are already superseded by an existing school event (per-family timezone). Past events left untouched
+
+### v2.09 — School events: configurable owners + calendar display (Wave 2 — UI)
+`pending` — 2026-06-20
+- School setup ([EntityFormModal](src/components/trustees/EntityFormModal.vue)) gains a "Who takes me?" block with per-schedule Drop-off / Pickup selectors (Previous day's parent / Current day's parent)
+- `trustee_schedules.dropoff_owner` + `pickup_owner` columns added (migration 045); generator reads them per-school instead of hard-coding the rule
+- Existing school schedules backfilled with the typical default: drop-off = prev day, pickup = current day; activities default to current/current (generator ignores for now)
+- [EventDetailModal](src/components/family/EventDetailModal.vue) for school events now shows two rows — 🚗 Drop-off and 🚪 Pickup — with the resolved parent name (calling name or Dad/Mom)
+- New `resolveParentDisplayName(profileId)` helper in dashboard store
+- EN + HE translations: whoTakesMe, dropoffByLabel, pickupByLabel, ownerPrevDay, ownerCurrentDay, assignParentNeeded
+
+### v2.08 — School events: drop-off / pickup split (Wave 1 — schema + generator)
+`pending` — 2026-06-20
+- Events table gains `dropoff_by` and `pickup_by` (uuid → profiles); school events now carry both, expected_by mirrors pickup_by for status-engine compat
+- `generate_trustee_events` sets dropoff_by = previous-night's custody parent (sleep-with), pickup_by = current-day custody parent; non-school types unchanged
+- Split-custody days leave the affected slot NULL — UI assignment lands in Wave 2
+- `pending_actions` unique-pending index widened to (target_type, target_id, reason) so `swap_dropoff` and `swap_pickup` can be requested independently on the same event
+- Backfill: future school events get the new slots filled per family timezone; past events untouched
 
 ### v2.07 — Calendar parenting-time: lazy cycle resolution + correct fallbacks
 `pending` — 2026-06-20

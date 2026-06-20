@@ -740,6 +740,19 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     return null
   }
 
+  // Resolve a profile_id to a human display name (calling name if set, else
+  // 'Dad'/'Mom' label). Returns null if the id doesn't match anyone known.
+  function resolveParentDisplayName(profileId) {
+    if (!profileId) return null
+    if (profileId === user.value?.id) {
+      return callingName.value || parentLabel.value || null
+    }
+    if (profileId === partnerId.value) {
+      return partnerCallingName.value || partnerLabel.value || null
+    }
+    return null
+  }
+
   // Store the cycle config; the actual per-day lookup is computed lazily via
   // the custodySchedule Proxy below. The cycle is periodic, so there's no
   // window — any date past, present, or future resolves on access.
@@ -1269,6 +1282,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     confirmDropoff,
     getExpectedParent,
     resolveCustodyLabel,
+    resolveParentDisplayName,
     getPendingOverrideForDate,
     requestCustodyOverride,
     respondToCustodyOverride,
