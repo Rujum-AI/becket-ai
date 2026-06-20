@@ -1,12 +1,20 @@
 # Becket AI — Version History
 
-**Current Version: v2.07**
+**Current Version: v2.08**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.08 — School events: drop-off / pickup split (Wave 1 — schema + generator)
+`pending` — 2026-06-20
+- Events table gains `dropoff_by` and `pickup_by` (uuid → profiles); school events now carry both, expected_by mirrors pickup_by for status-engine compat
+- `generate_trustee_events` sets dropoff_by = previous-night's custody parent (sleep-with), pickup_by = current-day custody parent; non-school types unchanged
+- Split-custody days leave the affected slot NULL — UI assignment lands in Wave 2
+- `pending_actions` unique-pending index widened to (target_type, target_id, reason) so `swap_dropoff` and `swap_pickup` can be requested independently on the same event
+- Backfill: future school events get the new slots filled per family timezone; past events untouched
 
 ### v2.07 — Calendar parenting-time: lazy cycle resolution + correct fallbacks
 `pending` — 2026-06-20
