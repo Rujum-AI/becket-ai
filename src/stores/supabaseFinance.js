@@ -17,6 +17,10 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   const loading = ref(false)
   const error = ref(null)
   const activeTimeframe = ref('month')
+  // Normalized budgets (migration 039 onwards). Source of truth for
+  // classifyExpense — JSONB rules.categories[].budget_limit is being
+  // phased out on this branch.
+  const categoryBudgets = ref([])
 
   // Fixed expense categories based on DATA_SCHEMA.md
   const categories = ref([
@@ -54,7 +58,11 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
         .select('*')
         .eq('family_id', family.value.id)
         .gte('date', startDate.toISOString().split('T')[0])
+        // Tiebreaker on created_at so freshly-added rows for today
+        // land at the top instead of getting shuffled with same-date
+        // entries in non-deterministic order.
         .order('date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError
 
@@ -90,21 +98,33 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       return { route: 'pending', reasonKey: 'expenseNoRuleReason', reason: 'no_rule' }
     }
 
-    // Budget / item-count limit (override.budget_limit or override.limit_count)
-    if (override) {
-      const numAmount = parseFloat(amount) || 0
-      const period = override.budget_limit?.period || override.limit_count?.period || 'monthly'
-      const { spent, count } = currentCategoryUsage(category, childId, period)
+    // Money budget — now sourced from the normalized category_budgets
+    // table (migration 039). Per-child override takes precedence over
+    // family-wide. Item-count caps stay in the JSONB override for now
+    // (separate normalization).
+    const numAmount = parseFloat(amount) || 0
+    const monthlyBudget = getCategoryBudget(category, childId, 'monthly')
+    const yearlyBudget = getCategoryBudget(category, childId, 'yearly')
 
-      if (override.budget_limit?.amount != null && override.budget_limit.amount > 0) {
-        if (spent + numAmount > override.budget_limit.amount) {
-          return { route: 'pending', reasonKey: 'expenseOverBudgetReason', reason: 'exceeds_budget' }
-        }
+    if (monthlyBudget) {
+      const { spent } = currentCategoryUsage(category, childId, 'monthly')
+      if (spent + numAmount > Number(monthlyBudget.limit_amount)) {
+        return { route: 'pending', reasonKey: 'expenseOverBudgetReason', reason: 'exceeds_budget' }
       }
-      if (override.limit_count?.max != null && override.limit_count.max > 0) {
-        if (count + 1 > override.limit_count.max) {
-          return { route: 'pending', reasonKey: 'expenseOverItemLimitReason', reason: 'exceeds_count' }
-        }
+    }
+    if (yearlyBudget) {
+      const { spent } = currentCategoryUsage(category, childId, 'yearly')
+      if (spent + numAmount > Number(yearlyBudget.limit_amount)) {
+        return { route: 'pending', reasonKey: 'expenseOverBudgetReason', reason: 'exceeds_budget' }
+      }
+    }
+
+    // Item-count caps still come from JSONB until they get their own table.
+    if (override && override.limit_count?.max != null && override.limit_count.max > 0) {
+      const period = override.limit_count.period || 'monthly'
+      const { count } = currentCategoryUsage(category, childId, period)
+      if (count + 1 > override.limit_count.max) {
+        return { route: 'pending', reasonKey: 'expenseOverItemLimitReason', reason: 'exceeds_count' }
       }
     }
     return { route: 'counted', reasonKey: null, reason: null }
@@ -147,23 +167,19 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       // Compute split from rules
       const split = computeSplit(amount, childId, category)
 
-      // Determine status from the deterministic router
+      // Determine status from the deterministic router. Both parents
+      // are co-equal in this product — the previous admin bypass
+      // ("admin trusts themselves") undermined the entire approval /
+      // pending_actions framework, so it's removed. A flagged expense
+      // routes to pending regardless of who created it; the partner
+      // sees the request and decides.
       const decision = classifyExpense({ amount, category, childId })
-      const isAdmin = userRole.value === 'admin'
-      let status = decision.route === 'pending' ? 'pending_approval' : 'counted'
-      // Fallback to 'no_rule' (a valid CHECK value) if reason ever goes missing,
-      // so the insert doesn't fail a DB CHECK on an unknown sentinel.
-      let requiresApprovalReason = decision.route === 'pending'
+      const status = decision.route === 'pending' ? 'pending_approval' : 'counted'
+      // Fallback to 'no_rule' (a valid CHECK value) if reason ever goes
+      // missing, so the insert doesn't fail a DB CHECK on an unknown sentinel.
+      const requiresApprovalReason = decision.route === 'pending'
         ? (decision.reason || 'no_rule')
         : null
-
-      if (isAdmin) {
-        // Admin can bypass approval; everything counts
-        status = 'counted'
-        requiresApprovalReason = null
-      }
-
-      // TODO: Check budget limits (requires expense_budget_cache query)
 
       const expenseDate = expenseData.date || new Date().toISOString().split('T')[0]
       const isRecurring = !!expenseData.isRecurring
@@ -252,12 +268,19 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     }
   }
 
-  // Computed: Total amount for current timeframe (respects filter)
+  // Pie / totals / dadShare reflect what's visible in the transaction
+  // list — counted + pending (rejected is already filtered out of
+  // filteredExpenses, so it never reaches here). Pending rows count
+  // optimistically into the visualizations so the user's mental model
+  // ("I added it → I see it") stays consistent. Numbers wouldn't
+  // suddenly drop just because something's awaiting approval.
+
+  // Computed: Total amount for current timeframe (respects filter, excludes rejected)
   const totalAmount = computed(() => {
     return filteredExpenses.value.reduce((sum, expense) => sum + (expense.amount || 0), 0)
   })
 
-  // Computed: Category breakdown with percentages (respects filter)
+  // Computed: Category breakdown with percentages (respects filter, excludes rejected)
   const categoryStats = computed(() => {
     const total = totalAmount.value
     if (total === 0) return []
@@ -272,12 +295,12 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
         amount,
         percent
       }
-    }).filter(cat => cat.amount > 0) // Only show categories with expenses
+    }).filter(cat => cat.amount > 0)
 
     return stats
   })
 
-  // Computed: Dad's share percentage (respects filter)
+  // Computed: Dad's share percentage (respects filter, excludes rejected)
   const dadShare = computed(() => {
     if (!user.value || totalAmount.value === 0) return 0
 
@@ -320,6 +343,124 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     } catch (err) {
       console.error('Error loading children:', err)
     }
+  }
+
+  // === Category budgets (normalized, migration 039) ===
+  // Replaces rules.categories[].budget_limit as the source of truth.
+  // Family-wide + per-child rows coexist; per-child overrides family-wide.
+
+  async function loadCategoryBudgets() {
+    if (!family.value) return
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('category_budgets')
+        .select('*')
+        .eq('family_id', family.value.id)
+      if (fetchError) throw fetchError
+      categoryBudgets.value = data || []
+    } catch (err) {
+      console.error('Error loading category budgets:', err)
+      categoryBudgets.value = []
+    }
+  }
+
+  // Resolve the active budget for a (category, child) pair. Per-child
+  // wins; falls back to family-wide; returns null if neither exists.
+  function getCategoryBudget(category, childId = null, period = 'monthly') {
+    const list = categoryBudgets.value
+    if (childId) {
+      const perChild = list.find(b => b.category === category && b.child_id === childId && b.period === period)
+      if (perChild) return perChild
+    }
+    return list.find(b => b.category === category && b.child_id === null && b.period === period) || null
+  }
+
+  // Upsert (one row per family_id × category × child_id × period — see
+  // uniq_category_budgets in migration 039). amount must be > 0; null
+  // amount = delete that budget instead.
+  async function saveCategoryBudget({ category, period, amount, childId = null }) {
+    if (!family.value || !user.value) return
+    if (amount == null || Number(amount) <= 0) {
+      return removeCategoryBudget({ category, period, childId })
+    }
+    const { error: upsertError } = await supabase
+      .from('category_budgets')
+      .upsert({
+        family_id: family.value.id,
+        category,
+        child_id: childId,
+        period,
+        limit_amount: Number(amount),
+        created_by: user.value.id
+      }, { onConflict: 'family_id,category,child_id,period', ignoreDuplicates: false })
+    if (upsertError) {
+      // upsert with onConflict requires the unique index to use the same
+      // columns — our index uses COALESCE(child_id, sentinel), so the
+      // upsert may fall back to insert+conflict. Fallback: explicit update.
+      const existing = getCategoryBudget(category, childId, period)
+      if (existing) {
+        const { error: updErr } = await supabase
+          .from('category_budgets')
+          .update({ limit_amount: Number(amount) })
+          .eq('id', existing.id)
+        if (updErr) throw updErr
+      } else {
+        throw upsertError
+      }
+    }
+    await loadCategoryBudgets()
+  }
+
+  async function removeCategoryBudget({ category, period, childId = null }) {
+    if (!family.value) return
+    const existing = getCategoryBudget(category, childId, period)
+    if (!existing) return
+    const { error: delErr } = await supabase
+      .from('category_budgets')
+      .delete()
+      .eq('id', existing.id)
+    if (delErr) throw delErr
+    await loadCategoryBudgets()
+  }
+
+  // Mirror of supabaseUnderstandings.syncCategoryBudgetsFromRule — kept
+  // local so saveExpenseRules can call it without a circular store import.
+  // Replace-all-in-scope semantics: every budget for this rule's scope
+  // (family-wide vs child-specific) is rebuilt from the rule's JSONB.
+  async function syncCategoryBudgetsFromRule(rule) {
+    if (!family.value?.id || !rule?.expense_rules) return
+    const childId = rule.child_id || null
+
+    let delQuery = supabase
+      .from('category_budgets')
+      .delete()
+      .eq('family_id', family.value.id)
+    delQuery = childId === null
+      ? delQuery.is('child_id', null)
+      : delQuery.eq('child_id', childId)
+    await delQuery
+
+    const cats = rule.expense_rules.categories || []
+    const rows = cats
+      .filter(c => c?.budget_limit?.amount && Number(c.budget_limit.amount) > 0)
+      .map(c => ({
+        family_id: family.value.id,
+        child_id: childId,
+        category: c.name,
+        period: c.budget_limit.period || 'monthly',
+        limit_amount: Number(c.budget_limit.amount),
+        created_by: user.value.id
+      }))
+
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase
+        .from('category_budgets')
+        .insert(rows)
+      if (insErr) {
+        console.warn('category_budgets sync insert failed:', insErr.message)
+      }
+    }
+    await loadCategoryBudgets()
   }
 
   // Load expense rules (active understanding with category='expenses')
@@ -434,6 +575,13 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
 
       if (upsertError) throw upsertError
 
+      // If the rule went straight to active (admin path), sync the
+      // normalized budget table to match. Pending rules sync on approve
+      // via supabaseUnderstandings.syncCategoryBudgetsFromRule.
+      if (data?.status === 'active') {
+        await syncCategoryBudgetsFromRule(data)
+      }
+
       // Reload rules
       await loadExpenseRules()
 
@@ -445,18 +593,26 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     }
   }
 
-  // Computed: Filtered expenses by child
+  // Computed: Filtered expenses by child — drives the transaction list
+  // and the pie/total/balance computeds (which further filter to
+  // status='counted'). Rejected rows are hidden everywhere: from the
+  // user's POV, "rejected" means the partner declined → effectively
+  // gone. Pending rows stay visible with a badge so the requester
+  // sees their own outstanding submission.
   const filteredExpenses = computed(() => {
-    if (childFilter.value === null) {
-      return expenses.value // All children
-    }
-    return expenses.value.filter(e => e.child_id === childFilter.value)
+    const visible = expenses.value.filter(e => e.status !== 'rejected')
+    if (childFilter.value === null) return visible
+    return visible.filter(e => e.child_id === childFilter.value)
   })
 
-  // Computed: Balance data (who paid what vs. who should have paid)
+  // Computed: Balance data (who paid what vs. who should have paid).
+  // Same source as the pie — visible expenses (counted + pending,
+  // excluding rejected). Mental model: "if I see it in the list, it
+  // moves the bar." Approval state is communicated by the row badge.
   const balanceData = computed(() => {
     const rules = getChildRules(childFilter.value)
-    const total = filteredExpenses.value.reduce((sum, e) => sum + (e.amount || 0), 0)
+    const visible = filteredExpenses.value
+    const total = visible.reduce((sum, e) => sum + (e.amount || 0), 0)
 
     if (total === 0 || !user.value) {
       return {
@@ -470,7 +626,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       }
     }
 
-    const dadPaid = filteredExpenses.value
+    const dadPaid = visible
       .filter(e => e.payer_id === user.value.id)
       .reduce((sum, e) => sum + (e.amount || 0), 0)
     const momPaid = total - dadPaid
@@ -523,7 +679,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     if (realtimeChannel.value) return
 
     realtimeChannel.value = supabase
-      .channel(`expenses-${family.value.id}`)
+      .channel(`finance-${family.value.id}`)
       .on(
         'postgres_changes',
         {
@@ -533,6 +689,16 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
           filter: `family_id=eq.${family.value.id}`
         },
         () => { loadExpenses() }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'category_budgets',
+          filter: `family_id=eq.${family.value.id}`
+        },
+        () => { loadCategoryBudgets() }
       )
       .subscribe()
   }
@@ -566,6 +732,11 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     getChildRules,
     getIncludedCategories,
     isSharedCategory,
+    categoryBudgets,
+    loadCategoryBudgets,
+    getCategoryBudget,
+    saveCategoryBudget,
+    removeCategoryBudget,
     classifyExpense,
     computeSplit,
     saveExpenseRules,

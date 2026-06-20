@@ -65,7 +65,10 @@ async function confirmDelete() {
       v-for="expense in financeStore.filteredExpenses"
       :key="expense.id"
       class="expense-row"
-      :class="{ 'lane-personal': isSeparated && !isShared(expense) }"
+      :class="{
+        'lane-pending': expense.status === 'pending_approval',
+        'lane-personal': expense.status === 'counted' && isSeparated && !isShared(expense)
+      }"
     >
       <div class="expense-left">
         <div class="expense-icon">
@@ -75,7 +78,13 @@ async function confirmDelete() {
           <span class="expense-title">
             {{ expense.title }}
             <span
-              v-if="isSeparated"
+              v-if="expense.status === 'pending_approval'"
+              class="lane-badge lane-badge-pending"
+            >
+              {{ t('pending') }}
+            </span>
+            <span
+              v-else-if="isSeparated"
               :class="['lane-badge', isShared(expense) ? 'lane-badge-shared' : 'lane-badge-personal']"
             >
               {{ isShared(expense) ? t('laneShared') : t('lanePersonal') }}
@@ -267,5 +276,26 @@ async function confirmDelete() {
   background: linear-gradient(135deg, #CCFBF1 0%, #99F6E4 100%);
   color: #0f766e;
   border: 1px solid #99F6E4;
+}
+
+/* Pending = waiting for partner approval. Amber stripe matches the
+   PendingSection container so the row, the section, and the popup
+   all read as one thread. */
+.lane-pending {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.35) 2px,
+      rgba(255, 255, 255, 0.35) 4px
+    ),
+    linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+}
+
+.lane-badge-pending {
+  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  color: #92400E;
+  border: 1px solid #FCD34D;
 }
 </style>

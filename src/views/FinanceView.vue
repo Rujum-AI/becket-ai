@@ -46,6 +46,7 @@ function loadData() {
     financeStore.loadExpenses()
     financeStore.loadExpenseRules()
     financeStore.loadChildren()
+    financeStore.loadCategoryBudgets()
     if (requiresApproval.value) pendingStore.load()
     // Live-sync: partner edits propagate without manual refresh.
     financeStore.subscribeToRealtime()

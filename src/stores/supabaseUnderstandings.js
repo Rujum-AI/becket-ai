@@ -826,6 +826,49 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
     }
   }
 
+  // After an expense rule is activated, sync its JSONB budgets into the
+  // normalized category_budgets table (migration 039). The table is the
+  // source of truth that classifyExpense reads from — leaving them out
+  // of sync would mean a freshly approved budget never enforces.
+  //
+  // Replace-all-in-scope: delete every budget for this family / child
+  // scope, then insert from the active JSONB. Atomic from the user's
+  // POV (single approve action), and idempotent.
+  async function syncCategoryBudgetsFromRule(rule) {
+    if (!family.value?.id || !rule?.expense_rules) return
+    const childId = rule.child_id || null
+
+    let delQuery = supabase
+      .from('category_budgets')
+      .delete()
+      .eq('family_id', family.value.id)
+    delQuery = childId === null
+      ? delQuery.is('child_id', null)
+      : delQuery.eq('child_id', childId)
+    await delQuery
+
+    const cats = rule.expense_rules.categories || []
+    const rows = cats
+      .filter(c => c?.budget_limit?.amount && Number(c.budget_limit.amount) > 0)
+      .map(c => ({
+        family_id: family.value.id,
+        child_id: childId,
+        category: c.name,
+        period: c.budget_limit.period || 'monthly',
+        limit_amount: Number(c.budget_limit.amount),
+        created_by: user.value.id
+      }))
+
+    if (rows.length > 0) {
+      const { error: insErr } = await supabase
+        .from('category_budgets')
+        .insert(rows)
+      if (insErr) {
+        console.warn('category_budgets sync insert failed:', insErr.message)
+      }
+    }
+  }
+
   async function approveExpenseRules() {
     if (!pendingExpenseRules.value || !user.value?.id) return
 
@@ -856,6 +899,9 @@ export const useUnderstandingsStore = defineStore('understandings', () => {
         .eq('id', pendingExpenseRules.value.id)
 
       if (updateError) throw updateError
+
+      // Sync normalized budgets to match the just-activated rule.
+      await syncCategoryBudgetsFromRule(pendingExpenseRules.value)
 
       await fetchAllUnderstandings()
     } catch (err) {
