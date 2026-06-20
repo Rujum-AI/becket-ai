@@ -1,12 +1,18 @@
 # Becket AI — Version History
 
-**Current Version: v2.09**
+**Current Version: v2.10**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.10 — School supersedes custody handoff (no more duplicate events)
+`pending` — 2026-06-20
+- Before: the daily cron's `generate_custody_events` created an evening dropoff (18:00) and a morning pickup (08:00) on every custody transition — regardless of whether school existed. Once schools were added, the calendar showed BOTH the school event AND a redundant pair of handoffs for the same day; parents got asked to confirm a handoff that doesn't actually happen
+- `generate_custody_events` now checks per-child: if the INCOMING custody day already has a school event for that child, both the outgoing-evening dropoff and the incoming-morning pickup are skipped. School owns the handoff
+- Migration 046 also cleans up FUTURE custody_cycle pickup/dropoff events that are already superseded by an existing school event (per-family timezone). Past events left untouched
 
 ### v2.09 — School events: configurable owners + calendar display (Wave 2 — UI)
 `pending` — 2026-06-20
