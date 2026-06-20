@@ -502,6 +502,40 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     childFilter.value = childId
   }
 
+  // === Realtime ===
+  // Cross-device live sync for expenses. The decide trigger flips
+  // expense.status (pending_approval → counted/rejected) server-side
+  // when a partner approves, so the requester needs to see that change
+  // without a refresh. Simple reload on any change — small payload,
+  // simple correctness. Channel pattern mirrors supabaseUpdates.
+  const realtimeChannel = ref(null)
+
+  function subscribeToRealtime() {
+    if (!family.value?.id) return
+    if (realtimeChannel.value) return
+
+    realtimeChannel.value = supabase
+      .channel(`expenses-${family.value.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `family_id=eq.${family.value.id}`
+        },
+        () => { loadExpenses() }
+      )
+      .subscribe()
+  }
+
+  function unsubscribeRealtime() {
+    if (realtimeChannel.value) {
+      supabase.removeChannel(realtimeChannel.value)
+      realtimeChannel.value = null
+    }
+  }
+
   return {
     expenses,
     expenseRules,
@@ -529,6 +563,8 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     addExpense,
     deleteExpense,
     setTimeframe,
-    setChildFilter
+    setChildFilter,
+    subscribeToRealtime,
+    unsubscribeRealtime
   }
 })

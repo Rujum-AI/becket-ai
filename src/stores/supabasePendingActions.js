@@ -70,6 +70,39 @@ export const useSupabasePendingActionsStore = defineStore('supabasePendingAction
     await load()
   }
 
+  // === Realtime ===
+  // Live-sync the pending list across both parents' devices. Any
+  // INSERT/UPDATE/DELETE on pending_actions for this family triggers
+  // a reload — small payloads, simple correctness. Matches the channel
+  // pattern in supabaseUpdates.
+  const realtimeChannel = ref(null)
+
+  function subscribeToRealtime() {
+    if (!family.value?.id) return
+    if (realtimeChannel.value) return
+
+    realtimeChannel.value = supabase
+      .channel(`pending-actions-${family.value.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pending_actions',
+          filter: `family_id=eq.${family.value.id}`
+        },
+        () => { load() }
+      )
+      .subscribe()
+  }
+
+  function unsubscribeRealtime() {
+    if (realtimeChannel.value) {
+      supabase.removeChannel(realtimeChannel.value)
+      realtimeChannel.value = null
+    }
+  }
+
   return {
     pending,
     incoming,
@@ -77,6 +110,8 @@ export const useSupabasePendingActionsStore = defineStore('supabasePendingAction
     loading,
     error,
     load,
-    decide
+    decide,
+    subscribeToRealtime,
+    unsubscribeRealtime
   }
 })

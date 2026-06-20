@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import ExpenseChart from '@/components/finance/ExpenseChart.vue'
@@ -47,6 +47,9 @@ function loadData() {
     financeStore.loadExpenseRules()
     financeStore.loadChildren()
     if (requiresApproval.value) pendingStore.load()
+    // Live-sync: partner edits propagate without manual refresh.
+    financeStore.subscribeToRealtime()
+    if (requiresApproval.value) pendingStore.subscribeToRealtime()
   }
 }
 
@@ -60,6 +63,12 @@ watch(family, (newFamily) => {
   if (newFamily) {
     loadData()
   }
+})
+
+// Tear down realtime channels when leaving /finance to avoid leaks.
+onBeforeUnmount(() => {
+  financeStore.unsubscribeRealtime()
+  pendingStore.unsubscribeRealtime()
 })
 
 function openAddModal() {

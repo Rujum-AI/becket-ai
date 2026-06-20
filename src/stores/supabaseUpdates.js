@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useLanguageStore } from '@/stores/language'
@@ -442,10 +442,15 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
 
   // === Supabase Realtime ===
 
-  function subscribeToRealtime() {
+  // Tracks whether AppLayout asked us to be subscribed. We honor it as
+  // soon as user becomes available — on mobile, auth resolves *after*
+  // AppLayout mounts, so a one-shot subscribeToRealtime() that returns
+  // early on null user would never retry and the popup never fires.
+  const wantSubscription = ref(false)
+
+  function attachChannel() {
     if (!user.value?.id) return
     if (realtimeChannel.value) return
-
     realtimeChannel.value = supabase
       .channel('notifications-live')
       .on(
@@ -470,7 +475,25 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
       .subscribe()
   }
 
+  // Public API: AppLayout calls this on mount. We may not have a user
+  // yet (mobile race) — flip the flag and a watcher attaches the
+  // channel the moment user resolves.
+  function subscribeToRealtime() {
+    wantSubscription.value = true
+    attachChannel()
+  }
+
+  // Auto-attach when user becomes available after subscribeToRealtime
+  // was already called. Fixes the mobile race where AppLayout mounts
+  // before auth.
+  watch(user, (newUser) => {
+    if (newUser?.id && wantSubscription.value && !realtimeChannel.value) {
+      attachChannel()
+    }
+  })
+
   function unsubscribeRealtime() {
+    wantSubscription.value = false
     if (realtimeChannel.value) {
       supabase.removeChannel(realtimeChannel.value)
       realtimeChannel.value = null
