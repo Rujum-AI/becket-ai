@@ -32,6 +32,12 @@ const router = createRouter({
       meta: { requiresAuth: true, requiresFamily: true }
     },
     {
+      path: '/children',
+      name: 'children',
+      component: () => import('@/views/ChildrenView.vue'),
+      meta: { requiresAuth: true, requiresFamily: true }
+    },
+    {
       path: '/finance',
       name: 'finance',
       component: () => import('@/views/FinanceView.vue'),

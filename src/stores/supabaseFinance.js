@@ -3,10 +3,12 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
+import { useFamilyMode } from '@/composables/useFamilyMode'
 
 export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   const { user } = useAuth()
   const { family, userRole } = useFamily()
+  const { requiresApproval } = useFamilyMode()
 
   const expenses = ref([])
   const expenseRules = ref(null) // Active understanding with category='expenses'
@@ -71,6 +73,11 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   //              AND any configured budget/item limit for the category isn't exceeded.
   // X (pending): everything else — needs the co-parent's approval.
   function classifyExpense({ amount, category, childId }) {
+    // Non-separated families don't have a shared/not-shared contract — every
+    // expense is just tracking. Skip the approval routing entirely.
+    if (!requiresApproval.value) {
+      return { route: 'counted', reasonKey: null, reason: null }
+    }
     const rules = getChildRules(childId)
     const included = getIncludedCategories(rules)
 
@@ -187,6 +194,29 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
         .single()
 
       if (insertError) throw insertError
+
+      // If this expense was flagged for approval, also create a pending_actions
+      // row so it surfaces in the unified Pending UI and triggers the partner's
+      // notification. We key off the ACTUAL persisted status, not the route
+      // decision — admin-bypass can flip it to counted, in which case no
+      // approval is needed.
+      if (data.status === 'pending_approval') {
+        const { error: pendingError } = await supabase
+          .from('pending_actions')
+          .insert({
+            family_id: family.value.id,
+            target_type: 'expense',
+            target_id: data.id,
+            reason: requiresApprovalReason,
+            requested_by: user.value.id
+          })
+        if (pendingError) {
+          // Don't fail the whole expense over the pending_actions write —
+          // the expense itself is the source of truth, the pending_actions
+          // row is the notification/UI hook. Log so we can investigate.
+          console.warn('pending_actions insert failed:', pendingError.message)
+        }
+      }
 
       // Reload expenses to refresh UI (notification created by DB trigger)
       await loadExpenses()
@@ -339,6 +369,14 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     return categories.value.map(c => c.id)
   }
 
+  // Same source of truth that classifyExpense uses for "is this in the shared
+  // contract?" — exposed for the UI so badges/lanes can't drift from the
+  // approval logic.
+  function isSharedCategory(category, childId = null) {
+    const rules = getChildRules(childId)
+    return getIncludedCategories(rules).includes(category)
+  }
+
   // Compute split percentages and amounts for an expense
   function computeSplit(amount, childId, category) {
     const rules = getChildRules(childId)
@@ -472,6 +510,40 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     childFilter.value = childId
   }
 
+  // === Realtime ===
+  // Cross-device live sync for expenses. The decide trigger flips
+  // expense.status (pending_approval → counted/rejected) server-side
+  // when a partner approves, so the requester needs to see that change
+  // without a refresh. Simple reload on any change — small payload,
+  // simple correctness. Channel pattern mirrors supabaseUpdates.
+  const realtimeChannel = ref(null)
+
+  function subscribeToRealtime() {
+    if (!family.value?.id) return
+    if (realtimeChannel.value) return
+
+    realtimeChannel.value = supabase
+      .channel(`expenses-${family.value.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'expenses',
+          filter: `family_id=eq.${family.value.id}`
+        },
+        () => { loadExpenses() }
+      )
+      .subscribe()
+  }
+
+  function unsubscribeRealtime() {
+    if (realtimeChannel.value) {
+      supabase.removeChannel(realtimeChannel.value)
+      realtimeChannel.value = null
+    }
+  }
+
   return {
     expenses,
     expenseRules,
@@ -493,12 +565,15 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     loadExpenseRules,
     getChildRules,
     getIncludedCategories,
+    isSharedCategory,
     classifyExpense,
     computeSplit,
     saveExpenseRules,
     addExpense,
     deleteExpense,
     setTimeframe,
-    setChildFilter
+    setChildFilter,
+    subscribeToRealtime,
+    unsubscribeRealtime
   }
 })

@@ -202,6 +202,11 @@ export function useFamily() {
       const { error: profileError } = await supabase.rpc('ensure_profile_exists')
       if (profileError) console.warn('ensure_profile_exists warning:', profileError.message)
 
+      // Pull first name from Google OAuth metadata for calling_name (disambiguates same-label parents downstream)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const googleName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || ''
+      const callingName = googleName ? googleName.trim().split(/\s+/)[0] : null
+
       // Add user as family member
       const { error: memberError } = await supabase
         .from('family_members')
@@ -209,7 +214,8 @@ export function useFamily() {
           family_id: familyData.id,
           profile_id: userId,
           parent_label: onboardingData.parentRole || 'dad',
-          role: 'admin'
+          role: 'admin',
+          calling_name: callingName
         })
 
       if (memberError) throw memberError
@@ -282,6 +288,49 @@ export function useFamily() {
     family.value = { ...family.value, dashboard_prefs: prefs }
   }
 
+  // Update an existing child's editable fields. Caller is responsible for
+  // any "are you sure?" prompt — this just persists.
+  async function updateChild(childId, updates) {
+    if (!family.value?.id || !childId) return
+    const allowed = {}
+    for (const key of ['name', 'gender', 'date_of_birth', 'medical_notes', 'avatar_url']) {
+      if (key in updates) allowed[key] = updates[key]
+    }
+    const { error } = await supabase
+      .from('children')
+      .update(allowed)
+      .eq('id', childId)
+      .eq('family_id', family.value.id)
+    if (error) throw error
+    await fetchChildren()
+  }
+
+  async function deleteChild(childId) {
+    if (!family.value?.id || !childId) return
+    const { error } = await supabase
+      .from('children')
+      .delete()
+      .eq('id', childId)
+      .eq('family_id', family.value.id)
+    if (error) throw error
+    await fetchChildren()
+  }
+
+  async function addChild({ name, gender, date_of_birth, medical_notes = null }) {
+    if (!family.value?.id) return
+    const { error } = await supabase
+      .from('children')
+      .insert({
+        family_id: family.value.id,
+        name,
+        gender,
+        date_of_birth,
+        medical_notes
+      })
+    if (error) throw error
+    await fetchChildren()
+  }
+
   return {
     family,
     children,
@@ -292,6 +341,9 @@ export function useFamily() {
     createFamily,
     updateFamilyPlan,
     updateDashboardPrefs,
-    fetchChildren
+    fetchChildren,
+    updateChild,
+    deleteChild,
+    addChild
   }
 }

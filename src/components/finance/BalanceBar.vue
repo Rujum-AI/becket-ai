@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import { useFamilyMode } from '@/composables/useFamilyMode'
 
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
+const { showBalance } = useFamilyMode()
 
 const balanceData = computed(() => financeStore.balanceData)
 const fixedTransfers = computed(() => financeStore.fixedTransfers)
@@ -43,7 +45,7 @@ function formatAmount(amount) {
 </script>
 
 <template>
-  <div class="balance-container">
+  <div v-if="showBalance" class="balance-container">
     <!-- Fixed Transfers (if any) -->
     <div v-if="fixedTransfers.length > 0" class="fixed-transfers">
       <div

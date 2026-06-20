@@ -1,6 +1,25 @@
 # Becket AI - Supabase Setup
 
-## Migrations
+## Per-wave deploy ritual (current flow)
+
+Migrations are now managed via the Supabase CLI. The CLI is installed (`supabase --version` = 2.107.0+) and linked to project `ftgigazyrusqgjxwupho`.
+
+For each wave on a feature branch:
+
+1. **Build locally** — write the migration file under `supabase/migrations/NNN_description.sql`. Every new table MUST include:
+   - RLS policies (mirror an existing migration like `032_expense_delete_creator_only.sql`)
+   - `ALTER PUBLICATION supabase_realtime ADD TABLE <name>;` if the UI needs live pull
+2. **User reviews & approves** the local changes (code + migration).
+3. **Deploy in this order**:
+   - `supabase db push` — applies new migrations to remote
+   - Create any new storage buckets via dashboard (with family-scoped RLS, mirror `documents` bucket)
+   - `git commit && git push` on the feature branch — Vercel auto-builds a preview URL
+4. **Smoke test on the preview URL** (Vercel comments on the GitHub PR with the URL). For realtime/sync work, test in two browsers (one per parent).
+5. **Only then** merge to `main` (prod deploy).
+
+Note: Migration history was repaired on 2026-06-20 to reflect the dashboard-paste history of migrations 001–032. Future migrations use the CLI exclusively.
+
+## Migrations (initial setup — historical)
 
 Run these migrations in order in your Supabase SQL Editor:
 

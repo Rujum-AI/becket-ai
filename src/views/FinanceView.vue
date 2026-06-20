@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import SectionHeader from '@/components/layout/SectionHeader.vue'
 import ExpenseChart from '@/components/finance/ExpenseChart.vue'
@@ -9,11 +9,33 @@ import AddExpenseModal from '@/components/finance/AddExpenseModal.vue'
 import FinanceSetup from '@/components/finance/FinanceSetup.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import { useSupabasePendingActionsStore } from '@/stores/supabasePendingActions'
 import { useFamily } from '@/composables/useFamily'
+import { useFamilyMode } from '@/composables/useFamilyMode'
+import PendingSection from '@/components/shared/PendingSection.vue'
 
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
+const pendingStore = useSupabasePendingActionsStore()
 const { family } = useFamily()
+const { showBalance, requiresApproval } = useFamilyMode()
+
+// Resolve a pending_actions row → the actual expense row, so the
+// PendingSection can show title/amount/category instead of just an id.
+function resolvePendingExpense(action) {
+  return financeStore.expenses.find(e => e.id === action.target_id) || null
+}
+
+function fmtAmount(amount) {
+  if (amount == null) return '0'
+  return Number(amount).toLocaleString('en-US')
+}
+
+function getCategoryIcon(categoryId) {
+  if (!categoryId) return 'finance.png'
+  const cat = financeStore.categories.find(c => c.id === categoryId)
+  return cat ? cat.icon : 'finance.png'
+}
 
 const showAddExpenseModal = ref(false)
 const showSetupPanel = ref(false)
@@ -24,6 +46,10 @@ function loadData() {
     financeStore.loadExpenses()
     financeStore.loadExpenseRules()
     financeStore.loadChildren()
+    if (requiresApproval.value) pendingStore.load()
+    // Live-sync: partner edits propagate without manual refresh.
+    financeStore.subscribeToRealtime()
+    if (requiresApproval.value) pendingStore.subscribeToRealtime()
   }
 }
 
@@ -37,6 +63,12 @@ watch(family, (newFamily) => {
   if (newFamily) {
     loadData()
   }
+})
+
+// Tear down realtime channels when leaving /finance to avoid leaks.
+onBeforeUnmount(() => {
+  financeStore.unsubscribeRealtime()
+  pendingStore.unsubscribeRealtime()
 })
 
 function openAddModal() {
@@ -100,11 +132,37 @@ function getChildImg(child) {
 
       <ExpenseChart />
 
-      <!-- Balance Bar -->
-      <div class="mt-6">
+      <!-- Balance Bar — separated families only (solo/together = tracking, no balance) -->
+      <div v-if="showBalance" class="mt-6">
         <BalanceBar />
       </div>
     </div>
+
+    <!-- Pending Approvals — separated families only, shows up only when there's something to decide -->
+    <PendingSection
+      v-if="requiresApproval"
+      target-type="expense"
+    >
+      <template #default="{ action, reasonText }">
+        <div class="pending-expense-row">
+          <div class="pending-expense-icon">
+            <img
+              :src="`/assets/${getCategoryIcon(resolvePendingExpense(action)?.category)}`"
+              :alt="resolvePendingExpense(action)?.category"
+            />
+          </div>
+          <div class="pending-expense-details">
+            <span class="pending-expense-title">
+              {{ resolvePendingExpense(action)?.title || t('newExpense') }}
+            </span>
+            <span class="pending-expense-meta">
+              <span class="bidi-isolate">{{ fmtAmount(resolvePendingExpense(action)?.amount) }} ₪</span>
+              <span v-if="reasonText" class="pending-expense-reason"> · {{ reasonText }}</span>
+            </span>
+          </div>
+        </div>
+      </template>
+    </PendingSection>
 
     <!-- Transactions Section -->
     <div class="mb-24">
@@ -171,6 +229,69 @@ function getChildImg(child) {
   color: #1e293b;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.pending-expense-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+}
+
+.pending-expense-icon {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  border: 2px solid #e2e8f0;
+  background: white;
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.pending-expense-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pending-expense-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.pending-expense-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.pending-expense-meta {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pending-expense-reason {
+  text-transform: none;
+  letter-spacing: 0;
+  color: #64748b;
+}
+
+@media (max-width: 479px) {
+  .pending-expense-icon { width: 2.5rem; height: 2.5rem; }
+  .pending-expense-row { gap: 0.75rem; }
 }
 
 </style>

@@ -9,8 +9,10 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const children = ref([])
   const family = ref(null)
   const parentLabel = ref(null) // 'dad' or 'mom'
+  const callingName = ref(null) // self's first name (for same-label disambiguation)
   const partnerId = ref(null)   // co-parent's profile_id (null in solo)
   const partnerLabel = ref(null) // co-parent's parent_label
+  const partnerCallingName = ref(null) // co-parent's first name
   const labelToProfileId = ref({}) // { 'dad': uuid, 'mom': uuid } — resolved at load
   const events = ref([])
   const custodySchedule = ref({})
@@ -41,7 +43,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       // Get user's family membership
       const { data: familyMember, error: memberError } = await supabase
         .from('family_members')
-        .select('family_id, parent_label')
+        .select('family_id, parent_label, calling_name')
         .eq('profile_id', user.value.id)
         .single()
 
@@ -58,17 +60,19 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       family.value = familyRecord
       parentLabel.value = familyMember.parent_label
+      callingName.value = familyMember.calling_name || null
 
       // Get partner (co-parent) if exists
       const { data: partnerData } = await supabase
         .from('family_members')
-        .select('profile_id, parent_label')
+        .select('profile_id, parent_label, calling_name')
         .eq('family_id', familyMember.family_id)
         .neq('profile_id', user.value.id)
         .maybeSingle()
 
       partnerId.value = partnerData?.profile_id || null
       partnerLabel.value = partnerData?.parent_label || null
+      partnerCallingName.value = partnerData?.calling_name || null
 
       // Build label→profileId map for custody schedule resolution
       const ltpMap = {}
@@ -405,6 +409,23 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         .single()
 
       if (insertError) throw insertError
+
+      // Cross-day event → also surface in the unified Pending UI (and notify partner via trigger).
+      // Mirrors the expense flow in supabaseFinance.addExpense.
+      if (eventData.status === 'pending_approval') {
+        const { error: pendingError } = await supabase
+          .from('pending_actions')
+          .insert({
+            family_id: family.value.id,
+            target_type: 'event',
+            target_id: eventData.id,
+            reason: 'cross_day_event',
+            requested_by: user.value.id
+          })
+        if (pendingError) {
+          console.warn('pending_actions insert failed:', pendingError.message)
+        }
+      }
 
       // Link children to event
       if (childIds && childIds.length > 0) {
@@ -1203,12 +1224,21 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     }
   }
 
+  // True when both parents share the same parent_label (two moms / two dads) —
+  // the UI uses this to decide whether to suffix names ("mom Sarah" vs "mom Lisa").
+  const sameLabelCollision = computed(() =>
+    !!partnerLabel.value && partnerLabel.value === parentLabel.value
+  )
+
   return {
     children,
     family,
     parentLabel,
+    callingName,
     partnerId,
     partnerLabel,
+    partnerCallingName,
+    sameLabelCollision,
     pendingInvite,
     events,
     custodySchedule,

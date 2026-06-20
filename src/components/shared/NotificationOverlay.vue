@@ -55,7 +55,10 @@ const routeMap = {
   custody_override_approved: '/family',
   custody_override_rejected: '/family',
   expense_pending: '/finance',
-  expense_added: '/finance'
+  expense_added: '/finance',
+  pending_action_created: '/finance',
+  pending_action_approved: '/finance',
+  pending_action_rejected: '/finance',
 }
 
 function handleCardClick(item) {

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useLanguageStore } from '@/stores/language'
@@ -29,7 +29,8 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     'expense_pending',
     'understanding_proposed',
     'custody_override_requested',
-    'ask_received'
+    'ask_received',
+    'pending_action_created'
   ])
 
   // Types that support inline actions
@@ -39,6 +40,7 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     'understanding_proposed':      { actions: ['accept', 'reject'], domain: 'understandings' },
     'custody_override_requested':  { actions: ['approve', 'reject'], domain: 'family' },
     'nudge_request':               { actions: ['respond'],          domain: 'nudge' },
+    'pending_action_created':      { actions: ['approve', 'reject'], domain: 'pending' },
   }
 
   // Computed: unread count
@@ -380,6 +382,22 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         const { useFinanceStore } = await import('./supabaseFinance')
         const fin = useFinanceStore()
         await fin.approveExpense(notification.related_entity_id)
+      } else if (config.domain === 'pending') {
+        // notification.related_entity_id is the TARGET id (the expense/event),
+        // not the pending_actions row. Look up the pending row and decide on it.
+        const { useSupabasePendingActionsStore } = await import('./supabasePendingActions')
+        const pa = useSupabasePendingActionsStore()
+        // Ensure we have data to find the row in
+        if (!pa.pending || pa.pending.length === 0) {
+          await pa.load()
+        }
+        const row = pa.pending.find(p => p.target_id === notification.related_entity_id && p.status === 'pending')
+        if (!row) {
+          console.warn('pending_actions row not found for notification', notification.id)
+          return false
+        }
+        const decision = action === 'approve' ? 'approved' : 'rejected'
+        await pa.decide(row.id, decision)
       }
 
       // Mark notification as actioned
@@ -442,10 +460,15 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
 
   // === Supabase Realtime ===
 
-  function subscribeToRealtime() {
+  // Tracks whether AppLayout asked us to be subscribed. We honor it as
+  // soon as user becomes available — on mobile, auth resolves *after*
+  // AppLayout mounts, so a one-shot subscribeToRealtime() that returns
+  // early on null user would never retry and the popup never fires.
+  const wantSubscription = ref(false)
+
+  function attachChannel() {
     if (!user.value?.id) return
     if (realtimeChannel.value) return
-
     realtimeChannel.value = supabase
       .channel('notifications-live')
       .on(
@@ -470,7 +493,25 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
       .subscribe()
   }
 
+  // Public API: AppLayout calls this on mount. We may not have a user
+  // yet (mobile race) — flip the flag and a watcher attaches the
+  // channel the moment user resolves.
+  function subscribeToRealtime() {
+    wantSubscription.value = true
+    attachChannel()
+  }
+
+  // Auto-attach when user becomes available after subscribeToRealtime
+  // was already called. Fixes the mobile race where AppLayout mounts
+  // before auth.
+  watch(user, (newUser) => {
+    if (newUser?.id && wantSubscription.value && !realtimeChannel.value) {
+      attachChannel()
+    }
+  })
+
   function unsubscribeRealtime() {
+    wantSubscription.value = false
     if (realtimeChannel.value) {
       supabase.removeChannel(realtimeChannel.value)
       realtimeChannel.value = null

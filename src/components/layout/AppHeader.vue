@@ -156,6 +156,11 @@ if (typeof document !== 'undefined') {
               <span v-if="dashboardStore.pendingInvite" class="invite-pending-dot"></span>
             </div>
 
+            <div class="dropdown-item" @click="closeUserMenu(); router.push('/children')">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M17 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M14 18a4 4 0 0 1 7 0"/></svg>
+              {{ t('manageChildren') }}
+            </div>
+
             <div class="dropdown-item" @click="openDashSetup">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
               {{ t('dashboardSetupShort') }}
