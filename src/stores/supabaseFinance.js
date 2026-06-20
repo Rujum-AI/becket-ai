@@ -3,10 +3,12 @@ import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
 import { useFamily } from '@/composables/useFamily'
+import { useFamilyMode } from '@/composables/useFamilyMode'
 
 export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   const { user } = useAuth()
   const { family, userRole } = useFamily()
+  const { requiresApproval } = useFamilyMode()
 
   const expenses = ref([])
   const expenseRules = ref(null) // Active understanding with category='expenses'
@@ -71,6 +73,11 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
   //              AND any configured budget/item limit for the category isn't exceeded.
   // X (pending): everything else — needs the co-parent's approval.
   function classifyExpense({ amount, category, childId }) {
+    // Non-separated families don't have a shared/not-shared contract — every
+    // expense is just tracking. Skip the approval routing entirely.
+    if (!requiresApproval.value) {
+      return { route: 'counted', reasonKey: null, reason: null }
+    }
     const rules = getChildRules(childId)
     const included = getIncludedCategories(rules)
 

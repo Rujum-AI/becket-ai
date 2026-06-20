@@ -10,10 +10,12 @@ import FinanceSetup from '@/components/finance/FinanceSetup.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
 import { useFamily } from '@/composables/useFamily'
+import { useFamilyMode } from '@/composables/useFamilyMode'
 
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
 const { family } = useFamily()
+const { showBalance } = useFamilyMode()
 
 const showAddExpenseModal = ref(false)
 const showSetupPanel = ref(false)
@@ -100,8 +102,8 @@ function getChildImg(child) {
 
       <ExpenseChart />
 
-      <!-- Balance Bar -->
-      <div class="mt-6">
+      <!-- Balance Bar — separated families only (solo/together = tracking, no balance) -->
+      <div v-if="showBalance" class="mt-6">
         <BalanceBar />
       </div>
     </div>
