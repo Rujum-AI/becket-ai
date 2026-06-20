@@ -786,7 +786,26 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     const dbStatus = child.current_status || 'unknown'
 
     if (dbStatus !== 'unknown') {
-      return { status: dbStatus, source: 'explicit' }
+      // If DB says at_school/at_activity, verify there's an active event right now
+      if (dbStatus === 'at_school' || dbStatus === 'at_activity') {
+        const now = new Date()
+        const childEvents = child.id ? getChildEvents(child.id) : []
+        const hasActiveEvent = childEvents.some(event => {
+          if (event.status === 'cancelled') return false
+          if (event.type !== 'school' && event.type !== 'activity') return false
+          const start = new Date(event.start_time)
+          const end = event.end_time ? new Date(event.end_time) : null
+          if (!end) return false
+          return start <= now && now <= end
+        })
+        if (!hasActiveEvent) {
+          // Event ended — fall through to custody cycle instead of showing stale status
+        } else {
+          return { status: dbStatus, source: 'explicit' }
+        }
+      } else {
+        return { status: dbStatus, source: 'explicit' }
+      }
     }
 
     // Fall back to custody cycle for today

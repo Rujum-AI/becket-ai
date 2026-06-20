@@ -920,6 +920,24 @@ input, textarea, select { text-align: start; }
     padding: 1.5rem 2rem;
     border-top: 1px solid #f1f5f9;
     background: var(--warm-linen);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Make the multi-button action bar fill the footer row by default so
+   single-button footers center while multi-button rows still stretch. */
+.base-modal-footer > .modal-action-bar {
+    width: 100%;
+}
+
+/* Constrain a lone primary button so it visually centers as a "card"
+   instead of stretching across the entire footer width. */
+.base-modal-footer > .modal-primary-btn:only-child,
+.base-modal-footer > .modal-secondary-btn:only-child {
+    flex: 0 1 auto;
+    min-width: 240px;
+    max-width: 360px;
 }
 
 /* --- MOBILE FULL-SCREEN MODALS --- */

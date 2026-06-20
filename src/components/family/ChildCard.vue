@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import {
   CircleArrowDown,
@@ -8,7 +8,8 @@ import {
   Heart,
   FileText,
   FolderOpen,
-  AlertTriangle
+  AlertTriangle,
+  Check
 } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -19,7 +20,7 @@ const props = defineProps({
   colorIndex: { type: Number, default: 0 }
 })
 
-defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge', 'confirm-event-dropoff'])
+const emit = defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge', 'confirm-event-dropoff'])
 
 const { t } = useI18n()
 
@@ -90,6 +91,83 @@ function getRelativeDay(dateStr) {
   return date.toLocaleDateString()
 }
 
+// ===== Swipe-to-confirm pickup =====
+// Pointer-driven slide-to-confirm: matches the teal pickup palette, stays
+// inside the existing pill (border-radius 9999px). Releasing past ~80%
+// fires the same emit a tap would have; releasing earlier snaps the thumb
+// back. Tap (no drag) keeps the legacy behaviour of opening the modal.
+const swipeTrack = ref(null)
+const swipeOffset = ref(0)
+const swipeDragging = ref(false)
+const swipeConfirmed = ref(false)
+const SWIPE_COMPLETE_RATIO = 0.78
+
+let dragStartX = 0
+let dragStartOffset = 0
+let activePointerId = null
+
+const swipeProgress = computed(() => {
+  if (!swipeTrack.value) return 0
+  const max = trackInnerWidth()
+  if (!max) return 0
+  return Math.min(1, Math.max(0, swipeOffset.value / max))
+})
+
+const swipeStyle = computed(() => ({
+  transform: `translateX(${swipeOffset.value}px)`,
+  transition: swipeDragging.value ? 'none' : 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)'
+}))
+
+function trackInnerWidth() {
+  if (!swipeTrack.value) return 0
+  // thumb is 2.25rem ≈ 36px; subtract so the thumb stops flush with the right edge
+  return swipeTrack.value.clientWidth - 36
+}
+
+function onSwipeStart(e) {
+  if (swipeConfirmed.value) return
+  activePointerId = e.pointerId
+  e.target.setPointerCapture?.(e.pointerId)
+  swipeDragging.value = true
+  dragStartX = e.clientX
+  dragStartOffset = swipeOffset.value
+}
+
+function onSwipeMove(e) {
+  if (!swipeDragging.value || e.pointerId !== activePointerId) return
+  const max = trackInnerWidth()
+  const delta = e.clientX - dragStartX
+  swipeOffset.value = Math.min(max, Math.max(0, dragStartOffset + delta))
+}
+
+function onSwipeEnd(e) {
+  if (!swipeDragging.value) return
+  if (e.pointerId !== activePointerId) return
+  swipeDragging.value = false
+  activePointerId = null
+  const max = trackInnerWidth()
+  if (max && swipeOffset.value / max >= SWIPE_COMPLETE_RATIO) {
+    swipeOffset.value = max
+    swipeConfirmed.value = true
+    // Brief affirmation, then fire the same event the legacy button used.
+    setTimeout(() => {
+      emit('open-pickup', props.child)
+      // Reset after the modal opens so the next pickup starts fresh.
+      setTimeout(() => {
+        swipeConfirmed.value = false
+        swipeOffset.value = 0
+      }, 350)
+    }, 280)
+  } else {
+    swipeOffset.value = 0
+  }
+}
+
+onBeforeUnmount(() => {
+  swipeDragging.value = false
+  activePointerId = null
+})
+
 const nextInteractionText = computed(() => {
   if (!props.child.nextHandoffTime) return null
   const type = props.child.nextHandoffType
@@ -148,13 +226,41 @@ const nextInteractionText = computed(() => {
         <Heart :size="15" />
         <span>{{ t('nudge') }}</span>
       </button>
+      <!-- Pickup: slide-to-confirm track (avoids accidental taps). -->
+      <div
+        v-if="isPickup"
+        ref="swipeTrack"
+        :class="['swipe-track', { confirmed: swipeConfirmed }]"
+        :style="{ '--swipe-progress': swipeProgress }"
+      >
+        <div class="swipe-fill" :style="{ width: `calc(${swipeProgress * 100}% + 36px)` }"></div>
+        <span class="swipe-label" :style="{ opacity: 1 - swipeProgress }">
+          {{ t('swipeToConfirmPickup') }}
+        </span>
+        <span class="swipe-label swipe-label-done" :style="{ opacity: swipeConfirmed ? 1 : 0 }">
+          {{ t('pickedUp') }}
+        </span>
+        <div
+          class="swipe-thumb"
+          :style="swipeStyle"
+          @pointerdown="onSwipeStart"
+          @pointermove="onSwipeMove"
+          @pointerup="onSwipeEnd"
+          @pointercancel="onSwipeEnd"
+        >
+          <Check v-if="swipeConfirmed" :size="18" />
+          <CircleArrowDown v-else :size="18" />
+        </div>
+      </div>
+
+      <!-- Dropoff: still a tap target. -->
       <button
-        :class="['action-btn', isPickup ? 'action-pickup' : 'action-dropoff']"
+        v-else
+        class="action-btn action-dropoff"
         @click.stop="$emit(actionEvent, child)"
       >
         <span class="action-icon-wrap">
-          <CircleArrowDown v-if="isPickup" :size="20" />
-          <CircleArrowUp v-else :size="20" />
+          <CircleArrowUp :size="20" />
         </span>
         <span class="action-label">{{ actionLabel }}</span>
       </button>
@@ -453,6 +559,105 @@ const nextInteractionText = computed(() => {
   position: relative;
   z-index: 1;
 }
+
+/* ===== Swipe-to-confirm pickup (matches .action-pickup palette) ===== */
+.swipe-track {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.75rem;
+  min-width: 8rem;
+  padding: 0 0.25rem;
+  border-radius: 9999px;
+  border: 2px solid #0f766e;
+  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  color: white;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  direction: ltr;
+}
+
+.swipe-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.12) 2px,
+    rgba(255, 255, 255, 0.12) 4px
+  );
+  pointer-events: none;
+}
+
+.swipe-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: linear-gradient(135deg, #14b8a6 0%, #2dd4bf 100%);
+  border-radius: 9999px;
+  z-index: 0;
+  transition: width 0.05s linear;
+  pointer-events: none;
+}
+
+.swipe-label {
+  position: relative;
+  z-index: 1;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  padding-inline-start: 2.25rem; /* keep label clear of the thumb */
+}
+
+.swipe-label-done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline-start: 0;
+}
+
+.swipe-thumb {
+  position: absolute;
+  inset-block: 0.2rem;
+  inset-inline-start: 0.2rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: white;
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  z-index: 2;
+  touch-action: none;
+}
+
+.swipe-thumb:active {
+  cursor: grabbing;
+}
+
+.swipe-track.confirmed .swipe-thumb {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+/* In RTL the inset-inline-* keeps thumb visually on the start side, and the
+   transform uses positive X (LTR) because we force direction:ltr on the track. */
 
 /* ===== Check-in Button (collapsed — red pill) ===== */
 .checkin-btn {

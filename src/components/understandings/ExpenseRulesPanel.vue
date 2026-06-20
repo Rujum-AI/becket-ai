@@ -2,24 +2,25 @@
 import { ref, computed } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useUnderstandingsStore } from '@/stores/supabaseUnderstandings'
-import { ChevronDown, ChevronUp, Plus, X, Check, AlertCircle, Edit3 } from 'lucide-vue-next'
+import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import { Plus, X, Check, AlertCircle, Edit3 } from 'lucide-vue-next'
 
 const { t } = useI18n()
 const store = useUnderstandingsStore()
+const financeStore = useSupabaseFinanceStore()
 
 const isEditing = ref(false)
 
 // Form state
 const dadPercent = ref(50)
 const momPercent = ref(50)
-const showFixedPayments = ref(false)
-const showCategoryOverrides = ref(false)
 const fixedTransfers = ref([])
 const categoryOverrides = ref([])
+// included_categories: null = all (legacy/default); array = explicit list
+const includedCategories = ref(null)
 
-const allCategories = [
-  'education', 'activities', 'healthcare', 'clothing', 'food', 'legal', 'events'
-]
+const allCategoryMeta = computed(() => financeStore.categories)
+const allCategoryIds = computed(() => allCategoryMeta.value.map(c => c.id))
 
 // Computed: current active rules
 const activeRules = computed(() => store.expenseRules)
@@ -34,10 +35,45 @@ function startEditing() {
   momPercent.value = rules.default_split?.mom_percent || 50
   fixedTransfers.value = rules.fixed_transfers ? JSON.parse(JSON.stringify(rules.fixed_transfers)) : []
   categoryOverrides.value = rules.categories ? JSON.parse(JSON.stringify(rules.categories)) : []
-  showFixedPayments.value = fixedTransfers.value.length > 0
-  showCategoryOverrides.value = categoryOverrides.value.length > 0
+  includedCategories.value = Array.isArray(rules.included_categories)
+    ? [...rules.included_categories]
+    : null
   isEditing.value = true
 }
+
+// ===== Included / excluded helpers (mirror FinanceSetup) =====
+function isIncluded(catId) {
+  if (includedCategories.value === null) return true
+  return includedCategories.value.includes(catId)
+}
+function materializeIncluded() {
+  if (includedCategories.value === null) {
+    includedCategories.value = [...allCategoryIds.value]
+  }
+}
+function excludeCategory(catId) {
+  materializeIncluded()
+  includedCategories.value = includedCategories.value.filter(c => c !== catId)
+  categoryOverrides.value = categoryOverrides.value.filter(o => o.name !== catId)
+}
+function includeCategory(catId) {
+  materializeIncluded()
+  if (!includedCategories.value.includes(catId)) includedCategories.value.push(catId)
+}
+const includedList = computed(() => allCategoryMeta.value.filter(c => isIncluded(c.id)))
+const excludedList = computed(() => allCategoryMeta.value.filter(c => !isIncluded(c.id)))
+
+// Read-mode view of included/excluded for active rules
+const activeIncluded = computed(() => {
+  const ids = activeRules.value?.rules?.included_categories
+  if (!Array.isArray(ids)) return allCategoryMeta.value // legacy = all in
+  return allCategoryMeta.value.filter(c => ids.includes(c.id))
+})
+const activeExcluded = computed(() => {
+  const ids = activeRules.value?.rules?.included_categories
+  if (!Array.isArray(ids)) return []
+  return allCategoryMeta.value.filter(c => !ids.includes(c.id))
+})
 
 function discardEditing() {
   isEditing.value = false
@@ -71,7 +107,9 @@ function removeFixedTransfer(index) {
 }
 
 function addCategoryOverride() {
-  const unused = allCategories.find(c => !categoryOverrides.value.some(o => o.name === c))
+  const unused = includedList.value
+    .map(c => c.id)
+    .find(id => !categoryOverrides.value.some(o => o.name === id))
   if (unused) {
     categoryOverrides.value.push({
       name: unused,
@@ -100,6 +138,7 @@ function saveRules() {
     },
     fixed_transfers: fixedTransfers.value,
     categories: categoryOverrides.value,
+    included_categories: includedCategories.value,
     other_requires_approval: true
   }
 
@@ -208,6 +247,24 @@ function rejectRules() {
           </div>
         </div>
 
+        <!-- Included / Excluded categories -->
+        <div class="rule-row">
+          <span class="rule-label">{{ t('includedCategories') }}</span>
+          <div class="overrides-grid">
+            <div v-for="cat in activeIncluded" :key="`in-${cat.id}`" class="override-chip override-in">
+              <img :src="`/assets/${cat.icon}`" class="chip-icon" />
+              <span class="override-name">{{ t(cat.name) }}</span>
+            </div>
+            <div v-if="activeExcluded.length" class="excluded-divider">
+              <span class="rule-label">{{ t('excludedCategories') }}</span>
+            </div>
+            <div v-for="cat in activeExcluded" :key="`ex-${cat.id}`" class="override-chip override-out">
+              <img :src="`/assets/${cat.icon}`" class="chip-icon" />
+              <span class="override-name">{{ t(cat.name) }}</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Category Overrides -->
         <div v-if="activeRules.rules.categories?.length" class="rule-row">
           <span class="rule-label">{{ t('categoryOverrides') }}</span>
@@ -285,16 +342,20 @@ function rejectRules() {
         </div>
       </div>
 
-      <!-- Section B: Fixed Payments -->
+      <!-- Section B: Recurring Payments (inline "+" — no drawer) -->
       <div class="editor-section">
-        <button @click="showFixedPayments = !showFixedPayments" class="section-toggle">
-          <span>{{ t('fixedPayments') }}</span>
-          <ChevronDown v-if="!showFixedPayments" :size="18" />
-          <ChevronUp v-else :size="18" />
-        </button>
+        <div class="section-row-inline">
+          <label class="editor-label">{{ t('fixedPayments') }}</label>
+          <button @click="addFixedTransfer" class="add-icon-btn-sm" :title="t('addFixedPayment')">
+            <Plus :size="16" />
+          </button>
+        </div>
 
-        <div v-if="showFixedPayments" class="section-content">
+        <div v-if="fixedTransfers.length" class="section-content">
           <div v-for="(transfer, idx) in fixedTransfers" :key="idx" class="transfer-form">
+            <button @click="removeFixedTransfer(idx)" class="remove-btn remove-btn-corner">
+              <X :size="14" />
+            </button>
             <div class="transfer-top-row">
               <div class="direction-flow">
                 <select v-model="transfer.from" class="form-select">
@@ -309,9 +370,6 @@ function rejectRules() {
               </div>
               <input v-model.number="transfer.amount" type="number" class="form-input amount-input" placeholder="0" />
               <span class="currency">₪</span>
-              <button @click="removeFixedTransfer(idx)" class="remove-btn">
-                <X :size="16" />
-              </button>
             </div>
             <div class="transfer-bottom-row">
               <input v-model="transfer.label" type="text" class="form-input label-input" :placeholder="t('labelPlaceholder')" />
@@ -326,25 +384,60 @@ function rejectRules() {
             </div>
           </div>
 
-          <button @click="addFixedTransfer" class="add-btn">
-            <Plus :size="16" />
-            {{ t('addFixedPayment') }}
+        </div>
+      </div>
+
+      <!-- Section C: Included / excluded categories (B) -->
+      <div class="editor-section">
+        <label class="editor-label">{{ t('includedCategories') }}</label>
+        <p class="editor-desc">{{ t('includedCategoriesDesc') }}</p>
+
+        <div class="cat-chip-grid">
+          <button
+            v-for="cat in includedList"
+            :key="`in-${cat.id}`"
+            class="cat-chip cat-chip-in"
+            @click="excludeCategory(cat.id)"
+          >
+            <img :src="`/assets/${cat.icon}`" class="cat-chip-icon" />
+            <span>{{ t(cat.name) }}</span>
+            <X :size="12" />
+          </button>
+        </div>
+        <div v-if="excludedList.length" class="excluded-tray">
+          <span class="rule-label">{{ t('excludedCategories') }}</span>
+          <button
+            v-for="cat in excludedList"
+            :key="`ex-${cat.id}`"
+            class="cat-chip cat-chip-out"
+            @click="includeCategory(cat.id)"
+          >
+            <img :src="`/assets/${cat.icon}`" class="cat-chip-icon" />
+            <span>{{ t(cat.name) }}</span>
+            <span class="cat-chip-add"><Plus :size="12" /> {{ t('pushToInclude') }}</span>
           </button>
         </div>
       </div>
 
-      <!-- Section C: Category Overrides -->
+      <!-- Section D: Category Overrides (BB) -->
       <div class="editor-section">
-        <button @click="showCategoryOverrides = !showCategoryOverrides" class="section-toggle">
-          <span>{{ t('categoryOverrides') }}</span>
-          <ChevronDown v-if="!showCategoryOverrides" :size="18" />
-          <ChevronUp v-else :size="18" />
-        </button>
+        <div class="section-row-inline">
+          <label class="editor-label">{{ t('categoryOverrides') }}</label>
+          <button
+            @click="addCategoryOverride"
+            class="add-icon-btn-sm"
+            :disabled="categoryOverrides.length >= includedList.length"
+            :title="t('addCategoryOverride')"
+          >
+            <Plus :size="16" />
+          </button>
+        </div>
+        <p class="editor-desc">{{ t('categoryOverridesDesc') }}</p>
 
-        <div v-if="showCategoryOverrides" class="section-content">
+        <div v-if="categoryOverrides.length" class="section-content">
           <div v-for="(override, idx) in categoryOverrides" :key="idx" class="category-form">
             <select v-model="override.name" class="form-select">
-              <option v-for="cat in allCategories" :key="cat" :value="cat">{{ t(cat) }}</option>
+              <option v-for="cat in includedList" :key="cat.id" :value="cat.id">{{ t(cat.name) }}</option>
             </select>
 
             <div class="split-control-small">
@@ -375,17 +468,12 @@ function rejectRules() {
               <X :size="16" />
             </button>
           </div>
-
-          <button @click="addCategoryOverride" class="add-btn" :disabled="categoryOverrides.length >= allCategories.length">
-            <Plus :size="16" />
-            {{ t('addCategoryOverride') }}
-          </button>
         </div>
       </div>
 
       <!-- Editor Actions -->
       <div class="editor-actions">
-        <button @click="discardEditing" class="discard-btn">{{ t('discard') }}</button>
+        <button @click="discardEditing" class="discard-btn">{{ t('discardChanges') }}</button>
         <button @click="saveRules" class="save-btn">{{ t('proposeChanges') }}</button>
       </div>
     </div>
@@ -935,13 +1023,23 @@ function rejectRules() {
 
 /* Transfer / Category Forms */
 .transfer-form {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem;
+  padding-inline-end: 2.5rem;
   background: white;
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
+}
+
+.remove-btn-corner {
+  position: absolute;
+  top: 0.4rem;
+  inset-inline-end: 0.4rem;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .transfer-top-row {
@@ -1216,5 +1314,119 @@ function rejectRules() {
 .save-btn:hover {
   background: #1e293b;
   transform: translateY(-1px);
+}
+
+/* Inline section row used in edit mode (replaces chevron drawer) */
+.section-row-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.add-icon-btn-sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: #0f172a;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.add-icon-btn-sm:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.25);
+}
+.add-icon-btn-sm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Category chips (edit mode) */
+.cat-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: white;
+  transition: all 0.2s;
+}
+.cat-chip-icon {
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+}
+.cat-chip-in {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+.cat-chip-in:hover { background: #d1fae5; }
+.cat-chip-out {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  filter: grayscale(60%);
+}
+.cat-chip-out:hover {
+  background: white;
+  filter: grayscale(0);
+  color: #0f172a;
+  border-color: #0f172a;
+}
+.cat-chip-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #0f766e;
+  margin-inline-start: 0.2rem;
+}
+.excluded-tray {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.75rem;
+  border: 1px dashed #cbd5e1;
+}
+
+/* Read-mode included/excluded chips */
+.chip-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  object-fit: contain;
+}
+.override-in {
+  background: #ecfdf5;
+  color: #065f46;
+}
+.override-out {
+  background: #f8fafc;
+  color: #94a3b8;
+  filter: grayscale(60%);
+}
+.excluded-divider {
+  width: 100%;
+  padding-top: 0.25rem;
 }
 </style>

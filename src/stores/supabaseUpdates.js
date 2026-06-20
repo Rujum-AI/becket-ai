@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/composables/useAuth'
+import { useLanguageStore } from '@/stores/language'
 
 export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   const { user } = useAuth()
@@ -284,11 +285,13 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
   async function sendNudge(childId, childName) {
     if (!user.value?.id) return null
 
+    const langStore = useLanguageStore()
+    const checkInMsg = langStore.t('notif_checkInSent').replace('{child}', childName)
     addToOverlay({
       id: `nudge-sent-${Date.now()}`,
       type: 'nudge_request',
       category: 'nudge',
-      message: `Check-in sent for ${childName}`,
+      message: checkInMsg,
       created_at: new Date().toISOString(),
       priority: 'normal'
     })

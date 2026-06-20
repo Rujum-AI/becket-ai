@@ -9,6 +9,15 @@ const financeStore = useSupabaseFinanceStore()
 const balanceData = computed(() => financeStore.balanceData)
 const fixedTransfers = computed(() => financeStore.fixedTransfers)
 
+// Per-user gap: signed difference between what the current user has paid and
+// their target share. We frame it as "Difference between you and your co-parent"
+// rather than "X owes Y" — same math, lower temperature.
+// dadPaid in the store is actually "current user paid" (legacy naming), so
+// (dadPaid - targetDad) IS the signed user-vs-target gap.
+const userDiff = computed(() => balanceData.value.dadPaid - balanceData.value.targetDad)
+const userDiffSign = computed(() => userDiff.value >= 0 ? '+' : '−')
+const userDiffAbs = computed(() => Math.abs(userDiff.value))
+
 // Calculate bar segment widths as percentages (Dad first, Mom second)
 const dadBarWidth = computed(() => {
   const { totalShared, dadPaid } = balanceData.value
@@ -104,16 +113,16 @@ function formatAmount(amount) {
           </div>
         </div>
 
-        <!-- Gap Indicator -->
-        <div v-if="balanceData.gap > 0" class="gap-indicator">
-          <span class="gap-icon">💡</span>
-          <span class="gap-text">
-            <span v-if="balanceData.oweDirection === 'dad_owes_mom'">
-              {{ t('dadOwesMom') }} <span class="bidi-isolate">{{ formatAmount(balanceData.gap) }} ₪</span>
-            </span>
-            <span v-else>
-              {{ t('momOwesDad') }} <span class="bidi-isolate">{{ formatAmount(balanceData.gap) }} ₪</span>
-            </span>
+        <!-- Difference Indicator (gap-bridging framing, not "owes") -->
+        <div
+          v-if="balanceData.gap > 0"
+          class="diff-indicator"
+          :class="{ ahead: userDiff > 0, behind: userDiff < 0 }"
+        >
+          <span class="diff-icon">⇄</span>
+          <span class="diff-text">
+            {{ t('diffBetweenYouAndCoParent') }}:
+            <span class="diff-amount bidi-isolate">{{ userDiffSign }}{{ formatAmount(userDiffAbs) }} ₪</span>
           </span>
         </div>
 
@@ -344,28 +353,45 @@ function formatAmount(amount) {
   white-space: nowrap;
 }
 
-/* Gap Indicator */
-.gap-indicator {
+/* Difference Indicator — neutral framing.
+   "ahead" (you've paid more) and "behind" (less) only tweak the amount color,
+   so the indicator never reads as an accusation. */
+.diff-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: #fff7ed;
+  background: #f1f5f9;
   border-radius: 1.5rem;
-  border: 1px solid #fed7aa;
+  border: 1px solid #e2e8f0;
 }
 
-.gap-icon {
-  font-size: 0.875rem;
+.diff-icon {
+  font-size: 0.95rem;
+  color: #64748b;
 }
 
-.gap-text {
+.diff-text {
   font-size: 0.6875rem;
-  font-weight: 900;
-  color: #92400e;
+  font-weight: 800;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.diff-amount {
+  font-weight: 900;
+  color: #475569;
+  margin-inline-start: 0.25rem;
+}
+
+.diff-indicator.ahead .diff-amount {
+  color: #0f766e;
+}
+
+.diff-indicator.behind .diff-amount {
+  color: #9a3412;
 }
 
 /* Balanced Indicator */

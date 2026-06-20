@@ -2,6 +2,12 @@
 import { computed, ref } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import {
+  formatNotificationMessage,
+  formatRelativeTime,
+  resolveNotificationExtras,
+} from '@/lib/notificationFormatter'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import {
   ArrowUpDown,
   ClipboardList,
   MessageSquare,
@@ -20,6 +26,7 @@ const props = defineProps({
 const emit = defineEmits(['dismiss', 'click', 'swipeDismiss', 'toastAction'])
 
 const { t, isRTL } = useI18n()
+const dashboardStore = useSupabaseDashboardStore()
 
 const iconMap = {
   pickup_confirmed: ArrowUpDown,
@@ -93,16 +100,16 @@ const actionLabel = computed(() => {
     ? t(key) : null
 })
 
+const localizedMessage = computed(() =>
+  formatNotificationMessage(
+    props.item.notification,
+    t,
+    resolveNotificationExtras(props.item.notification, dashboardStore)
+  )
+)
+
 function formatTime(timestamp) {
-  const date = new Date(timestamp || Date.now())
-  const now = new Date()
-  const diff = now - date
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return 'Now'
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(diff / 3600000)
-  if (hours < 24) return `${hours}h`
-  return `${Math.floor(diff / 86400000)}d`
+  return formatRelativeTime(timestamp, t)
 }
 
 // Swipe-to-dismiss
@@ -170,7 +177,7 @@ const swipeStyle = computed(() => {
           <span class="notif-category">{{ categoryLabel }}</span>
           <span class="notif-time">{{ formatTime(item.notification.created_at) }}</span>
         </div>
-        <p class="notif-message">{{ item.notification.message }}</p>
+        <p class="notif-message">{{ localizedMessage }}</p>
       </div>
 
       <!-- Inline action button -->

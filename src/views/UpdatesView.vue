@@ -3,6 +3,13 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from '@/composables/useI18n'
 import { useUpdatesStore } from '@/stores/supabaseUpdates'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
+import {
+  formatNotificationTitle,
+  formatNotificationMessage,
+  formatRelativeTime,
+  resolveNotificationExtras,
+} from '@/lib/notificationFormatter'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import {
   ArrowUpDown,
@@ -22,6 +29,7 @@ const router = useRouter()
 const route = useRoute()
 const { t } = useI18n()
 const updatesStore = useUpdatesStore()
+const dashboardStore = useSupabaseDashboardStore()
 
 onMounted(() => {
   updatesStore.fetchUpdates()
@@ -91,22 +99,17 @@ function getIconColor(category) {
   return stripeColorMap[category] || '#94a3b8'
 }
 
-// === Time formatting ===
+// === Time + content formatting (delegates to shared notification formatter) ===
 function formatTime(timestamp) {
-  const dateString = timestamp || new Date().toISOString()
-  const date = new Date(dateString)
-  const now = new Date()
-  const diff = now - date
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
+  return formatRelativeTime(timestamp, t)
+}
 
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes}m`
-  if (hours < 24) return `${hours}h`
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days}d`
-  return date.toLocaleDateString()
+function notifTitle(item) {
+  return formatNotificationTitle(item, t)
+}
+
+function notifMessage(item) {
+  return formatNotificationMessage(item, t, resolveNotificationExtras(item, dashboardStore))
 }
 
 // === Filter system (merged single bar) ===
@@ -259,11 +262,11 @@ function isPositiveAction(action) {
                   <div class="card-body">
                     <div class="card-top-row">
                       <component :is="getIcon(item.lead.type)" :size="16" class="card-icon" :style="{ color: getIconColor(item.lead.category) }" />
-                      <span class="card-title">{{ item.lead.title }}</span>
+                      <span class="card-title">{{ notifTitle(item.lead) }}</span>
                       <span class="card-time">{{ formatTime(item.lead.created_at) }}</span>
                       <span v-if="!item.lead.read" class="unread-dot"></span>
                     </div>
-                    <p class="card-message">{{ item.lead.message }}</p>
+                    <p class="card-message">{{ notifMessage(item.lead) }}</p>
 
                     <!-- Inline actions for lead -->
                     <div v-if="updatesStore.isActionable(item.lead)" class="card-actions">
@@ -299,11 +302,11 @@ function isPositiveAction(action) {
                     <div class="card-body">
                       <div class="card-top-row">
                         <component :is="getIcon(child.type)" :size="14" class="card-icon" :style="{ color: getIconColor(child.category) }" />
-                        <span class="card-title">{{ child.title }}</span>
+                        <span class="card-title">{{ notifTitle(child) }}</span>
                         <span class="card-time">{{ formatTime(child.created_at) }}</span>
                         <span v-if="!child.read" class="unread-dot"></span>
                       </div>
-                      <p class="card-message">{{ child.message }}</p>
+                      <p class="card-message">{{ notifMessage(child) }}</p>
                     </div>
                   </div>
                 </TransitionGroup>
@@ -320,11 +323,11 @@ function isPositiveAction(action) {
                 <div class="card-body">
                   <div class="card-top-row">
                     <component :is="getIcon(item.type)" :size="16" class="card-icon" :style="{ color: getIconColor(item.category) }" />
-                    <span class="card-title">{{ item.title }}</span>
+                    <span class="card-title">{{ notifTitle(item) }}</span>
                     <span class="card-time">{{ formatTime(item.created_at) }}</span>
                     <span v-if="!item.read" class="unread-dot"></span>
                   </div>
-                  <p class="card-message">{{ item.message }}</p>
+                  <p class="card-message">{{ notifMessage(item) }}</p>
 
                   <!-- Inline actions -->
                   <div v-if="updatesStore.isActionable(item)" class="card-actions">

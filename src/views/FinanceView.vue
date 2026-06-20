@@ -69,6 +69,7 @@ function getChildImg(child) {
         icon="finance.png"
         :hasAction="true"
         actionType="edit"
+        :actionLabel="t('expenseSettings')"
         @action="toggleSetup"
       />
 

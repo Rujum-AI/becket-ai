@@ -8,12 +8,13 @@ const props = defineProps({
   icon: String,
   hasAction: Boolean,
   actionType: { type: String, default: 'add' },
+  actionLabel: { type: String, default: '' },
   isEditing: Boolean
 })
 
 const emit = defineEmits(['action', 'save', 'discard'])
 
-const { t, lang } = useI18n()
+const { t } = useI18n()
 
 const iconSrc = computed(() => {
   if (!props.icon) return ''
@@ -21,11 +22,12 @@ const iconSrc = computed(() => {
   return `/assets/${props.icon}`
 })
 
+// Route the action label through t() so RTL/Hebrew gets the localized copy
+// instead of the previous hardcoded English fallback. (useI18n auto-unwraps
+// the lang ref, so `lang.value === 'he'` was always undefined → English.)
 const actionText = computed(() => {
-  if (props.actionType === 'edit') {
-    return lang.value === 'he' ? 'עריכה' : 'EDIT'
-  }
-  return lang.value === 'he' ? 'הוסף חדש' : 'ADD NEW'
+  if (props.actionLabel) return props.actionLabel
+  return props.actionType === 'edit' ? t('editAction') : t('addAction')
 })
 
 const actionIcon = computed(() => {

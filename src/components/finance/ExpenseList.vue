@@ -1,11 +1,17 @@
 <script setup>
+import { ref } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
 import { useI18n } from '@/composables/useI18n'
 import { useAuth } from '@/composables/useAuth'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 
 const { t } = useI18n()
 const { user } = useAuth()
 const financeStore = useSupabaseFinanceStore()
+
+const pendingDelete = ref(null) // expense object queued for deletion
+const deleting = ref(false)
 
 function payerLabel(expense) {
   if (!user.value) return ''
@@ -20,6 +26,27 @@ function getCategoryIcon(category) {
 function formatDate(dateString) {
   const date = new Date(dateString)
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function canDelete(expense) {
+  return !!user.value && expense.created_by === user.value.id
+}
+
+function askDelete(expense) {
+  pendingDelete.value = expense
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) return
+  deleting.value = true
+  try {
+    await financeStore.deleteExpense(pendingDelete.value.id)
+    pendingDelete.value = null
+  } catch (err) {
+    console.error('Delete failed:', err)
+  } finally {
+    deleting.value = false
+  }
 }
 </script>
 
@@ -41,8 +68,27 @@ function formatDate(dateString) {
           </span>
         </div>
       </div>
-      <div class="expense-amount bidi-isolate">{{ expense.amount }} ₪</div>
+      <div class="expense-right">
+        <div class="expense-amount bidi-isolate">{{ expense.amount }} ₪</div>
+        <button
+          v-if="canDelete(expense)"
+          class="expense-delete-btn"
+          :title="t('delete')"
+          @click="askDelete(expense)"
+        >
+          <Trash2 :size="16" />
+        </button>
+      </div>
     </div>
+
+    <ConfirmModal
+      :show="!!pendingDelete"
+      :title="t('deleteExpenseTitle')"
+      :message="t('deleteExpenseMsg')"
+      :confirmText="deleting ? t('saving') : t('delete')"
+      @close="pendingDelete = null"
+      @confirm="confirmDelete"
+    />
   </div>
 </template>
 
@@ -124,10 +170,48 @@ function formatDate(dateString) {
   letter-spacing: 0.05em;
 }
 
+.expense-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .expense-amount {
   font-size: 1.125rem;
   font-weight: 900;
   color: #1e293b;
-  flex-shrink: 0;
+}
+
+.expense-delete-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid #fecaca;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 2px,
+      rgba(255, 255, 255, 0.35) 2px,
+      rgba(255, 255, 255, 0.35) 4px
+    ),
+    linear-gradient(135deg, #ef4444, #b91c1c);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.expense-delete-btn:hover {
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 10px rgba(220, 38, 38, 0.45);
+}
+
+.expense-delete-btn:active {
+  transform: scale(0.95);
 }
 </style>

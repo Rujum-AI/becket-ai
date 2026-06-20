@@ -65,6 +65,66 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     }
   }
 
+  // Classify a draft expense against the active rules.
+  // Returns { route: 'counted' | 'pending', reasonKey: string | null, reason: string | null }
+  // V (counted): category is in the included list, a split rule exists (base or override),
+  //              AND any configured budget/item limit for the category isn't exceeded.
+  // X (pending): everything else — needs the co-parent's approval.
+  function classifyExpense({ amount, category, childId }) {
+    const rules = getChildRules(childId)
+    const included = getIncludedCategories(rules)
+
+    if (!included.includes(category)) {
+      return { route: 'pending', reasonKey: 'expenseExcludedReason', reason: 'category_other' }
+    }
+    const hasBase = !!rules.default_split && (rules.default_split.dad_percent != null || rules.default_split.mom_percent != null)
+    const override = (rules.categories || []).find(c => c.name === category)
+    if (!hasBase && !override) {
+      return { route: 'pending', reasonKey: 'expenseNoRuleReason', reason: 'no_rule' }
+    }
+
+    // Budget / item-count limit (override.budget_limit or override.limit_count)
+    if (override) {
+      const numAmount = parseFloat(amount) || 0
+      const period = override.budget_limit?.period || override.limit_count?.period || 'monthly'
+      const { spent, count } = currentCategoryUsage(category, childId, period)
+
+      if (override.budget_limit?.amount != null && override.budget_limit.amount > 0) {
+        if (spent + numAmount > override.budget_limit.amount) {
+          return { route: 'pending', reasonKey: 'expenseOverBudgetReason', reason: 'exceeds_budget' }
+        }
+      }
+      if (override.limit_count?.max != null && override.limit_count.max > 0) {
+        if (count + 1 > override.limit_count.max) {
+          return { route: 'pending', reasonKey: 'expenseOverItemLimitReason', reason: 'exceeds_count' }
+        }
+      }
+    }
+    return { route: 'counted', reasonKey: null, reason: null }
+  }
+
+  // Compute the current-period spend + item count for a category, used to
+  // gate budget / item-count limits in classifyExpense.
+  // Only "counted" expenses are tallied — pendings haven't been agreed.
+  function currentCategoryUsage(category, childId, period) {
+    const now = new Date()
+    let startDate
+    if (period === 'yearly') {
+      startDate = new Date(now.getFullYear(), 0, 1)
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+    }
+    const startIso = startDate.toISOString().split('T')[0]
+    const matches = expenses.value.filter(e =>
+      e.category === category &&
+      e.status === 'counted' &&
+      (childId == null || e.child_id === childId) &&
+      e.date >= startIso
+    )
+    const spent = matches.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+    return { spent, count: matches.length }
+  }
+
   // Add new expense
   async function addExpense(expenseData) {
     if (!family.value || !user.value) return
@@ -74,42 +134,33 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       const childId = expenseData.childId || null
       const category = expenseData.category
 
-      // Get partner ID if payer is 'partner'
-      let payerId = user.value.id
-      if (expenseData.payer === 'partner') {
-        // Get the other family member (partner)
-        const { data: members, error } = await supabase
-          .from('family_members')
-          .select('profile_id')
-          .eq('family_id', family.value.id)
-          .neq('profile_id', user.value.id)
-          .limit(1)
-          .maybeSingle()
-
-        if (members && !error) {
-          payerId = members.profile_id
-        }
-        // If no partner found (solo mode), payerId remains as current user
-      }
+      // Payer is always the current user (the "Paid by" toggle has been removed)
+      const payerId = user.value.id
 
       // Compute split from rules
       const split = computeSplit(amount, childId, category)
 
-      // Determine status
-      const rules = getChildRules(childId)
-      let status = 'counted'
-      let requiresApprovalReason = null
-
-      // Admin can bypass approval flows
+      // Determine status from the deterministic router
+      const decision = classifyExpense({ amount, category, childId })
       const isAdmin = userRole.value === 'admin'
+      let status = decision.route === 'pending' ? 'pending_approval' : 'counted'
+      // Fallback to 'no_rule' (a valid CHECK value) if reason ever goes missing,
+      // so the insert doesn't fail a DB CHECK on an unknown sentinel.
+      let requiresApprovalReason = decision.route === 'pending'
+        ? (decision.reason || 'no_rule')
+        : null
 
-      // Check if "other" category requires approval (unless admin)
-      if (!isAdmin && category === 'other' && rules.other_requires_approval) {
-        status = 'pending_approval'
-        requiresApprovalReason = 'category_other'
+      if (isAdmin) {
+        // Admin can bypass approval; everything counts
+        status = 'counted'
+        requiresApprovalReason = null
       }
 
       // TODO: Check budget limits (requires expense_budget_cache query)
+
+      const expenseDate = expenseData.date || new Date().toISOString().split('T')[0]
+      const isRecurring = !!expenseData.isRecurring
+      const recurrencePeriod = isRecurring ? (expenseData.recurrencePeriod || 'monthly') : null
 
       const { data, error: insertError } = await supabase
         .from('expenses')
@@ -121,13 +172,15 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
           amount: amount,
           category: category,
           payer_id: payerId,
-          date: new Date().toISOString().split('T')[0],
+          date: expenseDate,
           status: status,
           requires_approval_reason: requiresApprovalReason,
           split_dad_percent: split.dadPercent,
           split_mom_percent: split.momPercent,
           split_dad_amount: split.dadAmount,
           split_mom_amount: split.momAmount,
+          is_recurring: isRecurring,
+          recurrence_period: recurrencePeriod,
           created_by: user.value.id
         })
         .select()
@@ -146,9 +199,14 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     }
   }
 
-  // Delete expense
+  // Delete expense — only the creator may delete their own entry.
   async function deleteExpense(expenseId) {
     try {
+      const target = expenses.value.find(e => e.id === expenseId)
+      if (target && user.value && target.created_by && target.created_by !== user.value.id) {
+        throw new Error('Only the creator can delete this expense')
+      }
+
       const { error: deleteError } = await supabase
         .from('expenses')
         .delete()
@@ -156,7 +214,6 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
 
       if (deleteError) throw deleteError
 
-      // Remove from local state
       expenses.value = expenses.value.filter(e => e.id !== expenseId)
     } catch (err) {
       console.error('Error deleting expense:', err)
@@ -267,8 +324,19 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
       default_split: { dad_percent: 50, mom_percent: 50 },
       fixed_transfers: [],
       categories: [],
+      included_categories: null, // null = all categories included by default
       other_requires_approval: true
     }
+  }
+
+  // Resolve the included-category list. When the rule didn't store one (legacy or
+  // freshly-set-up family), every known category is included by default — parents
+  // can later opt-out individually.
+  function getIncludedCategories(rules) {
+    if (rules.included_categories && Array.isArray(rules.included_categories)) {
+      return rules.included_categories
+    }
+    return categories.value.map(c => c.id)
   }
 
   // Compute split percentages and amounts for an expense
@@ -424,6 +492,8 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     loadChildren,
     loadExpenseRules,
     getChildRules,
+    getIncludedCategories,
+    classifyExpense,
     computeSplit,
     saveExpenseRules,
     addExpense,

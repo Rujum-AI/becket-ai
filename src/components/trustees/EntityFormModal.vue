@@ -146,10 +146,16 @@ function validate() {
   const e = {}
 
   if (!form.value.name.trim()) e.name = t('requiredName')
-  if (!form.value.address.trim()) e.address = t('requiredAddress')
-  if (!form.value.contact.trim()) e.contact = t('requiredContact')
 
-  if (props.entityType !== 'person') {
+  // Trustees no longer need cross-parent approval, but each type has a single
+  // mandatory contact channel so the trustee is actually reachable:
+  //   person          → contact_number
+  //   activity/school → location (address)
+  if (props.entityType === 'person') {
+    if (!form.value.contact.trim()) e.contact = t('requiredContact')
+  } else {
+    if (!form.value.address.trim()) e.address = t('requiredLocation')
+
     if (form.value.children.length === 0) e.children = t('requiredChildren')
 
     const hasValidDay = form.value.schedule.days.some(d => d.active && d.start && d.end)

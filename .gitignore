@@ -32,6 +32,7 @@ build
 .env.local
 .env.*.local
 .env.development
+.env*.bak
 
 # Vercel local config
 .vercel/
@@ -53,5 +54,9 @@ databasepassword.txt
 # OS files
 Thumbs.db
 
+# Internal docs (plans, specs — local only)
+docs/
+
 # Claude memory (project-specific AI memory)
 .claude/
+.gstack/

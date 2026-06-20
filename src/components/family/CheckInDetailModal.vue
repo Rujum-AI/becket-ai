@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
+import { formatNotificationTitle } from '@/lib/notificationFormatter'
 import { supabase } from '@/lib/supabase'
 import BaseModal from '@/components/shared/BaseModal.vue'
 import { SECTION_COLORS } from '@/lib/modalColors'
@@ -30,6 +31,8 @@ const messageText = computed(() => {
   const msg = props.notification.message || ''
   return msg.replace(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)\s*/u, '').trim()
 })
+
+const localizedTitle = computed(() => formatNotificationTitle(props.notification, t))
 
 onMounted(async () => {
   if (
@@ -68,7 +71,7 @@ onMounted(async () => {
 
     <!-- Sender -->
     <div class="checkin-sender">
-      <span>{{ notification.title }}</span>
+      <span>{{ localizedTitle }}</span>
     </div>
 
     <!-- Mood emoji (large) -->
@@ -83,7 +86,7 @@ onMounted(async () => {
 
     <!-- No content fallback -->
     <div v-if="!moodEmoji && !messageText && !photoUrl" class="checkin-message">
-      <p class="checkin-fallback">Update sent</p>
+      <p class="checkin-fallback">{{ t('notif_msg_nudge_update_sent') }}</p>
     </div>
 
     <!-- Photo -->
