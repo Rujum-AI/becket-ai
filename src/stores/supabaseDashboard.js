@@ -827,11 +827,27 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     )
   }
 
-  // Effective status: use DB status if set, otherwise fall back to custody cycle
+  // Effective status: use DB status if set TODAY, otherwise fall back to
+  // custody cycle. status_changed_at older than today (or absent) means
+  // the explicit status reflects a prior custody day and should not
+  // shadow today's cycle — without this guard, an old confirm action
+  // froze the status forever even as the cycle moved on.
   // IMPORTANT: On transition days, do NOT auto-flip — keep yesterday's parent
   // until handoff is explicitly confirmed (pickup/dropoff button)
   function getEffectiveStatus(child) {
-    const dbStatus = child.current_status || 'unknown'
+    let dbStatus = child.current_status || 'unknown'
+
+    if (dbStatus !== 'unknown') {
+      const setAt = child.status_changed_at ? new Date(child.status_changed_at) : null
+      const now = new Date()
+      const sameDay = setAt
+        && setAt.getFullYear() === now.getFullYear()
+        && setAt.getMonth() === now.getMonth()
+        && setAt.getDate() === now.getDate()
+      if (!sameDay) {
+        dbStatus = 'unknown'
+      }
+    }
 
     if (dbStatus !== 'unknown') {
       // If DB says at_school/at_activity, verify there's an active event right now
@@ -1123,26 +1139,30 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
       if (!tomorrowParent) continue
       if (dayParent === tomorrowParent) continue
 
-      // Transition found: custody changes from dayParent → tomorrowParent
+      // Transition found: custody changes from dayParent → tomorrowParent.
+      // Per the v2.08+ school model the kid sleeps with the outgoing parent
+      // and goes to school the next morning — so the school event lives on
+      // the INCOMING day. The outgoing parent drops off; the incoming parent
+      // picks up after school. Look for school on the incoming day.
       const schoolEvent = childEvents.find(e => {
         if (e.type !== 'school') return false
         const eDate = new Date(e.start_time)
-        return fmtDate(eDate) === dateStr
+        return fmtDate(eDate) === nextDateStr
       })
 
       let handoffTime
       let location = null
-      let handoffDate = date // default: transition day itself
+      let handoffDate = nextDay // handoff lives on the incoming day either way
 
       if (schoolEvent && schoolEvent.end_time) {
-        // School pickup: happens on the transition day at school end time
+        // School-bridged handoff: incoming parent picks up at school end.
         const endDate = new Date(schoolEvent.end_time)
         handoffTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
         location = schoolEvent.title || 'School'
       } else {
-        // Default handoff: happens on the FIRST day of the new custody period
+        // No school on the incoming day → fall back to the family's
+        // default morning handoff time on the incoming day.
         handoffTime = defaultHandoffTime.value || null
-        handoffDate = nextDay // handoff is tomorrow morning, not today
       }
 
       // No time available (no school event and user hasn't set default) — skip
