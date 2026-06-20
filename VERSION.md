@@ -1,12 +1,19 @@
 # Becket AI — Version History
 
-**Current Version: v3.01**
+**Current Version: v3.02**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v3 — Custody Cycle Correctness
+
+### v3.02 — Child card "next interaction" reads live from store
+`pending` — 2026-06-20
+- Before: ChildCard read `child.nextHandoffTime/Type/Loc/Date` — fields baked onto the child object once, inside `loadFamilyData()`. Any change to events or custodySchedule (calendar edits, cron re-runs, the wipe+regenerate from 047/048) didn't propagate; the card kept showing the stale handoff until the user fully reloaded the app
+- Removed those snapshot fields from the children map. ChildCard now calls `dashboardStore.getNextHandoff(child.id)` inside a Vue computed → Vue tracks reactive deps on `events`, `custodySchedule`, `defaultHandoffTime`, etc. and re-evaluates automatically
+- Added a `nowTick` ref bumped every 60s (alongside the existing status refresh) so the computed also re-evaluates as time passes — a handoff whose time has elapsed drops out without needing an event change
+- `getNextHandoff` exposed from the store
 
 ### v3.01 — Sunday-aligned SQL helper + school-first generation order
 `pending` — 2026-06-20
