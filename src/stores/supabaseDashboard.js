@@ -410,6 +410,23 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
 
       if (insertError) throw insertError
 
+      // Cross-day event → also surface in the unified Pending UI (and notify partner via trigger).
+      // Mirrors the expense flow in supabaseFinance.addExpense.
+      if (eventData.status === 'pending_approval') {
+        const { error: pendingError } = await supabase
+          .from('pending_actions')
+          .insert({
+            family_id: family.value.id,
+            target_type: 'event',
+            target_id: eventData.id,
+            reason: 'cross_day_event',
+            requested_by: user.value.id
+          })
+        if (pendingError) {
+          console.warn('pending_actions insert failed:', pendingError.message)
+        }
+      }
+
       // Link children to event
       if (childIds && childIds.length > 0) {
         const { error: childError } = await supabase

@@ -9,13 +9,26 @@ import AddExpenseModal from '@/components/finance/AddExpenseModal.vue'
 import FinanceSetup from '@/components/finance/FinanceSetup.vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import { useSupabasePendingActionsStore } from '@/stores/supabasePendingActions'
 import { useFamily } from '@/composables/useFamily'
 import { useFamilyMode } from '@/composables/useFamilyMode'
+import PendingSection from '@/components/shared/PendingSection.vue'
 
 const { t } = useI18n()
 const financeStore = useSupabaseFinanceStore()
+const pendingStore = useSupabasePendingActionsStore()
 const { family } = useFamily()
-const { showBalance } = useFamilyMode()
+const { showBalance, requiresApproval } = useFamilyMode()
+
+// Resolve a pending_actions row → the actual expense row, so the
+// PendingSection can show title/amount/category instead of just an id.
+function resolvePendingExpense(action) {
+  return financeStore.expenses.find(e => e.id === action.target_id) || null
+}
+
+function fmtAmount(amount) {
+  return amount?.toLocaleString('en-US') || '0'
+}
 
 const showAddExpenseModal = ref(false)
 const showSetupPanel = ref(false)
@@ -26,6 +39,7 @@ function loadData() {
     financeStore.loadExpenses()
     financeStore.loadExpenseRules()
     financeStore.loadChildren()
+    if (requiresApproval.value) pendingStore.load()
   }
 }
 
@@ -108,6 +122,32 @@ function getChildImg(child) {
       </div>
     </div>
 
+    <!-- Pending Approvals — separated families only, shows up only when there's something to decide -->
+    <PendingSection
+      v-if="requiresApproval"
+      target-type="expense"
+      :title="t('pendingApprovals') || 'Pending approvals'"
+    >
+      <template #default="{ action }">
+        <div class="pending-expense">
+          <div class="pending-expense-title">
+            {{ resolvePendingExpense(action)?.title || '—' }}
+          </div>
+          <div class="pending-expense-meta">
+            <span class="pending-expense-amount">
+              ₪{{ fmtAmount(resolvePendingExpense(action)?.amount) }}
+            </span>
+            <span v-if="resolvePendingExpense(action)?.category" class="pending-expense-cat">
+              · {{ t(resolvePendingExpense(action).category) }}
+            </span>
+            <span v-if="action.reason" class="pending-expense-reason">
+              · {{ t(action.reason) || action.reason }}
+            </span>
+          </div>
+        </div>
+      </template>
+    </PendingSection>
+
     <!-- Transactions Section -->
     <div class="mb-24">
       <SectionHeader
@@ -173,6 +213,28 @@ function getChildImg(child) {
   color: #1e293b;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.pending-expense {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.pending-expense-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.pending-expense-meta {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.pending-expense-amount {
+  font-weight: 700;
+  color: #0f172a;
 }
 
 </style>
