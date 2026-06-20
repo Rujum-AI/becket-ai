@@ -89,9 +89,9 @@ const currentDayEvents = computed(() => {
 function getCustodyForDate(date) {
   const key = formatDateKey(date)
   const raw = custodySchedule.value[key]
-  if (!raw) return 'mom'
+  if (!raw) return 'no-custody'
   // Resolve profile_id back to 'dad'/'mom'/'split' for CSS classes
-  return dashboardStore.resolveCustodyLabel(raw) || 'mom'
+  return dashboardStore.resolveCustodyLabel(raw) || 'no-custody'
 }
 
 function isSameDay(date1, date2) {
@@ -450,10 +450,15 @@ function handleDeleteAllSimilar(event) {
 
     <!-- Day View -->
     <div v-if="viewMode === 'day'" class="day-view">
-      <div :class="['day-custody-banner', getCustodyForDate(currentDate)]">
-        <div class="custody-emoji">{{ getCustodyForDate(currentDate) === 'dad' ? '👨' : '👩' }}</div>
+      <div
+        v-if="getCustodyForDate(currentDate) === 'dad' || getCustodyForDate(currentDate) === 'mom' || getCustodyForDate(currentDate) === 'split'"
+        :class="['day-custody-banner', getCustodyForDate(currentDate)]"
+      >
+        <div class="custody-emoji">
+          {{ getCustodyForDate(currentDate) === 'split' ? '👨‍👩' : (getCustodyForDate(currentDate) === 'dad' ? '👨' : '👩') }}
+        </div>
         <div class="custody-text">
-          {{ getCustodyForDate(currentDate) === 'dad' ? t('dadHome') : t('momHome') }}
+          {{ getCustodyForDate(currentDate) === 'split' ? 'Split day' : (getCustodyForDate(currentDate) === 'dad' ? t('dadHome') : t('momHome')) }}
         </div>
       </div>
 
@@ -658,6 +663,14 @@ function handleDeleteAllSimilar(event) {
   background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
 }
 
+.month-day.split {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 50%, #99F6E4 50%, #CCFBF1 100%);
+}
+
+.month-day.no-custody {
+  background: #f8fafc;
+}
+
 .day-number {
   font-size: 1rem;
   font-weight: 700;
@@ -760,6 +773,14 @@ function handleDeleteAllSimilar(event) {
   background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
 }
 
+.week-day-header.split {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 50%, #99F6E4 50%, #CCFBF1 100%);
+}
+
+.week-day-header.no-custody {
+  background: #f8fafc;
+}
+
 .week-day-name {
   font-size: 0.875rem;
   font-weight: 700;
@@ -839,6 +860,14 @@ function handleDeleteAllSimilar(event) {
 
 .day-custody-banner.mom {
   background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
+}
+
+.day-custody-banner.split {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 50%, #99F6E4 50%, #CCFBF1 100%);
+}
+
+.day-custody-banner.no-custody {
+  background: #f8fafc;
 }
 
 .custody-emoji {
