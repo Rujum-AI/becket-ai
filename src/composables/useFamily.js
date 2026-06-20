@@ -202,6 +202,11 @@ export function useFamily() {
       const { error: profileError } = await supabase.rpc('ensure_profile_exists')
       if (profileError) console.warn('ensure_profile_exists warning:', profileError.message)
 
+      // Pull first name from Google OAuth metadata for calling_name (disambiguates same-label parents downstream)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const googleName = authUser?.user_metadata?.full_name || authUser?.user_metadata?.name || ''
+      const callingName = googleName ? googleName.trim().split(/\s+/)[0] : null
+
       // Add user as family member
       const { error: memberError } = await supabase
         .from('family_members')
@@ -209,7 +214,8 @@ export function useFamily() {
           family_id: familyData.id,
           profile_id: userId,
           parent_label: onboardingData.parentRole || 'dad',
-          role: 'admin'
+          role: 'admin',
+          calling_name: callingName
         })
 
       if (memberError) throw memberError
