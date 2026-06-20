@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, onBeforeUnmount } from 'vue'
 import { useI18n } from '@/composables/useI18n'
+import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import {
   CircleArrowDown,
   CircleArrowUp,
@@ -23,6 +24,12 @@ const props = defineProps({
 const emit = defineEmits(['open-pickup', 'open-dropoff', 'open-brief', 'open-documents', 'send-nudge', 'confirm-event-dropoff'])
 
 const { t } = useI18n()
+const dashboardStore = useSupabaseDashboardStore()
+
+// Live next handoff: re-evaluates whenever events, custodySchedule, or the
+// 60s nowTick change. Replaces the old snapshot fields on child.* that froze
+// at loadFamilyData time and went stale once the calendar moved on.
+const nextHandoff = computed(() => dashboardStore.getNextHandoff(props.child.id))
 
 // Color palette inspired by dashboard/pie chart categories
 const CARD_PALETTE = [
@@ -169,11 +176,9 @@ onBeforeUnmount(() => {
 })
 
 const nextInteractionText = computed(() => {
-  if (!props.child.nextHandoffTime) return null
-  const type = props.child.nextHandoffType
-  const time = props.child.nextHandoffTime
-  const loc = props.child.nextHandoffLoc
-  const date = props.child.nextHandoffDate
+  const h = nextHandoff.value
+  if (!h?.time) return null
+  const { type, time, location: loc, date } = h
 
   let text
   if (type === 'takeToEvent') {

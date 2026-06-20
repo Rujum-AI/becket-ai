@@ -22,7 +22,12 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   const defaultHandoffTime = ref('') // from custody_cycles.default_handoff_time (user must set)
   const loading = ref(false)
   const error = ref(null)
+  // Bumps every 60s so time-sensitive computeds (getNextHandoff etc.)
+  // re-evaluate as the clock moves. Also bumped manually after writes
+  // that should immediately invalidate downstream reads.
+  const nowTick = ref(Date.now())
   let statusRefreshTimer = null
+  let nowTickTimer = null
 
   // Helper: get local timezone offset string like "+02:00" or "-05:00"
   function getTzOffset() {
@@ -153,12 +158,14 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         buildCustodySchedule(custodyData)
       }
 
-      // Build child data for UI
+      // Build child data for UI. Note: nextHandoff is intentionally NOT
+      // pre-computed onto the child object — consumers read it live via
+      // dashboardStore.getNextHandoff(child.id) so it stays in sync with
+      // events and custodySchedule (and the 60s nowTick).
       children.value = childrenData.map(child => {
         const todaysEvents = getTodaysEvents(child.id)
         const dayProgress = getDayProgress()
         const nextEvent = getNextEvent(child.id)
-        const nextHandoff = getNextHandoff(child.id)
         const myLabel = parentLabel.value || 'dad'
 
         // Effective status: DB status, or custody cycle fallback when unknown
@@ -185,10 +192,6 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
           nextEventTime: nextEvent?.time || '--:--',
           nextEventLoc: nextEvent?.location || '',
           nextAction: nextAction,
-          nextHandoffTime: nextHandoff?.time || null,
-          nextHandoffType: nextHandoff?.type || null,
-          nextHandoffLoc: nextHandoff?.location || null,
-          nextHandoffDate: nextHandoff?.date?.toISOString() || null,
           items: [], // TODO: fetch from items table
           todaysEvents: todaysEvents,
           dayProgress: dayProgress
@@ -980,7 +983,9 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     return null
   }
 
-  // Refresh timer: re-evaluate statuses and conflicts every 60s
+  // Refresh timer: re-evaluate statuses and conflicts every 60s, plus
+  // bump nowTick so live-computed children fields (next handoff, etc.)
+  // re-evaluate even when events themselves haven't changed.
   function startStatusRefresh() {
     stopStatusRefresh()
     statusRefreshTimer = setInterval(() => {
@@ -1003,12 +1008,17 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
         }
       })
     }, 60000)
+    nowTickTimer = setInterval(() => { nowTick.value = Date.now() }, 60000)
   }
 
   function stopStatusRefresh() {
     if (statusRefreshTimer) {
       clearInterval(statusRefreshTimer)
       statusRefreshTimer = null
+    }
+    if (nowTickTimer) {
+      clearInterval(nowTickTimer)
+      nowTickTimer = null
     }
   }
 
@@ -1043,6 +1053,10 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
   // Priority: 1) Non-school/non-other event on my custody day → "take to event"
   //           2) Custody transition → pickup/dropoff (with school time or default)
   function getNextHandoff(childId) {
+    // Take a dep on the time tick so anywhere this is called inside a
+    // Vue computed re-evaluates as the clock moves and as `nowTick` is
+    // bumped after writes.
+    void nowTick.value
     const now = new Date()
     const myId = user.value?.id // profile UUID
     const myLabel = parentLabel.value // fallback for unresolved labels
@@ -1283,6 +1297,7 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     getExpectedParent,
     resolveCustodyLabel,
     resolveParentDisplayName,
+    getNextHandoff,
     getPendingOverrideForDate,
     requestCustodyOverride,
     respondToCustodyOverride,
