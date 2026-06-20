@@ -295,6 +295,10 @@ export default {
   expenseOverBudgetReason: 'הקטגוריה חצתה את התקציב המוסכם לתקופה.',
   expenseOverItemLimitReason: 'הקטגוריה הגיעה למגבלת הפריטים המוסכמת לתקופה.',
 
+  // Expense two-lane visualization (separated families)
+  laneShared: 'משותף',
+  lanePersonal: 'אישי',
+
   // Pending Approvals section (universal — used by PendingSection across types)
   pendingApprovals: 'ממתינים לאישור',
   pendingApprovalsCount: '{count} פריטים ממתינים להחלטה שלך',

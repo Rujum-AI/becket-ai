@@ -369,6 +369,14 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     return categories.value.map(c => c.id)
   }
 
+  // Same source of truth that classifyExpense uses for "is this in the shared
+  // contract?" — exposed for the UI so badges/lanes can't drift from the
+  // approval logic.
+  function isSharedCategory(category, childId = null) {
+    const rules = getChildRules(childId)
+    return getIncludedCategories(rules).includes(category)
+  }
+
   // Compute split percentages and amounts for an expense
   function computeSplit(amount, childId, category) {
     const rules = getChildRules(childId)
@@ -557,6 +565,7 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
     loadExpenseRules,
     getChildRules,
     getIncludedCategories,
+    isSharedCategory,
     classifyExpense,
     computeSplit,
     saveExpenseRules,

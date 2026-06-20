@@ -4,11 +4,20 @@ import { Trash2 } from 'lucide-vue-next'
 import { useI18n } from '@/composables/useI18n'
 import { useAuth } from '@/composables/useAuth'
 import { useSupabaseFinanceStore } from '@/stores/supabaseFinance'
+import { useFamilyMode } from '@/composables/useFamilyMode'
 import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 
 const { t } = useI18n()
 const { user } = useAuth()
 const financeStore = useSupabaseFinanceStore()
+const { isSeparated } = useFamilyMode()
+
+// Two-lane viz: only meaningful when separated families have a contract
+// drawing the line between shared and personal categories. Solo/together
+// families treat every expense the same — no badge, no lane tint.
+function isShared(expense) {
+  return financeStore.isSharedCategory(expense.category, expense.child_id)
+}
 
 const pendingDelete = ref(null) // expense object queued for deletion
 const deleting = ref(false)
@@ -56,13 +65,22 @@ async function confirmDelete() {
       v-for="expense in financeStore.filteredExpenses"
       :key="expense.id"
       class="expense-row"
+      :class="{ 'lane-personal': isSeparated && !isShared(expense) }"
     >
       <div class="expense-left">
         <div class="expense-icon">
           <img :src="`/assets/${getCategoryIcon(expense.category)}`" :alt="expense.category" />
         </div>
         <div class="expense-details">
-          <span class="expense-title">{{ expense.title }}</span>
+          <span class="expense-title">
+            {{ expense.title }}
+            <span
+              v-if="isSeparated"
+              :class="['lane-badge', isShared(expense) ? 'lane-badge-shared' : 'lane-badge-personal']"
+            >
+              {{ isShared(expense) ? t('laneShared') : t('lanePersonal') }}
+            </span>
+          </span>
           <span class="expense-meta">
             {{ payerLabel(expense) }} • <span class="bidi-isolate">{{ formatDate(expense.date) }}</span>
           </span>
@@ -213,5 +231,41 @@ async function confirmDelete() {
 
 .expense-delete-btn:active {
   transform: scale(0.95);
+}
+
+/* === Two-lane visualization (separated families only) === */
+/* Pulled from BalanceBar's exact palette: same warm-orange and
+   teal gradients used for the dad/mom segments, paired with the
+   #9a3412 / #0f766e text accents BalanceBar uses for ahead/behind. */
+.lane-personal {
+  background: #F0FDFA;
+}
+.lane-personal:hover {
+  background: #CCFBF1;
+}
+
+.lane-badge {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.lane-badge-shared {
+  background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%);
+  color: #9a3412;
+  border: 1px solid #FED7AA;
+}
+
+.lane-badge-personal {
+  background: linear-gradient(135deg, #CCFBF1 0%, #99F6E4 100%);
+  color: #0f766e;
+  border: 1px solid #99F6E4;
 }
 </style>

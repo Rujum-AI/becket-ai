@@ -295,6 +295,10 @@ export default {
   expenseOverBudgetReason: 'This category is over its agreed budget for the period.',
   expenseOverItemLimitReason: 'This category reached its agreed item limit for the period.',
 
+  // Expense two-lane visualization (separated families)
+  laneShared: 'Shared',
+  lanePersonal: 'Personal',
+
   // Pending Approvals section (universal — used by PendingSection across types)
   pendingApprovals: 'Pending Approvals',
   pendingApprovalsCount: '{count} waiting for your decision',
