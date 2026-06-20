@@ -96,7 +96,9 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
               days: scheduleData.days || [],
               repeatFreq: scheduleData.repeat_freq || 1,
               startDate: scheduleData.start_date || '',
-              endDate: scheduleData.end_date || ''
+              endDate: scheduleData.end_date || '',
+              dropoffOwner: scheduleData.dropoff_owner || 'prev_day',
+              pickupOwner: scheduleData.pickup_owner || 'current_day'
             } : null
           }
         })
@@ -257,6 +259,8 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
             start_date: school.schedule.startDate || new Date().toISOString().split('T')[0],
             end_date: school.schedule.endDate || null,
             repeat_freq: school.schedule.repeatFreq || 1,
+            dropoff_owner: school.schedule.dropoffOwner || 'prev_day',
+            pickup_owner: school.schedule.pickupOwner || 'current_day',
             generated_until: new Date().toISOString().split('T')[0]
           })
 
@@ -326,7 +330,9 @@ export const useTrusteesStore = defineStore('supabaseTrustees', () => {
           days: updates.schedule.days,
           start_date: updates.schedule.startDate || new Date().toISOString().split('T')[0],
           end_date: updates.schedule.endDate || null,
-          repeat_freq: updates.schedule.repeatFreq || 1
+          repeat_freq: updates.schedule.repeatFreq || 1,
+          dropoff_owner: updates.schedule.dropoffOwner || 'prev_day',
+          pickup_owner: updates.schedule.pickupOwner || 'current_day'
         }
 
         if (existingSchedule) {

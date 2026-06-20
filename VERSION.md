@@ -1,12 +1,21 @@
 # Becket AI — Version History
 
-**Current Version: v2.08**
+**Current Version: v2.09**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v2 — Onboarding & Dashboard Personalization
+
+### v2.09 — School events: configurable owners + calendar display (Wave 2 — UI)
+`pending` — 2026-06-20
+- School setup ([EntityFormModal](src/components/trustees/EntityFormModal.vue)) gains a "Who takes me?" block with per-schedule Drop-off / Pickup selectors (Previous day's parent / Current day's parent)
+- `trustee_schedules.dropoff_owner` + `pickup_owner` columns added (migration 045); generator reads them per-school instead of hard-coding the rule
+- Existing school schedules backfilled with the typical default: drop-off = prev day, pickup = current day; activities default to current/current (generator ignores for now)
+- [EventDetailModal](src/components/family/EventDetailModal.vue) for school events now shows two rows — 🚗 Drop-off and 🚪 Pickup — with the resolved parent name (calling name or Dad/Mom)
+- New `resolveParentDisplayName(profileId)` helper in dashboard store
+- EN + HE translations: whoTakesMe, dropoffByLabel, pickupByLabel, ownerPrevDay, ownerCurrentDay, assignParentNeeded
 
 ### v2.08 — School events: drop-off / pickup split (Wave 1 — schema + generator)
 `pending` — 2026-06-20

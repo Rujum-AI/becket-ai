@@ -5,7 +5,7 @@ import { useLanguageStore } from '@/stores/language'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import BaseModal from '@/components/shared/BaseModal.vue'
 import { EVENT_TYPE_COLORS } from '@/lib/modalColors'
-import { Clock, MapPin, Calendar, User, Tag, Pencil, Trash2, PackageOpen } from 'lucide-vue-next'
+import { Clock, MapPin, Calendar, User, Tag, Pencil, Trash2, PackageOpen, Car, DoorOpen } from 'lucide-vue-next'
 
 const props = defineProps({
   event: { type: Object, required: true }
@@ -83,6 +83,16 @@ const parsedDescription = computed(() => {
 const backpackItems = computed(() => parsedDescription.value.items)
 const eventNotes = computed(() => parsedDescription.value.notes)
 
+// School events carry per-slot parent ownership. NULL on either slot
+// means a split-custody day — the assignment ask flow lands later.
+const isSchool = computed(() => props.event.type === 'school')
+const dropoffName = computed(() =>
+  isSchool.value ? dashboardStore.resolveParentDisplayName(props.event.dropoff_by) : null
+)
+const pickupName = computed(() =>
+  isSchool.value ? dashboardStore.resolveParentDisplayName(props.event.pickup_by) : null
+)
+
 // Past events cannot be deleted (preserve history)
 const isPastEvent = computed(() => {
   return new Date(props.event.start_time) < new Date()
@@ -155,6 +165,28 @@ function handleDeleteAll() {
           <div class="detail-value">{{ t(locationName) }}</div>
         </div>
       </div>
+
+      <!-- School: drop-off / pickup parents -->
+      <template v-if="isSchool">
+        <div class="detail-row">
+          <Car :size="20" class="detail-icon" />
+          <div class="detail-content">
+            <div class="detail-label">{{ t('dropoffByLabel') }}</div>
+            <div class="detail-value">
+              {{ dropoffName ? t(dropoffName) : t('assignParentNeeded') }}
+            </div>
+          </div>
+        </div>
+        <div class="detail-row">
+          <DoorOpen :size="20" class="detail-icon" />
+          <div class="detail-content">
+            <div class="detail-label">{{ t('pickupByLabel') }}</div>
+            <div class="detail-value">
+              {{ pickupName ? t(pickupName) : t('assignParentNeeded') }}
+            </div>
+          </div>
+        </div>
+      </template>
 
       <!-- Backpack Items -->
       <div v-if="backpackItems.length > 0" class="detail-row">

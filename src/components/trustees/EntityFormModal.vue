@@ -40,7 +40,11 @@ const form = ref({
     days: Array(7).fill(null).map(() => ({ active: false, start: '', end: '' })),
     repeatFreq: 1,
     startDate: new Date().toISOString().split('T')[0],
-    endDate: ''
+    endDate: '',
+    // School-only: who takes the child? Defaults match the typical case —
+    // sleep-with parent does drop-off, current-day parent does pickup.
+    dropoffOwner: 'prev_day',
+    pickupOwner: 'current_day'
   }
 })
 
@@ -85,11 +89,17 @@ watch(() => props.entity, (entity) => {
       children: entity.children ? [...entity.children] : [],
       items: entity.items ? [...entity.items] : [],
       relationship: entity.relationship || 'Family',
-      schedule: entity.schedule ? JSON.parse(JSON.stringify(entity.schedule)) : {
+      schedule: entity.schedule ? {
+        ...JSON.parse(JSON.stringify(entity.schedule)),
+        dropoffOwner: entity.schedule.dropoffOwner || 'prev_day',
+        pickupOwner: entity.schedule.pickupOwner || 'current_day'
+      } : {
         days: Array(7).fill(null).map(() => ({ active: false, start: '', end: '' })),
         repeatFreq: 1,
         startDate: new Date().toISOString().split('T')[0],
-        endDate: ''
+        endDate: '',
+        dropoffOwner: 'prev_day',
+        pickupOwner: 'current_day'
       }
     }
   }
@@ -303,6 +313,28 @@ function getChildImg(child) {
               <input type="date" v-model="form.schedule.endDate" class="modal-form-input h-10 py-1 text-xs" />
             </div>
           </div>
+
+          <!-- "Who takes me?" — school only. Drop-off / pickup ownership per-day rule. -->
+          <div v-if="entityType === 'school'" class="mt-4 pt-4 border-t border-dashed border-slate-200">
+            <label class="modal-form-label mb-2 text-center block">{{ t('whoTakesMe') }}</label>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="owner-sublabel">🚗 {{ t('dropoffByLabel') }}</label>
+                <select v-model="form.schedule.dropoffOwner" class="modal-form-select">
+                  <option value="prev_day">{{ t('ownerPrevDay') }}</option>
+                  <option value="current_day">{{ t('ownerCurrentDay') }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="owner-sublabel">🚪 {{ t('pickupByLabel') }}</label>
+                <select v-model="form.schedule.pickupOwner" class="modal-form-select">
+                  <option value="prev_day">{{ t('ownerPrevDay') }}</option>
+                  <option value="current_day">{{ t('ownerCurrentDay') }}</option>
+                </select>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2 text-center italic">{{ t('whoTakesMeHint') }}</p>
+          </div>
         </div>
         <div v-if="errors.schedule" class="field-error">{{ errors.schedule }}</div>
 
@@ -413,6 +445,17 @@ function getChildImg(child) {
   font-size: 0.75rem;
   font-weight: 700;
   color: #64748b;
+}
+
+/* "Who takes me?" owner selectors */
+.owner-sublabel {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .modal-action-bar {
