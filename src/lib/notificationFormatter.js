@@ -33,6 +33,27 @@ const TITLE_KEY_BY_TYPE = {
   dropoff_escalated: 'notif_title_handoff_escalated',
   dropoff_expected: 'notif_title_dropoff_expected',
   unexpected_pickup: 'notif_title_unexpected_pickup',
+  pending_action_created: 'notif_title_pending_action_created',
+  pending_action_approved: 'notif_title_pending_action_approved',
+  pending_action_rejected: 'notif_title_pending_action_rejected',
+}
+
+// DB target_type → translation key for the in-message noun (expense, event, etc.)
+const PENDING_TARGET_KEYS = {
+  expense: 'pendingTarget_expense',
+  event: 'pendingTarget_event',
+  task: 'pendingTarget_task',
+  rule_change: 'pendingTarget_rule_change',
+  custody_override: 'pendingTarget_custody_override',
+}
+
+function localizedTarget(rawTargetEnglish, t) {
+  // Match the rawTargetEnglish ("expense" / "event" / etc.) back to a key.
+  const map = { expense: 'expense', event: 'event', task: 'task', 'rule change': 'rule_change', 'custody change': 'custody_override' }
+  const key = PENDING_TARGET_KEYS[map[rawTargetEnglish]]
+  if (!key) return rawTargetEnglish
+  const localized = t(key)
+  return localized && localized !== key ? localized : rawTargetEnglish
 }
 
 const HANDOFF_ACTION_KEYS = {
@@ -239,6 +260,32 @@ function localizeMessage(type, raw, t, extras = {}) {
       const m = raw.match(/^(.*) was picked up on your custody day$/)
       if (!m) return null
       return interp(t('notif_msg_unexpected_pickup'), { child: m[1] })
+    }
+    case 'pending_action_created': {
+      // DB trigger writes: "{requester} added a {target} that needs your review"
+      const m = raw.match(/^(.*?) added an? (.+?) that needs your review$/)
+      if (!m) return null
+      const target = localizedTarget(m[2], t)
+      // English uses "a/an" — for non-EN we just drop the article.
+      const articleSuffix = /^[aeiou]/i.test(target) ? 'n' : ''
+      return interp(t('notif_msg_pending_action_created'), {
+        requester: m[1], target, n: articleSuffix
+      })
+    }
+    case 'pending_action_approved': {
+      // DB trigger writes: "{decider} approved your {target}"
+      const m = raw.match(/^(.*?) approved your (.+)$/)
+      if (!m) return null
+      return interp(t('notif_msg_pending_action_approved'), {
+        decider: m[1], target: localizedTarget(m[2], t)
+      })
+    }
+    case 'pending_action_rejected': {
+      const m = raw.match(/^(.*?) rejected your (.+)$/)
+      if (!m) return null
+      return interp(t('notif_msg_pending_action_rejected'), {
+        decider: m[1], target: localizedTarget(m[2], t)
+      })
     }
     default:
       return null

@@ -29,7 +29,8 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     'expense_pending',
     'understanding_proposed',
     'custody_override_requested',
-    'ask_received'
+    'ask_received',
+    'pending_action_created'
   ])
 
   // Types that support inline actions
@@ -39,6 +40,7 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
     'understanding_proposed':      { actions: ['accept', 'reject'], domain: 'understandings' },
     'custody_override_requested':  { actions: ['approve', 'reject'], domain: 'family' },
     'nudge_request':               { actions: ['respond'],          domain: 'nudge' },
+    'pending_action_created':      { actions: ['approve', 'reject'], domain: 'pending' },
   }
 
   // Computed: unread count
@@ -380,6 +382,22 @@ export const useUpdatesStore = defineStore('supabaseUpdates', () => {
         const { useFinanceStore } = await import('./supabaseFinance')
         const fin = useFinanceStore()
         await fin.approveExpense(notification.related_entity_id)
+      } else if (config.domain === 'pending') {
+        // notification.related_entity_id is the TARGET id (the expense/event),
+        // not the pending_actions row. Look up the pending row and decide on it.
+        const { useSupabasePendingActionsStore } = await import('./supabasePendingActions')
+        const pa = useSupabasePendingActionsStore()
+        // Ensure we have data to find the row in
+        if (!pa.pending || pa.pending.length === 0) {
+          await pa.load()
+        }
+        const row = pa.pending.find(p => p.target_id === notification.related_entity_id && p.status === 'pending')
+        if (!row) {
+          console.warn('pending_actions row not found for notification', notification.id)
+          return false
+        }
+        const decision = action === 'approve' ? 'approved' : 'rejected'
+        await pa.decide(row.id, decision)
       }
 
       // Mark notification as actioned

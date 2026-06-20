@@ -48,7 +48,10 @@ const iconMap = {
   expense_pending: DollarSign,
   expense_added: DollarSign,
   nudge_request: Heart,
-  nudge_response: Heart
+  nudge_response: Heart,
+  pending_action_created: FileCheck,
+  pending_action_approved: FileCheck,
+  pending_action_rejected: FileCheck,
 }
 
 const categoryLabelMap = {
@@ -81,6 +84,7 @@ const TOAST_ACTION_MAP = {
   'understanding_proposed': { label: 'accept', action: 'accept' },
   'custody_override_requested': { label: 'approve', action: 'approve' },
   'nudge_request': { label: 'respond', action: 'respond' },
+  'pending_action_created': { label: 'approve', action: 'approve' },
 }
 
 const icon = computed(() => iconMap[props.item.notification.type] || Bell)
