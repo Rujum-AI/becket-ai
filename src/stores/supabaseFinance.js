@@ -195,6 +195,29 @@ export const useSupabaseFinanceStore = defineStore('supabaseFinance', () => {
 
       if (insertError) throw insertError
 
+      // If this expense was flagged for approval, also create a pending_actions
+      // row so it surfaces in the unified Pending UI and triggers the partner's
+      // notification. We key off the ACTUAL persisted status, not the route
+      // decision — admin-bypass can flip it to counted, in which case no
+      // approval is needed.
+      if (data.status === 'pending_approval') {
+        const { error: pendingError } = await supabase
+          .from('pending_actions')
+          .insert({
+            family_id: family.value.id,
+            target_type: 'expense',
+            target_id: data.id,
+            reason: requiresApprovalReason,
+            requested_by: user.value.id
+          })
+        if (pendingError) {
+          // Don't fail the whole expense over the pending_actions write —
+          // the expense itself is the source of truth, the pending_actions
+          // row is the notification/UI hook. Log so we can investigate.
+          console.warn('pending_actions insert failed:', pendingError.message)
+        }
+      }
+
       // Reload expenses to refresh UI (notification created by DB trigger)
       await loadExpenses()
 
