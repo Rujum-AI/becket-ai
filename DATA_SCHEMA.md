@@ -816,6 +816,47 @@ Lemon Squeezy webhook event log. Full billing history and audit trail.
 
 ---
 
+### 28. `event_artifacts`
+Parent-captured moments tied to events. Drives the storyboard brief.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| family_id | uuid FK → families | |
+| event_id | uuid FK → events | Required — every artifact ties to an event |
+| child_id | uuid FK → children | Required — even multi-child events log per child |
+| author_id | uuid FK → profiles | The parent who captured it |
+| photo_url | text | Nullable — path in `snapshots` storage bucket |
+| mood | text | Nullable — enum: 'loved', 'fun', 'ok', 'tired', 'upset', 'sick' |
+| note | text | Nullable — short free text |
+| captured_at | timestamptz | When the parent logged it (not event time) |
+| created_at | timestamptz | |
+
+**Constraints:**
+- `event_artifacts_nonempty` — at least one of (photo_url, mood, note non-empty-after-trim) must be set; empty artifacts rejected.
+- `event_artifacts_mood` — mood value must be in the locked vocabulary slugs above.
+
+**Indexes:**
+- `(event_id, child_id)` — pulling a single event's captures (brief card render)
+- `(child_id, captured_at DESC)` — brief timeline query
+- `(family_id, captured_at DESC)` — family album / "you missed this" feed
+- `(family_id, captured_at DESC) WHERE photo_url IS NOT NULL` — partial index for photo-only album view
+
+**RLS:** Family-scoped read; insert/update/delete restricted to `author_id = auth.uid()`. Own captures only — read is family-wide, mutation is personal.
+
+**Capture entry points (Phase 1c, see plan):**
+- `DropoffModal.vue` — adds mood + comment when there's a same-day school/activity event
+- `PickupModal.vue` — adds photo + mood + comment when there's a same-day school/activity event
+- On naked custody days (no same-day event), capture extensions are hidden — parents use `manual` events or the nudge feature
+
+**Storage:** photos reuse the existing `snapshots` bucket (migration 016) — no second bucket. `photo_url` is a path within that bucket; sign on read.
+
+**Realtime:** added to `supabase_realtime` publication for completeness, but the brief modal is fetch-on-open only and does not subscribe — see [memory: brief is on-request](../../.claude/projects/c--Users-friad-OneDrive-Desktop-projects-becket/memory/feedback_brief_on_request.md).
+
+**Migration:** 049_event_artifacts.sql
+
+---
+
 ## Supabase Storage Buckets
 
 | Bucket | Access | Contents | Retention |
@@ -879,11 +920,42 @@ Aggregates events, handoffs, snapshots, expenses for a date range.
 Returns jsonb timeline for display and AI consumption.
 
 ### `generate_brief(p_child_id uuid, p_parent_id uuid, p_since timestamptz DEFAULT NULL)`
-Generates a briefing for a parent about a child.
-- Default `p_since`: last handoff where this parent was `from_parent_id` (last time they dropped off)
-- Can be overridden to any timestamp or "last X days"
-- Pulls: events, snapshots, handoffs, expenses, task changes, understanding changes since that time
-- Returns structured jsonb for display.
+Generates a briefing for a parent about a child. Migration 050 rewrote this for the story-quality brief; the v1 raw-query path in `supabaseDashboard.js` was replaced with an RPC call to this function.
+
+**Window:**
+- When `p_since IS NULL`: auto-derive from the last handoff where this parent was `from_parent_id`. Cap at 5 days max — the brief never looks further back than 5 days even if the handoff was longer ago.
+- When `p_since` is passed: trust the caller. (Used by "today" mode, which passes today midnight.)
+
+**Filter rules (locked plan 2026-06-21):**
+- `events.type IN ('activity', 'friend_visit', 'appointment', 'manual')` → always include
+- `events.type = 'school'` → include ONLY if a matching `event_artifacts` row exists for this child + event
+- `events.type IN ('pickup', 'dropoff')` → never include (custody transitions are status, not story)
+- All filters drop `status = 'cancelled'` and future-dated events.
+
+**Return shape:**
+```jsonc
+{
+  "since": "2026-06-19T08:00:00Z",
+  "child_id": "...",
+  "had_handoff": true,           // false when fallback to 5-days-ago kicked in
+  "events": [
+    {
+      "event_id": "...", "type": "school", "title": "...",
+      "start_time": "...", "end_time": "...", "location_name": "...",
+      "status": "scheduled",
+      "artifacts": [
+        { "id": "...", "photo_url": null, "mood": "fun",
+          "note": "...", "author_id": "...", "author_label": "dad",
+          "captured_at": "..." }
+      ]
+    }
+  ],
+  "last_handoff": { "from_parent": "...", "to_parent": "...",
+                    "actual_at": "...", "items_sent": [...] }
+}
+```
+
+**Migration:** 050_generate_brief_artifacts.sql
 
 ### `validate_expense(p_expense_id uuid)`
 Checks expense against active understanding rules.
@@ -945,7 +1017,7 @@ Format: PDF, generated server-side (Supabase Edge Function or external service).
 
 ---
 
-## Table Count: 27
+## Table Count: 28
 
 | # | Table | Rows/Year (2 kids) |
 |---|-------|--------------------|
@@ -976,6 +1048,7 @@ Format: PDF, generated server-side (Supabase Edge Function or external service).
 | 25 | documents | ~10-50 |
 | 26 | subscriptions | 1 per family |
 | 27 | payment_events | ~12-50 per year |
+| 28 | event_artifacts | ~150-400 (1-2 per meaningful event) |
 
-**Total persistent rows per family per year: ~2,500-4,600**
-Highly scalable. Even 10,000 families = ~46M rows/year max, well within PostgreSQL capabilities.
+**Total persistent rows per family per year: ~2,650-5,000**
+Highly scalable. Even 10,000 families = ~50M rows/year max, well within PostgreSQL capabilities.
