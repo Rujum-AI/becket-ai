@@ -252,118 +252,40 @@ export const useSupabaseDashboardStore = defineStore('supabaseDashboard', () => 
     return date.toLocaleDateString()
   }
 
-  // Generate brief/recap for a child
+  // Generate brief/recap for a child. Filter + windowing live in the SQL
+  // function generate_brief(). Returns the canonical grouped shape
+  // { sinceDate, hadHandoff, events: [{ ..., artifacts: [...] }] }
+  // which BriefStoryCard consumes directly.
   async function generateBrief(childId, mode = 'since-last-seen') {
-    if (!user.value || !family.value) return { sinceDate: null, hadHandoff: false, items: [] }
+    if (!user.value || !family.value) {
+      return { sinceDate: null, hadHandoff: false, events: [] }
+    }
 
-    let sinceTimestamp
-    let hadHandoff = true
-
+    let pSince = null
     if (mode === 'today') {
-      const now = new Date()
-      now.setHours(0, 0, 0, 0)
-      sinceTimestamp = now.toISOString()
-    } else {
-      // Find last handoff where this parent dropped off the child
-      const { data: lastHandoff, error: handoffError } = await supabase
-        .from('handoffs')
-        .select('actual_at, items_sent, notes')
-        .eq('from_parent_id', user.value.id)
-        .eq('child_id', childId)
-        .order('actual_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (handoffError) {
-        console.error('Error fetching last handoff:', handoffError)
-        throw handoffError
-      }
-
-      const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-
-      if (lastHandoff?.actual_at) {
-        // Cap at 5 days max even if handoff was longer ago
-        sinceTimestamp = lastHandoff.actual_at < fiveDaysAgo ? fiveDaysAgo : lastHandoff.actual_at
-      } else {
-        // No handoff found — fallback to last 5 days
-        hadHandoff = false
-        sinceTimestamp = fiveDaysAgo
-      }
+      const todayMidnight = new Date()
+      todayMidnight.setHours(0, 0, 0, 0)
+      pSince = todayMidnight.toISOString()
     }
 
-    // Query events for this child in the time window (past only, no future)
-    const nowTimestamp = new Date().toISOString()
-    const { data: eventsData, error: eventsError } = await supabase
-      .from('events')
-      .select(`
-        id, title, type, start_time, end_time,
-        location_name, description, status,
-        event_children!inner (child_id)
-      `)
-      .eq('family_id', family.value.id)
-      .eq('event_children.child_id', childId)
-      .gte('start_time', sinceTimestamp)
-      .lte('start_time', nowTimestamp)
-      .neq('status', 'cancelled')
-      .order('start_time', { ascending: true })
-
-    if (eventsError) {
-      console.error('Error fetching brief events:', eventsError)
-      throw eventsError
-    }
-
-    const items = (eventsData || []).map(event => {
-      const eventDate = new Date(event.start_time)
-      const parsed = parseBackpackItems(event.description)
-      return {
-        id: event.id,
-        time: formatRelativeTime(eventDate),
-        timestamp: eventDate.toLocaleTimeString('en-US', {
-          hour: '2-digit', minute: '2-digit', hour12: false
-        }),
-        type: event.type,
-        title: event.title || event.type,
-        description: parsed.notes || '',
-        location: event.location_name || '',
-        startTime: event.start_time
-      }
+    const { data, error } = await supabase.rpc('generate_brief', {
+      p_child_id: childId,
+      p_parent_id: user.value.id,
+      p_since: pSince
     })
 
-    // Also fetch snapshots for this child in the same time range
-    const { data: snapshotsData } = await supabase
-      .from('snapshots')
-      .select(`
-        id, file_url, timestamp, caption, uploaded_by,
-        snapshot_children!inner (child_id)
-      `)
-      .eq('family_id', family.value.id)
-      .eq('snapshot_children.child_id', childId)
-      .gte('timestamp', sinceTimestamp)
-      .lte('timestamp', nowTimestamp)
-      .order('timestamp', { ascending: true })
-
-    // Merge snapshots into timeline
-    if (snapshotsData?.length) {
-      for (const snap of snapshotsData) {
-        const snapDate = new Date(snap.timestamp)
-        items.push({
-          id: snap.id,
-          time: formatRelativeTime(snapDate),
-          timestamp: snapDate.toLocaleTimeString('en-US', {
-            hour: '2-digit', minute: '2-digit', hour12: false
-          }),
-          type: 'snapshot',
-          title: snap.caption || 'Photo',
-          description: '',
-          photoUrl: snap.file_url,
-          startTime: snap.timestamp
-        })
-      }
-      // Re-sort by time
-      items.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+    if (error) {
+      console.error('Error generating brief:', error)
+      throw error
     }
 
-    return { sinceDate: sinceTimestamp, hadHandoff, items }
+    if (!data) return { sinceDate: null, hadHandoff: false, events: [] }
+
+    return {
+      sinceDate: data.since,
+      hadHandoff: data.had_handoff ?? false,
+      events: data.events || []
+    }
   }
 
   // Create a new event and link it to children

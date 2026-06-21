@@ -4,6 +4,8 @@
                 finance.css, management.css, understandings.css
    =================================== */
 
+@import './brief.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
