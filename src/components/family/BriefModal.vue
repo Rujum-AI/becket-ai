@@ -1,16 +1,14 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from '@/composables/useI18n'
 import { useSupabaseDashboardStore } from '@/stores/supabaseDashboard'
 import { useSnapshotsStore } from '@/stores/supabaseSnapshots'
 import BaseModal from '@/components/shared/BaseModal.vue'
+import BriefStoryCard from './BriefStoryCard.vue'
 import { SECTION_COLORS } from '@/lib/modalColors'
 
 const props = defineProps({
-  child: {
-    type: Object,
-    required: true
-  }
+  child: { type: Object, required: true }
 })
 
 defineEmits(['close'])
@@ -34,11 +32,13 @@ async function loadBrief() {
       props.child.id,
       viewMode.value
     )
-    // Resolve signed URLs for snapshot items
-    const photoItems = (briefData.value?.items || []).filter(i => i.photoUrl)
+
     const urls = {}
-    await Promise.all(photoItems.map(async (item) => {
-      urls[item.id] = await snapshotsStore.getSignedUrl(item.photoUrl)
+    const photoArtifacts = (briefData.value?.events || [])
+      .flatMap(e => e.artifacts || [])
+      .filter(a => a.photo_url)
+    await Promise.all(photoArtifacts.map(async (a) => {
+      urls[a.id] = await snapshotsStore.getSignedUrl(a.photo_url)
     }))
     signedUrls.value = urls
   } catch (err) {
@@ -49,25 +49,10 @@ async function loadBrief() {
 }
 
 onMounted(loadBrief)
-
 watch(viewMode, loadBrief)
 
 function toggleViewMode() {
   viewMode.value = viewMode.value === 'since-last-seen' ? 'today' : 'since-last-seen'
-}
-
-function getEventIcon(type) {
-  const icons = {
-    activity: '⚽',
-    school: '📚',
-    dropoff: '🚗',
-    pickup: '👋',
-    appointment: '🏥',
-    friend_visit: '🏠',
-    manual: '📝',
-    snapshot: '📸'
-  }
-  return icons[type] || '📌'
 }
 
 function formatSinceDate(isoString) {
@@ -83,6 +68,45 @@ function formatSinceDate(isoString) {
   if (diffDays === 1) return `${t('yesterday')} ${t('at')} ${time}`
   return `${diffDays} ${t('daysAgo')}`
 }
+
+// Group events by calendar day. Returns ordered groups [{ dayKey, dayLabel, events }].
+const dayGroups = computed(() => {
+  const events = briefData.value?.events || []
+  if (!events.length) return []
+
+  const dayKeyToLabel = ['briefDaySunday', 'briefDayMonday', 'briefDayTuesday',
+                        'briefDayWednesday', 'briefDayThursday', 'briefDayFriday',
+                        'briefDaySaturday']
+
+  const groups = new Map()
+  for (const ev of events) {
+    const d = new Date(ev.start_time)
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+    if (!groups.has(key)) {
+      groups.set(key, {
+        dayKey: key,
+        dayLabel: t(dayKeyToLabel[d.getDay()]),
+        sortAt: d.getTime(),
+        events: []
+      })
+    }
+    groups.get(key).events.push(ev)
+  }
+  return Array.from(groups.values()).sort((a, b) => a.sortAt - b.sortAt)
+})
+
+const flatIndexLookup = computed(() => {
+  const map = new Map()
+  let i = 0
+  for (const group of dayGroups.value) {
+    for (const ev of group.events) {
+      map.set(ev.event_id, i++)
+    }
+  }
+  return map
+})
+
+const hasContent = computed(() => (briefData.value?.events || []).length > 0)
 </script>
 
 <template>
@@ -108,62 +132,52 @@ function formatSinceDate(isoString) {
       </p>
     </template>
 
-    <!-- Toggle button -->
-    <div class="view-toggle">
-      <button @click="toggleViewMode" class="toggle-btn" :disabled="briefLoading">
-        {{ viewMode === 'since-last-seen' ? t('showTodayOnly') : t('showSinceLastSeen') }}
-      </button>
-    </div>
+    <div class="brief-paper brief-modal-body">
+      <!-- Toggle button -->
+      <div class="view-toggle">
+        <button @click="toggleViewMode" class="toggle-btn" :disabled="briefLoading">
+          {{ viewMode === 'since-last-seen' ? t('showTodayOnly') : t('showSinceLastSeen') }}
+        </button>
+      </div>
 
-    <!-- Loading State -->
-    <div v-if="briefLoading" class="timeline-loading">
-      <div v-for="i in 3" :key="i" class="skeleton-item">
-        <div class="skeleton-dot"></div>
-        <div class="skeleton-content">
-          <div class="skeleton-line skeleton-line-short"></div>
-          <div class="skeleton-line skeleton-line-long"></div>
+      <!-- Loading skeleton -->
+      <div v-if="briefLoading" class="brief-skeleton-list">
+        <div v-for="i in 2" :key="i" class="brief-skeleton-card">
+          <div class="brief-skeleton-photo"></div>
+          <div class="brief-skeleton-title"></div>
+          <div class="brief-skeleton-line"></div>
+          <div class="brief-skeleton-line brief-skeleton-line--short"></div>
         </div>
       </div>
-    </div>
 
-    <!-- Error State -->
-    <div v-else-if="briefError" class="brief-empty">
-      <p class="empty-icon">⚠️</p>
-      <p class="empty-text">{{ briefError }}</p>
-    </div>
+      <!-- Error -->
+      <div v-else-if="briefError" class="brief-empty-warm">
+        <p class="brief-empty-warm__hero">{{ briefError }}</p>
+      </div>
 
-    <!-- Empty State -->
-    <div v-else-if="!briefData?.items?.length" class="brief-empty">
-      <p class="empty-icon">📭</p>
-      <p class="empty-text">{{ t('noEventsInBrief') }}</p>
-      <p v-if="!briefData?.hadHandoff" class="empty-subtext">{{ t('noHandoffFound') }}</p>
-    </div>
+      <!-- Empty (warm, named) -->
+      <div v-else-if="!hasContent" class="brief-empty-warm">
+        <p class="brief-empty-warm__hero">
+          {{ t('briefEmptyHeroPrefix') }} {{ child.name }}.
+        </p>
+        <p class="brief-empty-warm__sub">
+          {{ briefData?.hadHandoff ? t('briefEmptySub') : t('noHandoffFound') }}
+        </p>
+      </div>
 
-    <!-- Timeline -->
-    <div v-else class="timeline">
-      <div
-        v-for="(event, index) in briefData.items"
-        :key="event.id || index"
-        class="timeline-item"
-      >
-        <div class="timeline-dot">
-          <span class="event-icon">{{ getEventIcon(event.type) }}</span>
-        </div>
-        <div class="timeline-content">
-          <div class="timeline-header">
-            <h3 class="timeline-title">{{ event.title }}</h3>
-            <span class="timeline-time">{{ event.time }}</span>
-          </div>
-          <img
-            v-if="event.photoUrl && signedUrls[event.id]"
-            :src="signedUrls[event.id]"
-            class="timeline-photo"
-            alt="Snapshot"
-            @click="fullSizePhoto = signedUrls[event.id]"
+      <!-- Storyboard -->
+      <div v-else class="brief-storyboard">
+        <template v-for="group in dayGroups" :key="group.dayKey">
+          <div class="brief-day-spine">{{ group.dayLabel }}</div>
+          <BriefStoryCard
+            v-for="event in group.events"
+            :key="event.event_id"
+            :event="event"
+            :index="flatIndexLookup.get(event.event_id)"
+            :signed-urls="signedUrls"
+            @open-photo="(src) => fullSizePhoto = src"
           />
-          <p v-if="event.description" class="timeline-description">{{ event.description }}</p>
-          <span class="timeline-timestamp">{{ event.timestamp }}</span>
-        </div>
+        </template>
       </div>
     </div>
 
@@ -174,10 +188,9 @@ function formatSinceDate(isoString) {
     </template>
   </BaseModal>
 
-  <!-- Full-size photo overlay -->
   <Teleport to="body">
-    <div v-if="fullSizePhoto" class="fullsize-overlay" @click="fullSizePhoto = null">
-      <img :src="fullSizePhoto" class="fullsize-img" alt="Full size photo" />
+    <div v-if="fullSizePhoto" class="brief-lightbox" @click="fullSizePhoto = null">
+      <img :src="fullSizePhoto" alt="" />
     </div>
   </Teleport>
 </template>
@@ -197,6 +210,12 @@ function formatSinceDate(isoString) {
   letter-spacing: 1px;
 }
 
+.brief-modal-body {
+  padding-top: 8px;
+  margin: -8px -16px 0;
+  padding: 8px 16px 16px;
+}
+
 .view-toggle {
   display: flex;
   justify-content: center;
@@ -214,200 +233,53 @@ function formatSinceDate(isoString) {
   cursor: pointer;
   transition: all 0.2s;
 }
+.toggle-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.toggle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.toggle-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+.brief-storyboard {
+  padding-bottom: 8px;
 }
 
-.toggle-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* Skeleton card shape mirrors the storyboard card for consistency on load */
+.brief-skeleton-list { padding: 8px 0; }
+.brief-skeleton-card {
+  background: #FAF6EE;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 28px;
+  border: 1px solid rgba(26, 28, 30, 0.06);
+  box-shadow: 0 8px 16px -8px rgba(141, 117, 80, 0.20);
 }
-
-.timeline {
-  position: relative;
-  padding-left: 3rem;
-}
-
-.timeline::before {
-  content: '';
-  position: absolute;
-  left: 1.25rem;
-  top: 0;
-  bottom: 3rem;
-  width: 3px;
-  background: linear-gradient(to bottom, #cbd5e1 0%, #cbd5e1 100%);
-}
-
-.timeline-item {
-  position: relative;
-  padding-left: 2.5rem;
-  margin-bottom: 2rem;
-}
-
-.timeline-dot {
-  position: absolute;
-  left: -2.75rem;
-  top: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  background: white;
-  border: 3px solid #0d9488;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
-  z-index: 2;
-}
-
-.event-icon {
-  font-size: 1.125rem;
-}
-
-.timeline-content {
-  background: #f8fafc;
-  border-radius: 1rem;
-  padding: 1rem;
-  border: 1px solid #e2e8f0;
-}
-
-.timeline-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-  gap: 0.5rem;
-}
-
-.timeline-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1A1C1E;
-  margin: 0;
-  flex: 1;
-}
-
-.timeline-time {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-}
-
-.timeline-description {
-  font-size: 0.9375rem;
-  color: #475569;
-  line-height: 1.5;
-  margin: 0 0 0.5rem 0;
-}
-
-.timeline-timestamp {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-/* Loading skeleton */
-.timeline-loading {
-  padding-left: 3rem;
-}
-
-.skeleton-item {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-  align-items: flex-start;
-}
-
-.skeleton-dot {
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 50%;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-  flex-shrink: 0;
-}
-
-.skeleton-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.skeleton-line {
-  height: 1rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
-}
-
-.skeleton-line-short { width: 40%; }
-.skeleton-line-long { width: 80%; }
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Empty / Error state */
-.brief-empty {
-  text-align: center;
-  padding: 3rem 1rem;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
-}
-
-.empty-text {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #64748b;
-}
-
-.empty-subtext {
-  font-size: 0.875rem;
-  color: #94a3b8;
-  margin-top: 0.5rem;
-}
-
-.timeline-photo {
+.brief-skeleton-photo {
   width: 100%;
-  max-height: 200px;
-  object-fit: cover;
-  border-radius: 0.75rem;
-  margin-bottom: 0.5rem;
-  cursor: pointer;
-  transition: opacity 0.2s;
+  aspect-ratio: 4 / 5;
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(26,28,30,0.06) 25%, rgba(26,28,30,0.10) 50%, rgba(26,28,30,0.06) 75%);
+  background-size: 200% 100%;
+  animation: brief-shimmer 1.6s infinite;
+  margin-bottom: 14px;
 }
-
-.timeline-photo:hover {
-  opacity: 0.85;
+.brief-skeleton-title {
+  height: 22px;
+  width: 60%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(26,28,30,0.06) 25%, rgba(26,28,30,0.10) 50%, rgba(26,28,30,0.06) 75%);
+  background-size: 200% 100%;
+  animation: brief-shimmer 1.6s infinite;
+  margin-bottom: 12px;
 }
-
-.fullsize-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+.brief-skeleton-line {
+  height: 12px;
+  width: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(26,28,30,0.04) 25%, rgba(26,28,30,0.08) 50%, rgba(26,28,30,0.04) 75%);
+  background-size: 200% 100%;
+  animation: brief-shimmer 1.6s infinite;
+  margin-bottom: 6px;
 }
-
-.fullsize-img {
-  max-width: 95vw;
-  max-height: 95vh;
-  object-fit: contain;
-  border-radius: 1rem;
+.brief-skeleton-line--short { width: 40%; }
+@keyframes brief-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 </style>

@@ -1,12 +1,23 @@
 # Becket AI — Version History
 
-**Current Version: v3.03**
+**Current Version: v3.04**
 
 Format: `vMAJOR.MINOR` — max 10 updates per major version (01–10), then major increments.
 
 ---
 
 ## v3 — Custody Cycle Correctness
+
+### v3.04 — Brief storyboard rework: artifact filter + scrapbook redesign + multi-photo gallery
+`pending` — 2026-06-21
+- **New table `event_artifacts`** (migration 049). Parent-captured moments tied to events — three optional inputs (photo, mood enum, short note), `≥1 must be non-null` constraint, mood vocabulary locked at `loved / fun / ok / tired / upset / sick`. Family-scoped RLS with author-only mutation. Indexes for event-pull, child-timeline, family-album, and photo-only album. Reuses existing `snapshots` storage bucket
+- **`generate_brief()` rewritten** (migration 050). New filter rules: `activity / friend_visit / appointment / manual` always show; `school` only when an `event_artifacts` row exists for the child + event; `pickup / dropoff` never show. 5-day cap baked into the auto-derived window (was client-side only). New `had_handoff` flag in the return shape. Single grouped return shape `{ since, child_id, had_handoff, events: [{ ..., artifacts: [...] }], last_handoff }`
+- **Brief modal rewritten end-to-end**. Store `generateBrief` now calls the RPC and returns the grouped shape natively. `BriefModal.vue` consumes events grouped by calendar day with day-spine headers. Photos resolved to signed URLs per artifact id. Warm empty state ("All quiet since you saw [name]"). Scrapbook-shape skeleton loader during fetch
+- **New components** `BriefStoryCard.vue` + `BriefMoodChip.vue`. Story card handles the multi-artifact case — hero photo + 56px thumb strip below for 2+ photos, taps swap the hero with a 200ms crossfade. Mood chips render emoji + Hebrew/English label with opaque cream base + tinted overlay (visible over any photo background) + soft drop shadow
+- **Design language doc** at `docs/design/brief-storyboard.md` (gitignored — internal). Variant B "Scrapbook Tape" picked from `/design-shotgun`. All tokens scoped to `--brief-*` so the global Becket system stays intact
+- **Scrapbook chrome.** Each card has deterministic rotation by index (±0.7 to ±1.2° in LTR, sign flips in RTL), washi-tape strip with deterministic per-index x-position spanning the full card width, hand-drawn ink-pen wavy underline on titles. "Quiet mode" auto-applies when an artifact mood is `upset` or `sick` — halves rotation, drops the ink underline, calms the tape
+- **Capture pivot (Decision #3 in plan).** Original plan had a notification-triggered standalone capture modal. Reshaped to ride on existing DropoffModal + PickupModal flows. Phase 1c (the modal extensions) is the next chunk — not in this PR
+- **Translations.** EN + HE additions for 6 mood labels, 7 day names, `briefFrom`, `briefEmptyHeroPrefix`, `briefEmptySub`. Hebrew "אהבה / כיף / בסדר / עייפ/ה / עצובה / חולה" mapped to the locked slugs
 
 ### v3.03 — Next handoff respects school model; stale status falls back to cycle
 `pending` — 2026-06-20

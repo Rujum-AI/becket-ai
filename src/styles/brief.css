@@ -1,0 +1,542 @@
+/* ===================================
+   BECKET — BRIEF STORYBOARD STYLES
+   Variant B (Scrapbook Tape) — locked direction.
+   Tokens scoped to --brief-*; references global Becket tokens (--warm-linen
+   etc.) defined in main.css.
+   =================================== */
+
+:root {
+  /* Card chrome (B = scrapbook) */
+  --brief-card-bg:           #FAF6EE;
+  --brief-card-radius:       18px;
+  --brief-card-padding:      20px 18px 18px;
+  --brief-card-gap:          28px;
+  --brief-card-hairline:     rgba(26, 28, 30, 0.06);
+  --brief-card-shadow:       0 8px 16px -8px rgba(141, 117, 80, 0.25),
+                             0 2px 4px -2px rgba(141, 117, 80, 0.15);
+
+  /* Paper texture for the brief modal background */
+  --brief-paper-texture:
+    repeating-linear-gradient(
+      0deg,
+      rgba(141, 117, 80, 0.018) 0px,
+      rgba(141, 117, 80, 0.018) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+
+  /* Washi tape (single color across all cards — calm chrome) */
+  --brief-tape-bg:           rgba(13, 148, 136, 0.22);
+  --brief-tape-bd:           rgba(13, 148, 136, 0.30);
+
+  /* Photo treatment */
+  --brief-photo-radius:      12px;
+  --brief-photo-border:      1px solid rgba(26, 28, 30, 0.08);
+
+  /* Mood chip palette (derived from existing core palette) */
+  --mood-loved-bg:    rgba(189, 91, 57, 0.10);
+  --mood-loved-bd:    rgba(189, 91, 57, 0.18);
+  --mood-loved-fg:    #7a3a25;
+
+  --mood-fun-bg:      rgba(13, 148, 136, 0.10);
+  --mood-fun-bd:      rgba(13, 148, 136, 0.18);
+  --mood-fun-fg:      #0d6e64;
+
+  --mood-ok-bg:       rgba(26, 28, 30, 0.06);
+  --mood-ok-bd:       rgba(26, 28, 30, 0.12);
+  --mood-ok-fg:       #475569;
+
+  --mood-tired-bg:    rgba(207, 250, 254, 0.50);
+  --mood-tired-bd:    rgba(13, 148, 136, 0.18);
+  --mood-tired-fg:    #0e7490;
+
+  --mood-upset-bg:    rgba(189, 91, 57, 0.22);
+  --mood-upset-bd:    rgba(189, 91, 57, 0.40);
+  --mood-upset-fg:    #5e2c1d;
+
+  --mood-sick-bg:     rgba(255, 237, 213, 0.85);
+  --mood-sick-bd:     rgba(189, 91, 57, 0.22);
+  --mood-sick-fg:     #92400e;
+
+  /* Lightbox */
+  --brief-lightbox-bg: rgba(10, 10, 10, 0.92);
+
+  /* Typographic scale (mobile-first; clamp() for tablet) */
+  --brief-title-size:        clamp(1.4rem, 5vw, 1.75rem);
+  --brief-body-size:         clamp(1.0625rem, 4vw, 1.1875rem);
+  --brief-meta-size:         0.6875rem;
+
+  /* Motion */
+  --brief-card-stagger-ms:   60;
+  --brief-card-ease:         cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* === Brief modal scrollable surface (paper texture) === */
+.brief-paper {
+  background-image: var(--brief-paper-texture);
+  background-color: var(--warm-linen);
+}
+
+/* === Day spine header === */
+.brief-day-spine {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.25rem;
+  color: var(--rust-orange);
+  text-align: center;
+  margin: 0 0 12px;
+  letter-spacing: -0.005em;
+}
+
+.lang-he .brief-day-spine {
+  font-family: 'Assistant', sans-serif;
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* === Storyboard card (Variant B — Scrapbook Tape) === */
+.brief-card {
+  background: var(--brief-card-bg);
+  border-radius: var(--brief-card-radius);
+  border: 1px solid var(--brief-card-hairline);
+  padding: var(--brief-card-padding);
+  margin-bottom: var(--brief-card-gap);
+  position: relative;
+  box-shadow: var(--brief-card-shadow);
+  animation: brief-card-in 420ms var(--brief-card-ease) both;
+  animation-delay: calc(var(--brief-card-index, 0) * (var(--brief-card-stagger-ms) * 1ms));
+}
+
+/* Deterministic rotation by card index (calm chrome — no random per render).
+   RTL flips the sign so the cards mirror with the language direction. */
+.brief-card[data-index="0"] { transform: rotate(-1.2deg); }
+.brief-card[data-index="1"] { transform: rotate(1.1deg); }
+.brief-card[data-index="2"] { transform: rotate(-0.7deg); }
+.brief-card[data-index="3"] { transform: rotate(0.9deg); }
+.brief-card[data-index="4"] { transform: rotate(-1.0deg); }
+.brief-card[data-index="5"] { transform: rotate(0.8deg); }
+
+.lang-he .brief-card[data-index="0"] { transform: rotate(1.2deg); }
+.lang-he .brief-card[data-index="1"] { transform: rotate(-1.1deg); }
+.lang-he .brief-card[data-index="2"] { transform: rotate(0.7deg); }
+.lang-he .brief-card[data-index="3"] { transform: rotate(-0.9deg); }
+.lang-he .brief-card[data-index="4"] { transform: rotate(1.0deg); }
+.lang-he .brief-card[data-index="5"] { transform: rotate(-0.8deg); }
+
+/* Quiet mode — when dominant mood is upset/sick, halve the rotation amplitude
+   so hard days don't feel performative. */
+.brief-card--quiet[data-index="0"] { transform: rotate(-0.6deg); }
+.brief-card--quiet[data-index="1"] { transform: rotate(0.55deg); }
+.brief-card--quiet[data-index="2"] { transform: rotate(-0.35deg); }
+.brief-card--quiet[data-index="3"] { transform: rotate(0.45deg); }
+.brief-card--quiet[data-index="4"] { transform: rotate(-0.5deg); }
+.brief-card--quiet[data-index="5"] { transform: rotate(0.4deg); }
+
+.lang-he .brief-card--quiet[data-index="0"] { transform: rotate(0.6deg); }
+.lang-he .brief-card--quiet[data-index="1"] { transform: rotate(-0.55deg); }
+.lang-he .brief-card--quiet[data-index="2"] { transform: rotate(0.35deg); }
+.lang-he .brief-card--quiet[data-index="3"] { transform: rotate(-0.45deg); }
+.lang-he .brief-card--quiet[data-index="4"] { transform: rotate(0.5deg); }
+.lang-he .brief-card--quiet[data-index="5"] { transform: rotate(-0.4deg); }
+
+/* Washi tape strip — single color, deterministic X + angle variation per
+   card index for handmade feel. Spread across the full card width so each
+   card's tape genuinely lives in a different spot. Hidden in quiet mode. */
+.brief-card::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  inset-inline-start: 22px;
+  width: 64px;
+  height: 22px;
+  background: var(--brief-tape-bg);
+  border-left: 1px dashed var(--brief-tape-bd);
+  border-right: 1px dashed var(--brief-tape-bd);
+  transform: rotate(-4deg);
+  z-index: 3;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* X positions span the card width; rotation alternates direction and amount. */
+.brief-card[data-index="0"]::before { inset-inline-start: 24px;  transform: rotate(-4deg); }
+.brief-card[data-index="1"]::before { inset-inline-start: 180px; transform: rotate(3deg); }
+.brief-card[data-index="2"]::before { inset-inline-start: 72px;  transform: rotate(-6deg); }
+.brief-card[data-index="3"]::before { inset-inline-start: 248px; transform: rotate(4deg); }
+.brief-card[data-index="4"]::before { inset-inline-start: 32px;  transform: rotate(-2.5deg); }
+.brief-card[data-index="5"]::before { inset-inline-start: 140px; transform: rotate(5deg); }
+
+.brief-card--quiet::before {
+  background: rgba(13, 148, 136, 0.10);
+  border-color: rgba(13, 148, 136, 0.18);
+  box-shadow: none;
+}
+
+/* === Card photo === */
+.brief-card__photo-wrap {
+  margin: 10px 0 14px;
+  position: relative;
+}
+
+.brief-card__photo {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--brief-photo-radius);
+  overflow: hidden;
+  border: var(--brief-photo-border);
+  background: rgba(26, 28, 30, 0.05);
+  cursor: pointer;
+  display: block;
+}
+
+.brief-card__photo--square {
+  aspect-ratio: 1 / 1;
+}
+
+.brief-card__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  animation: brief-hero-crossfade 200ms ease-in-out;
+}
+
+.brief-card__photo-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg,
+    rgba(189, 91, 57, 0.08) 0%,
+    rgba(207, 250, 254, 0.40) 100%);
+}
+
+@keyframes brief-hero-crossfade {
+  from { opacity: 0.3; }
+  to   { opacity: 1; }
+}
+
+/* === Gallery thumb strip (shown when an event has 2+ photos) === */
+.brief-card__thumbs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.brief-card__thumbs::-webkit-scrollbar { display: none; }
+
+.brief-card__thumb {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: none;
+  background: rgba(26, 28, 30, 0.05);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 160ms ease-out;
+  box-shadow:
+    0 0 0 1.5px rgba(26, 28, 30, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.brief-card__thumb:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1.5px rgba(26, 28, 30, 0.18),
+    0 3px 6px rgba(0, 0, 0, 0.10);
+}
+
+.brief-card__thumb--active {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 2px var(--teal-action),
+    0 4px 8px rgba(13, 148, 136, 0.18);
+}
+
+.brief-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.brief-card__thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg,
+    rgba(189, 91, 57, 0.08) 0%,
+    rgba(207, 250, 254, 0.40) 100%);
+}
+
+/* === Card title === */
+.brief-card__title {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: var(--brief-title-size);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--deep-slate);
+  margin: 0 0 10px;
+  position: relative;
+  display: inline-block;
+}
+
+.lang-he .brief-card__title {
+  font-family: 'Assistant', sans-serif;
+  font-weight: 700;
+}
+
+/* Hand-drawn ink-pen underline (skipped in quiet mode) */
+.brief-card__title::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  bottom: -4px;
+  height: 6px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6'><path d='M0,3 Q12,0 25,3 T50,3 T75,3 T100,3' fill='none' stroke='%230D9488' stroke-width='1.2' stroke-linecap='round' opacity='0.6'/></svg>") repeat-x;
+  background-size: 100px 6px;
+  pointer-events: none;
+}
+
+.brief-card--quiet .brief-card__title::after {
+  display: none;
+}
+
+/* === Mood chip stack (over photo, or inline for no-photo cards) === */
+.brief-mood-stack {
+  position: absolute;
+  top: 14px;
+  inset-inline-start: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.brief-card--no-photo .brief-mood-stack {
+  position: static;
+  flex-direction: row;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+/* === Mood chip ===
+   Opaque cream base + color tint so chips read clearly over any photo.
+   Soft drop shadow lifts them off the surface. Emoji + text. */
+.brief-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 18px 0 14px;
+  border-radius: 21px;
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 18px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1.5px solid;
+  background-color: var(--warm-linen);
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.14);
+  animation: brief-mood-in 200ms cubic-bezier(0.34, 1.4, 0.4, 1) both 80ms;
+}
+
+.lang-he .brief-mood {
+  font-family: 'Assistant', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+  padding: 0 14px 0 18px;
+  font-size: 17px;
+}
+
+.brief-mood__emoji {
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.brief-mood__text {
+  line-height: 1;
+}
+
+/* Color tint sits ON TOP of the opaque warm-linen base via linear-gradient,
+   so the tint reads but the chip is never see-through against a photo. */
+.brief-mood--loved {
+  background-image: linear-gradient(var(--mood-loved-bg), var(--mood-loved-bg));
+  border-color: var(--mood-loved-bd); color: var(--mood-loved-fg);
+}
+.brief-mood--fun {
+  background-image: linear-gradient(var(--mood-fun-bg), var(--mood-fun-bg));
+  border-color: var(--mood-fun-bd); color: var(--mood-fun-fg);
+}
+.brief-mood--ok {
+  background-image: linear-gradient(var(--mood-ok-bg), var(--mood-ok-bg));
+  border-color: var(--mood-ok-bd); color: var(--mood-ok-fg);
+}
+.brief-mood--tired {
+  background-image: linear-gradient(var(--mood-tired-bg), var(--mood-tired-bg));
+  border-color: var(--mood-tired-bd); color: var(--mood-tired-fg);
+}
+.brief-mood--upset {
+  background-image: linear-gradient(var(--mood-upset-bg), var(--mood-upset-bg));
+  border-color: var(--mood-upset-bd); color: var(--mood-upset-fg);
+}
+.brief-mood--sick {
+  background-image: linear-gradient(var(--mood-sick-bg), var(--mood-sick-bg));
+  border-color: var(--mood-sick-bd); color: var(--mood-sick-fg);
+}
+
+/* === Note + byline === */
+.brief-card__note {
+  position: relative;
+}
+
+.brief-card__note + .brief-card__note {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--brief-card-hairline);
+}
+
+.brief-note-body {
+  font-family: 'Fraunces', serif;
+  font-weight: 400;
+  font-size: var(--brief-body-size);
+  line-height: 1.55;
+  color: var(--deep-slate);
+  margin: 0;
+}
+
+.lang-he .brief-note-body {
+  font-family: 'Assistant', sans-serif;
+}
+
+.brief-byline {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(26, 28, 30, 0.55);
+  margin: 6px 0 0;
+}
+
+.lang-he .brief-byline {
+  font-family: 'Assistant', sans-serif;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.brief-byline__time {
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--whisper-color, #94a3b8);
+  margin-inline-start: 6px;
+}
+
+.brief-byline__time::before {
+  content: '· ';
+  margin-inline-end: 2px;
+}
+
+/* === No-photo card stand-in === */
+.brief-card--no-photo .brief-card__title {
+  margin-top: 4px;
+}
+
+/* === Card render animation === */
+@keyframes brief-card-in {
+  from { opacity: 0; transform: translateY(8px) rotate(0); }
+  to   { opacity: 1; }
+}
+
+@keyframes brief-mood-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Reduced motion: respect the OS preference. Strip Y shift, mood scale,
+   compress stagger. */
+@media (prefers-reduced-motion: reduce) {
+  .brief-card {
+    animation: brief-card-in-reduced 200ms linear both;
+    animation-delay: calc(var(--brief-card-index, 0) * 20ms);
+  }
+  .brief-mood { animation: none; }
+  @keyframes brief-card-in-reduced {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}
+
+/* === Empty / sparse states === */
+.brief-empty-warm {
+  text-align: center;
+  padding: 4rem 1.5rem;
+}
+
+.brief-empty-warm__hero {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.4;
+  color: var(--deep-slate);
+  margin: 0 auto;
+  max-width: 18em;
+}
+
+.lang-he .brief-empty-warm__hero {
+  font-family: 'Assistant', sans-serif;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.brief-empty-warm__sub {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--whisper-color, #94a3b8);
+  margin-top: 1rem;
+  letter-spacing: 0.04em;
+}
+
+.lang-he .brief-empty-warm__sub {
+  font-family: 'Assistant', sans-serif;
+  font-size: 0.875rem;
+  letter-spacing: 0;
+}
+
+/* === Lightbox === */
+.brief-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--brief-lightbox-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: brief-lightbox-in 280ms var(--brief-card-ease) both;
+}
+
+.brief-lightbox img {
+  max-width: 95vw;
+  max-height: 95vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+@keyframes brief-lightbox-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
